@@ -24,7 +24,7 @@
 #### General
 
 - Use C# 13
-- Root C# namespace is Dadstart.Labs.MediaForge
+- Root C# namespace is Dadstart.Labs.MediaForgePS
 - Do not add copyright file headers to C# files
 - Do not use StyleCop
 - Do not use `this.` when unneeded
