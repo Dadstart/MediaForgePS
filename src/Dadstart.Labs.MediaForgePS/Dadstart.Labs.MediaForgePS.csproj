@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>13.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerShell.Sdk" Version="7.5.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
+  </ItemGroup>
+
+  <Target Name="CopyToModuleBin" AfterTargets="Build">
+    <PropertyGroup>
+      <ModuleBinPath>$(MSBuildThisFileDirectory)..\..\MediaForgePS\bin</ModuleBinPath>
+    </PropertyGroup>
+    <ItemGroup>
+      <DllFiles Include="$(OutputPath)$(AssemblyName).dll" />
+      <DependencyFiles Include="$(OutputPath)*.dll" />
+      <DependencyFiles Include="$(OutputPath)*.pdb" />
+    </ItemGroup>
+    <MakeDir Directories="$(ModuleBinPath)" />
+    <Copy SourceFiles="@(DllFiles)" DestinationFolder="$(ModuleBinPath)" />
+    <Copy SourceFiles="@(DependencyFiles)" DestinationFolder="$(ModuleBinPath)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
