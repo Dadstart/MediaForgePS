@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Dadstart.Labs.MediaForgePS.Models;
 using Dadstart.Labs.MediaForgePS.Services;
 
@@ -37,8 +38,7 @@ public class GetHolidayCommand : PSCmdlet
     {
         try
         {
-            using var httpClient = new HttpClient();
-            var scraper = new HolidayScraper(httpClient);
+            var scraper = ServiceProviderFactory.Current.GetRequiredService<HolidayScraper>();
 
             if (ParameterSetName == "SingleDate")
             {

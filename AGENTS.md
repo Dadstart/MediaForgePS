@@ -76,6 +76,20 @@
   - PSProvider for browsing the internal streams of media files
   - Class types with PowerShell custom formatting
 
+## Dependency Injection
+
+- Use Microsoft.Extensions.DependencyInjection for dependency injection
+- PowerShell cmdlets cannot use constructor injection directly (PowerShell instantiates them)
+- Use a service locator pattern with a static ServiceProvider accessible to cmdlets
+- Register all services in ServiceProviderFactory.CreateServiceProvider()
+- Services should be registered as:
+  - Transient: For services that should be created per use (e.g., HttpClient)
+  - Scoped: For services that should be created per PowerShell session/scope
+  - Singleton: For services that should be shared across all instances
+- Initialize the ServiceProvider in the PowerShell module's .psm1 file using OnImport
+- Cmdlets should resolve dependencies via ServiceProviderFactory.Current
+- In tests, use ServiceProviderFactory.SetServiceProvider() to inject test dependencies
+
 ## CI/CD
 
 - Use GitHub actions for CI/CD to do the following
