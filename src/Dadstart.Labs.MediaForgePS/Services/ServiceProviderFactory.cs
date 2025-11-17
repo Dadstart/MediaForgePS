@@ -66,7 +66,7 @@ public static class ServiceProviderFactory
     /// <summary>
     /// Resets the service provider to null (primarily for testing).
     /// </summary>
-    internal static void Reset()
+    public static void Reset()
     {
         lock (_lock)
         {
@@ -76,5 +76,10 @@ public static class ServiceProviderFactory
             }
             _serviceProvider = null;
         }
+    }
+
+    public static void SetServiceProvider(ServiceProvider serviceProvider)
+    {
+        throw new NotImplementedException();
     }
 }
