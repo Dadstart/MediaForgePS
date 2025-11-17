@@ -13,27 +13,7 @@ namespace Dadstart.Labs.MediaForgePS.Cmdlets;
 [OutputType(typeof(Holiday))]
 public class GetHolidayCommand : PSCmdlet
 {
-    private HolidayScraper? _scraper;
-
-    /// <summary>
-    /// Initializes resources before processing records.
-    /// </summary>
-    protected override void BeginProcessing()
-    {
-        _scraper = ServiceProviderFactory.Current.GetRequiredService<HolidayScraper>();
-    }
-
-    /// <summary>
-    /// Cleans up resources after processing records.
-    /// </summary>
-    protected override void EndProcessing()
-    {
-        if (_scraper is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-        _scraper = null;
-    }
+    private readonly Lazy<HolidayScraper> _scraper = new(() => ServiceProviderFactory.Current.GetRequiredService<HolidayScraper>());
 
     /// <summary>
     /// Date to retrieve holidays for (SingleDate parameter set).
@@ -62,7 +42,7 @@ public class GetHolidayCommand : PSCmdlet
         {
             if (ParameterSetName == "SingleDate")
             {
-                var holidays = GetHolidaysAsync(_scraper, Date).GetAwaiter().GetResult();
+                var holidays = GetHolidaysAsync(_scraper.Value, Date).GetAwaiter().GetResult();
                 foreach (var holiday in holidays)
                 {
                     WriteObject(holiday);
@@ -86,7 +66,7 @@ public class GetHolidayCommand : PSCmdlet
 
                 while (currentDate <= endDate)
                 {
-                    var holidays = GetHolidaysAsync(_scraper, currentDate).GetAwaiter().GetResult();
+                    var holidays = GetHolidaysAsync(_scraper.Value, currentDate).GetAwaiter().GetResult();
                     foreach (var holiday in holidays)
                     {
                         WriteObject(holiday);
