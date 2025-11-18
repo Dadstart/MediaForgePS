@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>13</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Dadstart.Labs.MediaForge</RootNamespace>
+    <AssemblyName>MediaForgePS</AssemblyName>
+    <Description>PowerShell module for managing video files</Description>
+    <Authors>Dadstart Labs</Authors>
+    <Company>Dadstart Labs</Company>
+    <Product>MediaForgePS</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerShell.Sdk" Version="7.5.0" />
+    <PackageReference Include="System.Management.Automation" Version="7.5.0" />
+  </ItemGroup>
+
+</Project>
