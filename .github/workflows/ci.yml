@@ -25,6 +25,11 @@ jobs:
       with:
         dotnet-version: '9.0.x'
     
+    - name: Install PowerShell 7.5
+      uses: PowerShell/setup-powershell@v2
+      with:
+        pwsh-version: '7.5.x'
+    
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
