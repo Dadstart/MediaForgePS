@@ -1,5 +1,5 @@
 BeforeAll {
-    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $repoRoot = Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
     $modulePath = Join-Path $repoRoot "src" "MediaForgePS"
     $dllPath = Join-Path $modulePath "bin" "Debug" "net9.0" "MediaForgePS.dll"
     
@@ -8,8 +8,10 @@ BeforeAll {
         Write-Host "Building MediaForgePS module..." -ForegroundColor Yellow
         Push-Location $repoRoot
         try {
-            dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug
+            $buildOutput = & dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug 2>&1
             if ($LASTEXITCODE -ne 0) {
+                Write-Host "Build output:" -ForegroundColor Red
+                Write-Host ($buildOutput -join "`n") -ForegroundColor Red
                 throw "Build failed with exit code $LASTEXITCODE"
             }
         }
