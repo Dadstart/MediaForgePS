@@ -26,6 +26,9 @@ dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 ```
 
 ### Run PowerShell unit tests (Pester)
+
+**Note:** The module will be automatically built if needed when running Pester tests.
+
 ```powershell
 # From repository root
 $configPath = "tests/MediaForgePS.Tests/PesterConfig.psd1"
@@ -39,6 +42,11 @@ Or run with inline parameters (simpler):
 ```powershell
 # From repository root
 Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -OutputFile TestResults/PesterResults.xml -OutputFormat NUnitXml -Verbosity Detailed
+```
+
+**Note:** If you prefer to build manually first:
+```powershell
+dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug
 ```
 
 ## Code Quality

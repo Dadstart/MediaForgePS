@@ -1,5 +1,26 @@
 BeforeAll {
-    Import-Module "$PSScriptRoot\..\..\src\MediaForgePS\MediaForgePS.psd1" -Force
+    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $modulePath = Join-Path $repoRoot "src" "MediaForgePS"
+    $dllPath = Join-Path $modulePath "bin" "Debug" "net9.0" "MediaForgePS.dll"
+    
+    # Build the module if DLL doesn't exist
+    if (-not (Test-Path $dllPath)) {
+        Write-Host "Building MediaForgePS module..." -ForegroundColor Yellow
+        Push-Location $repoRoot
+        try {
+            dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug
+            if ($LASTEXITCODE -ne 0) {
+                throw "Build failed with exit code $LASTEXITCODE"
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    
+    # Import the module
+    $moduleManifest = Join-Path $modulePath "MediaForgePS.psd1"
+    Import-Module $moduleManifest -Force -ErrorAction Stop
 }
 
 Describe 'Add-Number' {
