@@ -71,7 +71,11 @@ jobs:
         if (-not (Test-Path $testResultsPath)) {
           New-Item -ItemType Directory -Path $testResultsPath | Out-Null
         }
-        Invoke-Pester -Path "tests/MediaForgePS.Tests/PowerShell" -Configuration "tests/MediaForgePS.Tests/PesterConfig.psd1" -OutputFile "$testResultsPath/PesterResults.xml" -OutputFormat NUnitXml
+        $config = Import-PowerShellDataFile -Path "tests/MediaForgePS.Tests/PesterConfig.psd1"
+        $pesterConfig = New-PesterConfiguration -Hashtable $config
+        $pesterConfig.Run.Path = "tests/MediaForgePS.Tests/PowerShell"
+        $pesterConfig.TestResult.OutputPath = "$testResultsPath/PesterResults.xml"
+        Invoke-Pester -Configuration $pesterConfig
     
     - name: Upload test results
       if: always()

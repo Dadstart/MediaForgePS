@@ -27,7 +27,18 @@ dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 
 ### Run PowerShell unit tests (Pester)
 ```powershell
-Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -Configuration tests/MediaForgePS.Tests/PesterConfig.psd1
+# From repository root
+$configPath = "tests/MediaForgePS.Tests/PesterConfig.psd1"
+$config = Import-PowerShellDataFile -Path $configPath
+$pesterConfig = New-PesterConfiguration -Hashtable $config
+$pesterConfig.Run.Path = "tests/MediaForgePS.Tests/PowerShell"
+Invoke-Pester -Configuration $pesterConfig
+```
+
+Or run with inline parameters (simpler):
+```powershell
+# From repository root
+Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -OutputFile TestResults/PesterResults.xml -OutputFormat NUnitXml -Verbosity Detailed
 ```
 
 ## Code Quality
