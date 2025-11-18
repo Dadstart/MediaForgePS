@@ -1,3 +1,7 @@
+# CI/CD Pipeline for MediaForgePS
+# Performs: build, test (C# unit, component, E2E, PowerShell), lint (format check), and pack artifacts
+# Does NOT publish (per AGENTS.md requirements)
+
 name: CI
 
 on:
@@ -7,8 +11,11 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     
     steps:
     - uses: actions/checkout@v4
@@ -17,6 +24,19 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
+    
+    - name: Setup PowerShell
+      uses: actions/setup-powershell@v1
+      with:
+        pwsh-version: '7.5'
+    
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
     
     - name: Restore dependencies
       run: dotnet restore
@@ -27,8 +47,55 @@ jobs:
     - name: Format check
       run: dotnet format --verify-no-changes
     
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+    - name: Run C# unit tests
+      run: dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
     
-    - name: Pack
+    - name: Run component tests
+      run: dotnet test tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj --no-build --verbosity normal --logger "trx;LogFileName=component-test-results.trx"
+    
+    - name: Run E2E tests
+      run: dotnet test tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj --no-build --verbosity normal --logger "trx;LogFileName=e2e-test-results.trx"
+    
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+        Import-Module Pester
+    
+    - name: Run PowerShell unit tests
+      shell: pwsh
+      run: |
+        $modulePath = Resolve-Path "src/MediaForgePS"
+        Import-Module $modulePath -Force
+        $testResultsPath = "TestResults"
+        if (-not (Test-Path $testResultsPath)) {
+          New-Item -ItemType Directory -Path $testResultsPath | Out-Null
+        }
+        Invoke-Pester -Path "tests/MediaForgePS.Tests/PowerShell" -Configuration "tests/MediaForgePS.Tests/PesterConfig.psd1" -OutputFile "$testResultsPath/PesterResults.xml" -OutputFormat NUnitXml
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}
+        path: |
+          **/TestResults/*.trx
+          **/TestResults/*.xml
+          **/coverage.cobertura.xml
+        retention-days: 30
+    
+    - name: Build Release configuration for packaging
+      if: matrix.os == 'ubuntu-latest'
+      run: dotnet build -c Release --no-restore
+    
+    - name: Pack artifacts
+      if: matrix.os == 'ubuntu-latest'
       run: dotnet pack --no-build -c Release -o ./artifacts
+    
+    - name: Upload artifacts
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: ./artifacts/*.nupkg
+        retention-days: 30
