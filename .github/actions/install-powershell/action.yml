@@ -1,0 +1,62 @@
+name: Install PowerShell
+description: Installs PowerShell cross-platform for GitHub Actions runners
+inputs:
+  version:
+    description: PowerShell version to install (without the leading 'v')
+    required: false
+    default: '7.5.4'
+runs:
+  using: composite
+  steps:
+    - name: Install PowerShell on Linux
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        archive="powershell-${version}-linux-x64.tar.gz"
+        uri="https://github.com/PowerShell/PowerShell/releases/download/v${version}/${archive}"
+        workdir="$(mktemp -d)"
+        curl -L "$uri" -o "$workdir/$archive"
+        sudo mkdir -p "/opt/microsoft/powershell/${version}"
+        sudo tar -xzf "$workdir/$archive" -C "/opt/microsoft/powershell/${version}"
+        sudo ln -sf "/opt/microsoft/powershell/${version}/pwsh" /usr/bin/pwsh
+        echo "/opt/microsoft/powershell/${version}" >> "$GITHUB_PATH"
+        pwsh --version
+    
+    - name: Install PowerShell on macOS
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        arch="$(uname -m)"
+        if [[ "$arch" == "arm64" ]]; then
+          pkg_arch="arm64"
+        else
+          pkg_arch="x64"
+        fi
+        pkg="powershell-${version}-osx-${pkg_arch}.pkg"
+        uri="https://github.com/PowerShell/PowerShell/releases/download/v${version}/${pkg}"
+        curl -L "$uri" -o "$pkg"
+        sudo installer -pkg "$pkg" -target /
+        echo "/usr/local/bin" >> "$GITHUB_PATH"
+        pwsh --version
+    
+    - name: Install PowerShell on Windows
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $version = '${{ inputs.version }}'
+        $msi = "PowerShell-$version-win-x64.msi"
+        $uri = "https://github.com/PowerShell/PowerShell/releases/download/v$version/$msi"
+        Invoke-WebRequest -Uri $uri -OutFile $msi
+        $arguments = "/i `"$PWD\$msi`" /qn /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=0 ENABLE_PSREMOTING=0 REGISTER_MANIFEST=0"
+        Start-Process msiexec.exe -Wait -ArgumentList $arguments
+        $installPath = "C:\\Program Files\\PowerShell\\$version"
+        if (-not (Test-Path "$installPath\\pwsh.exe")) {
+          $installPath = "C:\\Program Files\\PowerShell\\7"
+        }
+        "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        & "$installPath\\pwsh.exe" --version
