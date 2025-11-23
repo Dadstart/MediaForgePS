@@ -61,7 +61,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln', '**/*.csproj', '**/global.json') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln') }}-${{ hashFiles('**/*.csproj') }}-${{ hashFiles('**/global.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
     
