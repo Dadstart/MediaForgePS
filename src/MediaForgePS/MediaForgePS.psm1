@@ -1,7 +1,7 @@
 $dllPath = $null
 
-$debugPath = Join-Path $PSScriptRoot "bin\Debug\net9.0\MediaForgePS.dll"
-$releasePath = Join-Path $PSScriptRoot "bin\Release\net9.0\MediaForgePS.dll"
+$debugPath = Join-Path $PSScriptRoot "bin\Debug\net10.0\MediaForgePS.dll"
+$releasePath = Join-Path $PSScriptRoot "bin\Release\net10.0\MediaForgePS.dll"
 
 if (Test-Path $releasePath)
 {

@@ -1,7 +1,7 @@
 BeforeAll {
     $repoRoot = Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
     $modulePath = Join-Path $repoRoot "src" "MediaForgePS"
-    $dllPath = Join-Path $modulePath "bin" "Debug" "net9.0" "MediaForgePS.dll"
+    $dllPath = Join-Path $modulePath "bin" "Debug" "net10.0" "MediaForgePS.dll"
     
     # Build the module if DLL doesn't exist
     if (-not (Test-Path $dllPath)) {
