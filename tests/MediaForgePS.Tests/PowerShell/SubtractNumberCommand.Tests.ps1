@@ -1,3 +1,6 @@
+# Dot-source shared test helpers
+. (Join-Path $PSScriptRoot "TestHelpers.ps1")
+
 BeforeAll {
     $repoRoot = Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
     $modulePath = Join-Path $repoRoot "src" "MediaForgePS"
@@ -66,4 +69,9 @@ Describe 'Subtract-Number' {
         $result = 10 | Subtract-Number -Subtrahend 3
         $result | Should -Be 7
     }
+}
+
+AfterAll {
+    # Clean up the module after all tests complete
+    Remove-MediaForgePSModule
 }
