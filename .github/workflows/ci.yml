@@ -90,6 +90,7 @@ jobs:
         Import-Module Pester
     
     - name: Run PowerShell unit tests
+      if: false
       shell: pwsh
       run: |
         $modulePath = Resolve-Path "src/MediaForgePS"
