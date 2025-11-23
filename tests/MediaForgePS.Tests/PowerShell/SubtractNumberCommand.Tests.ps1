@@ -1,7 +1,23 @@
 BeforeAll {
     $repoRoot = Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
     $modulePath = Join-Path $repoRoot "src" "MediaForgePS"
-    $dllPath = Join-Path $modulePath "bin" "Debug" "net10.0" "MediaForgePS.dll"
+    
+    # Unload the module if it's already loaded to avoid file locks
+    if (Get-Module -Name MediaForgePS -ErrorAction SilentlyContinue) {
+        Remove-Module -Name MediaForgePS -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Detect the target framework from the project file
+    $projectFile = Join-Path $modulePath "MediaForgePS.csproj"
+    $targetFramework = 'net9.0' # Default
+    if (Test-Path $projectFile) {
+        $projectContent = Get-Content $projectFile -Raw
+        if ($projectContent -match '<TargetFramework>([^<]+)</TargetFramework>') {
+            $targetFramework = $matches[1].Trim()
+        }
+    }
+    
+    $dllPath = Join-Path $modulePath "bin" "Debug" $targetFramework "MediaForgePS.dll"
     
     # Build the module if DLL doesn't exist
     if (-not (Test-Path $dllPath)) {
