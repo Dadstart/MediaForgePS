@@ -4,7 +4,6 @@ using System.Management.Automation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.DependencyInjection;
-using Dadstart.Labs.MediaForge.Logging;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 
@@ -12,7 +11,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 [Cmdlet(VerbsCommon.Get, "MediaFile")]
 [OutputType(typeof(MediaFile))]
-public class GetMediaFileCommand : PSCmdlet
+public class GetMediaFileCommand : MediaForgeCmdletBase
 {
     [Parameter(
         Mandatory = true,
@@ -24,8 +23,6 @@ public class GetMediaFileCommand : PSCmdlet
     public string Path { get; set; } = string.Empty;
 
     private IMediaReaderService? _mediaReaderService;
-    private ILogger<GetMediaFileCommand>? _logger;
-    private IPowerShellCommandContextAccessor? _contextAccessor;
 
     private IMediaReaderService MediaReaderService
     {
@@ -35,32 +32,10 @@ public class GetMediaFileCommand : PSCmdlet
         }
     }
 
-    private ILogger<GetMediaFileCommand> Logger
-    {
-        get
-        {
-            return _logger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<ILogger<GetMediaFileCommand>>();
-        }
-    }
-
-    private IPowerShellCommandContextAccessor ContextAccessor
-    {
-        get
-        {
-            return _contextAccessor ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IPowerShellCommandContextAccessor>();
-        }
-    }
-
     protected override void BeginProcessing()
     {
-        ContextAccessor.SetCurrentContext(this);
-        Logger.LogDebug("Begin processing Get-MediaFile command for path: {Path}", Path);
-    }
-
-    protected override void EndProcessing()
-    {
-        Logger.LogDebug("End processing Get-MediaFile command");
-        ContextAccessor.SetCurrentContext(null);
+        base.BeginProcessing();
+        Logger.LogDebug("Processing Get-MediaFile command for path: {Path}", Path);
     }
 
     protected override void ProcessRecord()
