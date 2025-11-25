@@ -10,8 +10,7 @@
     PowerShellVersion = '7.5'
     DotNetFrameworkVersion = '9.0'
     CmdletsToExport = @(
-        'Add-Number',
-        'Subtract-Number'
+        'Get-MediaFile'
     )
     FunctionsToExport = @()
     VariablesToExport = @()

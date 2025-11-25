@@ -16,9 +16,10 @@
     Path to the Pester configuration file. Defaults to PesterConfig.psd1 in the
     same directory as this script.
 
-.PARAMETER IsolatedProcess
-    Run tests in a separate PowerShell process to ensure DLL locks are released.
-    This is recommended to avoid file lock issues during builds. Defaults to $true.
+.PARAMETER NoIsolatedProcess
+    When specified, runs tests in the current PowerShell process instead of a separate one.
+    By default, tests run in an isolated process to ensure DLL locks are released,
+    which is recommended to avoid file lock issues during builds.
 
 .EXAMPLE
     .\Run-PesterTests.ps1
@@ -27,7 +28,7 @@
     .\Run-PesterTests.ps1 -Path ".\PowerShell" -Configuration ".\PesterConfig.psd1"
 
 .EXAMPLE
-    .\Run-PesterTests.ps1 -IsolatedProcess:$false
+    .\Run-PesterTests.ps1 -NoIsolatedProcess
     Run tests in the current process (may leave DLL locked)
 #>
 [CmdletBinding()]
@@ -39,13 +40,13 @@ param(
     [string]$Configuration = (Join-Path $PSScriptRoot "PesterConfig.psd1"),
 
     [Parameter()]
-    [switch]$IsolatedProcess = $true
+    [switch]$NoIsolatedProcess
 )
 
 $ErrorActionPreference = 'Stop'
 
 # If running in isolated process, spawn a new PowerShell process
-if ($IsolatedProcess) {
+if (-not $NoIsolatedProcess) {
     Write-Host "Running tests in isolated PowerShell process to ensure DLL cleanup..." -ForegroundColor Cyan
     Write-Host ""
     
@@ -56,7 +57,7 @@ if ($IsolatedProcess) {
         "`"$scriptPath`"",
         '-Path', "`"$Path`"",
         '-Configuration', "`"$Configuration`"",
-        '-IsolatedProcess:$false'
+        '-NoIsolatedProcess'
     )
     
     $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Wait -PassThru -NoNewWindow
@@ -74,37 +75,134 @@ try {
     Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
 
     Write-Host "Running Pester tests..." -ForegroundColor Cyan
-    Write-Host "Test Path: $Path" -ForegroundColor Gray
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
 
-    # Load the Pester configuration
+    # Load the Pester configuration and determine test paths
+    $testPaths = @()
+    
     if (Test-Path $Configuration) {
         $config = Import-PowerShellDataFile -Path $Configuration
         $pesterConfig = New-PesterConfiguration -Hashtable $config
-        $pesterConfig.Run.Path = $Path
+        
+        # Get paths from config if they exist, otherwise use the Path parameter
+        $configDir = Split-Path -Path $Configuration -Parent
+        
+        if ($config.Run -and $config.Run.Path) {
+            # Config has paths specified
+            $configPaths = $config.Run.Path
+            if ($configPaths -is [string]) {
+                $configPaths = @($configPaths)
+            }
+            
+            # Resolve relative paths relative to the config file's directory
+            $testPaths = $configPaths | ForEach-Object {
+                if (-not [System.IO.Path]::IsPathRooted($_)) {
+                    $resolved = Join-Path $configDir $_
+                    if (Test-Path $resolved) {
+                        (Resolve-Path $resolved).Path
+                    }
+                    else {
+                        Join-Path $configDir $_
+                    }
+                }
+                else {
+                    $_
+                }
+            }
+            
+            # Update the config with resolved paths
+            $pesterConfig.Run.Path = $testPaths
+        }
+        else {
+            # Config doesn't specify paths, use the Path parameter
+            $testPaths = if ($Path -is [string]) { @($Path) } else { $Path }
+            $pesterConfig.Run.Path = $testPaths
+        }
     }
     else {
         Write-Warning "Configuration file not found at '$Configuration'. Using default configuration."
         $pesterConfig = New-PesterConfiguration
-        $pesterConfig.Run.Path = $Path
+        $testPaths = if ($Path -is [string]) { @($Path) } else { $Path }
+        $pesterConfig.Run.Path = $testPaths
         $pesterConfig.Output.Verbosity = 'Detailed'
     }
-
-    # Run the tests
-    $testResult = Invoke-Pester -Configuration $pesterConfig
-
-    # Return the exit code based on test results
-    if ($testResult.FailedCount -gt 0) {
-        $exitCode = 1
+    
+    # Ensure testPaths is an array
+    if ($null -eq $testPaths) {
+        $testPaths = @()
+    }
+    elseif ($testPaths -is [string]) {
+        $testPaths = @($testPaths)
+    }
+    
+    if ($testPaths.Count -gt 0) {
+        Write-Host "Test Path(s):" -ForegroundColor Gray
+        foreach ($testPath in $testPaths) {
+            Write-Host "  $testPath" -ForegroundColor Gray
+        }
+        Write-Host ""
     }
     else {
+        Write-Host "Test Path: (not specified)" -ForegroundColor Gray
+        Write-Host ""
+    }
+
+    # Check if test files exist before running
+    $testFilesFound = $false
+    foreach ($testPath in $testPaths) {
+        if (Test-Path $testPath) {
+            if ((Get-Item $testPath).PSIsContainer) {
+                # It's a directory, check for *.Tests.ps1 files
+                $files = Get-ChildItem -Path $testPath -Filter "*.Tests.ps1" -Recurse -ErrorAction SilentlyContinue
+                if ($files) {
+                    $testFilesFound = $true
+                    break
+                }
+            }
+            else {
+                # It's a file, check if it matches the pattern
+                if ($testPath -like "*.Tests.ps1") {
+                    $testFilesFound = $true
+                    break
+                }
+            }
+        }
+    }
+
+    if (-not $testFilesFound) {
+        Write-Warning "No test files (*.Tests.ps1) were found in the specified path(s)."
+        Write-Warning "Skipping test execution."
+        Write-Host ""
         $exitCode = 0
+        $testResult = $null
+    }
+    else {
+        # Run the tests
+        $testResult = Invoke-Pester -Configuration $pesterConfig
+
+        # Return the exit code based on test results
+        if ($testResult.FailedCount -gt 0) {
+            $exitCode = 1
+        }
+        else {
+            $exitCode = 0
+        }
     }
 }
 catch {
-    Write-Error "Failed to run Pester tests: $_"
-    $exitCode = 1
+    # Check if the error is about no test files being found
+    if ($_.Exception.Message -like "*No test files were found*" -or 
+        $_.Exception.Message -like "*no scriptblocks were provided*") {
+        Write-Warning "No test files (*.Tests.ps1) were found in the specified path(s)."
+        Write-Warning "This is not necessarily an error - you may just need to add test files."
+        Write-Host ""
+        $exitCode = 0
+    }
+    else {
+        Write-Error "Failed to run Pester tests: $_"
+        $exitCode = 1
+    }
 }
 finally {
     # Always remove the module, even if tests fail
