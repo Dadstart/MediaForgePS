@@ -61,7 +61,7 @@ public class GetMediaFileCommand : PSCmdlet
             WriteError(errorRecord);
             return;
         }
-        
+
         if (!File.Exists(resolvedPath))
         {
             var errorRecord = new ErrorRecord(

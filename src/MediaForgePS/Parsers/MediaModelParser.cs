@@ -37,7 +37,7 @@ public class MediaModelParser : IMediaModelParser
         var chapter = JsonSerializer.Deserialize<MediaChapter>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
 
-        return chapter with{ Title = chapter.Tags["title"], Raw = json };
+        return chapter with { Title = chapter.Tags["title"], Raw = json };
     }
 
     /// <inheritdoc />
