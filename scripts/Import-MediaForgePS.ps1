@@ -12,11 +12,11 @@
     The build configuration to use (Debug or Release). Defaults to Release.
 
 .EXAMPLE
-    .\Install-MediaForgePS.ps1
+    .\scripts\Import-MediaForgePS.ps1
     Builds and imports the module in a new PowerShell session.
 
 .EXAMPLE
-    .\Install-MediaForgePS.ps1 -BuildConfiguration Debug
+    .\scripts\Import-MediaForgePS.ps1 -BuildConfiguration Debug
     Builds the module in Debug configuration and imports it.
 #>
 [CmdletBinding()]
@@ -29,8 +29,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 try {
+    # Determine the repository root (one level up from scripts folder)
+    $repoRoot = Split-Path $PSScriptRoot -Parent
+    
     # Determine the module path
-    $modulePath = Join-Path $PSScriptRoot "src\MediaForgePS"
+    $modulePath = Join-Path $repoRoot "src\MediaForgePS"
     
     if (-not (Test-Path $modulePath)) {
         throw "Module path not found: $modulePath"
@@ -91,3 +94,4 @@ catch {
     Write-Error "Failed to install MediaForgePS module: $_"
     exit 1
 }
+
