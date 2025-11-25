@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.DependencyInjection;
@@ -44,6 +45,12 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     protected override void BeginProcessing()
     {
         ContextAccessor.SetCurrentContext(this);
+        
+        // Capture the synchronization context from the cmdlet's thread so we can marshal
+        // Write calls back to this thread from async contexts
+        var syncContext = SynchronizationContext.Current;
+        ContextAccessor.SetSynchronizationContext(syncContext);
+        
         Logger.LogDebug("Begin processing {CmdletName} command", GetType().Name);
     }
 
@@ -54,6 +61,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     {
         Logger.LogDebug("End processing {CmdletName} command", GetType().Name);
         ContextAccessor.SetCurrentContext(null);
+        ContextAccessor.SetSynchronizationContext(null);
     }
 }
 

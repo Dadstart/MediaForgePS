@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Threading;
 
 namespace Dadstart.Labs.MediaForge.Logging;
 
@@ -16,5 +17,15 @@ public interface IPowerShellCommandContextAccessor
     /// Sets the current PowerShell command context.
     /// </summary>
     void SetCurrentContext(PSCmdlet? cmdlet);
+
+    /// <summary>
+    /// Gets the synchronization context for the cmdlet's thread, if available.
+    /// </summary>
+    SynchronizationContext? GetSynchronizationContext();
+
+    /// <summary>
+    /// Sets the synchronization context for the cmdlet's thread.
+    /// </summary>
+    void SetSynchronizationContext(SynchronizationContext? context);
 }
 

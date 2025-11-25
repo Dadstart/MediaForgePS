@@ -9,6 +9,7 @@ namespace Dadstart.Labs.MediaForge.Logging;
 public class PowerShellCommandContext : IPowerShellCommandContextAccessor
 {
     private static readonly AsyncLocal<PSCmdlet?> _currentContext = new();
+    private static readonly AsyncLocal<SynchronizationContext?> _synchronizationContext = new();
 
     /// <inheritdoc />
     public PSCmdlet? GetCurrentContext()
@@ -20,6 +21,18 @@ public class PowerShellCommandContext : IPowerShellCommandContextAccessor
     public void SetCurrentContext(PSCmdlet? cmdlet)
     {
         _currentContext.Value = cmdlet;
+    }
+
+    /// <inheritdoc />
+    public SynchronizationContext? GetSynchronizationContext()
+    {
+        return _synchronizationContext.Value;
+    }
+
+    /// <inheritdoc />
+    public void SetSynchronizationContext(SynchronizationContext? context)
+    {
+        _synchronizationContext.Value = context;
     }
 }
 
