@@ -1,11 +1,10 @@
 using System;
 using System.IO;
 using System.Management.Automation;
+using Microsoft.Extensions.DependencyInjection;
+using Dadstart.Labs.MediaForge.DependencyInjection;
 using Dadstart.Labs.MediaForge.Models;
-using Dadstart.Labs.MediaForge.Parsers;
 using Dadstart.Labs.MediaForge.Services;
-using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -22,15 +21,14 @@ public class GetMediaFileCommand : PSCmdlet
     [ValidateNotNullOrEmpty]
     public string Path { get; set; } = string.Empty;
 
-    private readonly IMediaReaderService _mediaReaderService;
+    private IMediaReaderService? _mediaReaderService;
 
-    public GetMediaFileCommand()
+    private IMediaReaderService MediaReaderService
     {
-        var platformService = new PlatformService();
-        var executableService = new ExecutableService(platformService);
-        var ffprobeService = new FfprobeService(executableService);
-        var mediaModelParser = new MediaModelParser();
-        _mediaReaderService = new MediaReaderService(ffprobeService, mediaModelParser);
+        get
+        {
+            return _mediaReaderService ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IMediaReaderService>();
+        }
     }
 
     protected override async void ProcessRecord()
@@ -73,7 +71,7 @@ public class GetMediaFileCommand : PSCmdlet
             return;
         }
 
-        var mediaFile = await _mediaReaderService.GetMediaFile(resolvedPath);
+        var mediaFile = await MediaReaderService.GetMediaFile(resolvedPath);
         if (mediaFile is null)
         {
             var errorRecord = new ErrorRecord(

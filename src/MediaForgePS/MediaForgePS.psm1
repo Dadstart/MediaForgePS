@@ -15,4 +15,15 @@ elseif (Test-Path $debugPath)
 if ($dllPath)
 {
     Import-Module $dllPath
+    
+    # Initialize dependency injection container
+    [Dadstart.Labs.MediaForge.DependencyInjection.ModuleInitializer]::Initialize() | Out-Null
 }
+
+function OnRemove
+{
+    # Cleanup dependency injection container when module is removed
+    [Dadstart.Labs.MediaForge.DependencyInjection.ModuleInitializer]::Cleanup()
+}
+
+$ExecutionContext.SessionState.Module.OnRemove = { OnRemove }
