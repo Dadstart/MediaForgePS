@@ -3,6 +3,9 @@ using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Parsers;
+using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -19,9 +22,12 @@ public class GetMediaFileCommand : PSCmdlet
     [ValidateNotNullOrEmpty]
     public string Path { get; set; } = string.Empty;
 
-    private IMediaModelParser _parser = new MediaModelParser();
+    private static readonly IPlatformService _platformService = new PlatformService();
+    private static readonly IFfprobeService _ffprobeService = new FfprobeService(new ExecutableService(_platformService));
+    private static readonly IMediaModelParser _mediaModelParser = new MediaModelParser();
+    private static readonly IMediaReaderService _mediaReaderService = new MediaReaderService(_ffprobeService, mediaModelParser: _mediaModelParser);
 
-    protected override void ProcessRecord()
+    protected override async void ProcessRecord()
     {
         string resolvedPath;
         try
@@ -61,16 +67,19 @@ public class GetMediaFileCommand : PSCmdlet
             return;
         }
 
-        var raw = GetMediaFileRaw(resolvedPath);
-        var mediaFile = _parser!.ParseFile(resolvedPath, raw);
-        WriteObject(mediaFile);
-    }
+        var mediaFile = await _mediaReaderService.GetMediaFile(resolvedPath);
+        if (mediaFile is null)
+        {
+            var errorRecord = new ErrorRecord(
+                new Exception($"Failed to get media file information: {resolvedPath}"),
+                "MediaFileReadFailed",
+                ErrorCategory.ReadError,
+                resolvedPath);
+            WriteError(errorRecord);
+            return;
+        }
 
-    private string GetMediaFileRaw(string path)
-    {
-        // TODO: Implement logic to fetch the raw string that can be parsed by MediaModelParser
-        // This will be implemented by the user
-        throw new NotImplementedException("GetMediaFileRaw must be implemented to fetch the raw media file data");
+        WriteObject(mediaFile);
     }
 }
 

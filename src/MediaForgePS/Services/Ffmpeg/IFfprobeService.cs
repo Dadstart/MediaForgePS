@@ -4,5 +4,5 @@ namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
 public interface IFfprobeService
 {
-    string Execute(string path, string arguments);
+    Task<FfprobeResult> Execute(string path, IEnumerable<string> arguments);
 }
