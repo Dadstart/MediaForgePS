@@ -75,10 +75,10 @@ public class ExecutableService : IExecutableService
             return new ExecutableResult(stdout, stderr, process.ExitCode);
 
         }
-        catch (Exception exc)
+        catch (Exception ex)
         {
-            _logger.LogError(exc, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
-            return new ExecutableResult(null, null, null, exc);
+            _logger.LogError(ex, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
+            return new ExecutableResult(null, null, null, ex);
         }
     }
 }
