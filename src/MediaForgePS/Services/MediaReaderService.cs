@@ -19,7 +19,9 @@ public class MediaReaderService : IMediaReaderService
 
     public async Task<MediaFile?> GetMediaFile(string path)
     {
-        var result = await _ffprobeService.Execute(path, new[] { "-show_format", "-show_streams" });
+        //         $ffprobeArgs = @('-show_format', '-show_chapters', '-show_streams', '-i', $inputPath)
+
+        var result = await _ffprobeService.Execute(path, new[] { "-show_format", "-show_chapters", "-show_streams" });
         if (!result.Success)
             return null;
 

@@ -12,15 +12,15 @@ namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 public class FfprobeService(IExecutableService executableService) : IFfprobeService
 {
     private const string FFPROBE_EXECUTABLE = "ffprobe";
-    private readonly string[] _verbosityArguments = ["-v", "error"];
-    private readonly string[] _jsonArguments = ["-of", "json"];
     private readonly IExecutableService _executableService = executableService;
 
     /// <inheritdoc />
     public async Task<FfprobeResult> Execute(string path, IEnumerable<string> arguments)
     {
         // TODO: check if ffmpeg/ffprobe is installed
-        var allArguments = _verbosityArguments.Concat(_jsonArguments).Concat(arguments ?? Enumerable.Empty<string>());
+        string[] additionalArguments = ["-v", "error", "-of", "json"];
+        var pathArgument = new[] { "-i", path };
+        var allArguments = additionalArguments.Concat(arguments ?? Enumerable.Empty<string>()).Concat(pathArgument);
         var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments);
         return new FfprobeResult(result.ExitCode == 0, result.Output ?? string.Empty);
     }
