@@ -22,10 +22,16 @@ public class GetMediaFileCommand : PSCmdlet
     [ValidateNotNullOrEmpty]
     public string Path { get; set; } = string.Empty;
 
-    private static readonly IPlatformService _platformService = new PlatformService();
-    private static readonly IFfprobeService _ffprobeService = new FfprobeService(new ExecutableService(_platformService));
-    private static readonly IMediaModelParser _mediaModelParser = new MediaModelParser();
-    private static readonly IMediaReaderService _mediaReaderService = new MediaReaderService(_ffprobeService, mediaModelParser: _mediaModelParser);
+    private readonly IMediaReaderService _mediaReaderService;
+
+    public GetMediaFileCommand()
+    {
+        var platformService = new PlatformService();
+        var executableService = new ExecutableService(platformService);
+        var ffprobeService = new FfprobeService(executableService);
+        var mediaModelParser = new MediaModelParser();
+        _mediaReaderService = new MediaReaderService(ffprobeService, mediaModelParser);
+    }
 
     protected override async void ProcessRecord()
     {
