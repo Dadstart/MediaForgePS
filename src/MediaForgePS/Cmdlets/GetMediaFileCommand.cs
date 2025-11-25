@@ -31,7 +31,7 @@ public class GetMediaFileCommand : PSCmdlet
         }
     }
 
-    protected override async void ProcessRecord()
+    protected override void ProcessRecord()
     {
         string resolvedPath;
         try
@@ -60,30 +60,45 @@ public class GetMediaFileCommand : PSCmdlet
             return;
         }
 
-        if (!File.Exists(resolvedPath))
+        try
         {
-            var errorRecord = new ErrorRecord(
-                new FileNotFoundException($"Media file not found: {resolvedPath}"),
-                "FileNotFound",
-                ErrorCategory.ObjectNotFound,
-                resolvedPath);
-            WriteError(errorRecord);
-            return;
-        }
+            if (!File.Exists(resolvedPath))
+            {
+                var errorRecord = new ErrorRecord(
+                    new FileNotFoundException($"Media file not found: {resolvedPath}"),
+                    "FileNotFound",
+                    ErrorCategory.ObjectNotFound,
+                    resolvedPath);
+                WriteError(errorRecord);
+                return;
+            }
 
-        var mediaFile = await MediaReaderService.GetMediaFile(resolvedPath);
-        if (mediaFile is null)
+            var task = MediaReaderService.GetMediaFile(resolvedPath).ConfigureAwait(false).GetAwaiter();
+            var mediaFile = task.GetResult();
+            if (mediaFile is null)
+            {
+                var errorRecord = new ErrorRecord(
+                    new Exception($"Failed to get media file information: {resolvedPath}"),
+                    "MediaFileReadFailed",
+                    ErrorCategory.ReadError,
+                    resolvedPath);
+                WriteError(errorRecord);
+                return;
+            }
+
+            WriteObject(mediaFile);
+
+        }
+        catch (Exception ex)
         {
             var errorRecord = new ErrorRecord(
-                new Exception($"Failed to get media file information: {resolvedPath}"),
+                ex,
                 "MediaFileReadFailed",
                 ErrorCategory.ReadError,
                 resolvedPath);
             WriteError(errorRecord);
             return;
         }
-
-        WriteObject(mediaFile);
     }
 }
 
