@@ -4,11 +4,14 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dadstart.Labs.MediaForge.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.PowerShell.Commands;
 
 namespace Dadstart.Labs.MediaForge.Parsers;
 
-public class MediaModelParser : IMediaModelParser
+public class MediaModelParser(ILogger logger) : IMediaModelParser
 {
+    private readonly ILogger _logger = logger;
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -34,8 +37,11 @@ public class MediaModelParser : IMediaModelParser
         }
         */
 
+        _logger.LogInformation("Deserializing MediaChapter");
+        _logger.LogDebug("Json: {json}", json);
         var chapter = JsonSerializer.Deserialize<MediaChapter>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
+        _logger.LogInformation("Deserialized MediaChapter");
 
         return chapter with { Title = chapter.Tags["title"], Raw = json };
     }
@@ -66,9 +72,11 @@ public class MediaModelParser : IMediaModelParser
         }
         */
 
+        _logger.LogInformation("Deserializing MediaFormat");
+        _logger.LogDebug("Json: {json}", json);
         var format = JsonSerializer.Deserialize<MediaFormat>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
-
+        _logger.LogInformation("Deserialized MediaFormat");
         return format with { Title = format.Tags["title"], Raw = json };
     }
 
@@ -99,8 +107,11 @@ public class MediaModelParser : IMediaModelParser
         }
         */
 
+        _logger.LogInformation("Deserializing MediaStream");
+        _logger.LogDebug("Json: {json}", json);
         var stream = JsonSerializer.Deserialize<MediaStream>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaStream from JSON");
+        _logger.LogInformation("Deserialized MediaStream");
 
         var language = stream.Tags["language"];
         TimeSpan duration = TimeSpan.Zero;
@@ -128,6 +139,9 @@ public class MediaModelParser : IMediaModelParser
             }
         */
 
+
+        _logger.LogInformation("Deserializing MediaFile");
+        _logger.LogDebug("Json: {json}", json);
         var format = JsonSerializer.Deserialize<MediaFormat>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
 
@@ -136,6 +150,7 @@ public class MediaModelParser : IMediaModelParser
 
         var streams = JsonSerializer.Deserialize<MediaStream[]>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaStream[] from JSON");
+        _logger.LogInformation("Deserialized MediaFile");
 
         return new MediaFile(path, format, chapters, streams, json);
     }
