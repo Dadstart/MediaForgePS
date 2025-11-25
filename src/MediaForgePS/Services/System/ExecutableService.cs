@@ -5,6 +5,13 @@ namespace Dadstart.Labs.MediaForge.Services.System;
 
 public class ExecutableService : IExecutableService
 {
+    private readonly IPlatformService _platformService;
+
+    public ExecutableService(IPlatformService platformService)
+    {
+        _platformService = platformService;
+    }
+
     /// <inheritdoc />
     public async Task<ExecutableResult> Execute(string command, IEnumerable<string> arguments)
     {
@@ -13,7 +20,7 @@ public class ExecutableService : IExecutableService
             var processStartInfo = new ProcessStartInfo()
             {
                 FileName = command,
-                Arguments = arguments.ToQuotedArgumentString(),
+                Arguments = arguments.ToQuotedArgumentString(_platformService),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
