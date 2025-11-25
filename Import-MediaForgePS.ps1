@@ -8,11 +8,6 @@
     a new isolated PowerShell process, allowing you to use the cmdlets. By default,
     it spawns a new PowerShell process to ensure clean module loading.
 
-.PARAMETER NoIsolatedProcess
-    When specified, imports the module in the current PowerShell process instead
-    of spawning a separate one. By default, the module is imported in an isolated
-    process for clean state.
-
 .PARAMETER BuildConfiguration
     The build configuration to use (Debug or Release). Defaults to Release.
 
@@ -26,9 +21,6 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter()]
-    [switch]$NoIsolatedProcess,
-
     [Parameter()]
     [ValidateSet('Debug', 'Release')]
     [string]$BuildConfiguration = 'Debug'
