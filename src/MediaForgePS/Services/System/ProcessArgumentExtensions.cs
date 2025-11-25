@@ -18,12 +18,12 @@ public static class ProcessArgumentExtensions
         return string.Join(" ", arguments.Select(arg => QuoteArgument(arg, platformService)));
     }
 
-/// <summary>
-/// Quotes a single argument according to platform-specific rules.
-/// </summary>
-/// <param name="argument">The argument to quote.</param>
-/// <param name="platformService">The platform service to use.</param>
-/// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
+    /// <summary>
+    /// Quotes a single argument according to platform-specific rules.
+    /// </summary>
+    /// <param name="argument">The argument to quote.</param>
+    /// <param name="platformService">The platform service to use.</param>
+    /// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
     public static string QuoteArgument(string argument, IPlatformService platformService)
     {
         return platformService.IsWindows() ? QuoteWindowsArgument(argument) : QuoteUnixArgument(argument);
@@ -39,8 +39,11 @@ public static class ProcessArgumentExtensions
         if (string.IsNullOrEmpty(argument))
             return "\"\"";
 
-        // If argument contains no spaces, quotes, or special characters, return as-is
-        if (!argument.Contains(' ') && !argument.Contains('"') && !argument.Contains('\t'))
+        // Check if argument needs quoting
+        bool needsQuoting = argument.Contains(' ') || argument.Contains('"') || argument.Contains('\t') || argument.Contains('\\');
+
+        // If argument contains no spaces, quotes, tabs, or backslashes, return as-is
+        if (!needsQuoting)
             return argument;
 
         // Build quoted argument with proper Windows escaping
