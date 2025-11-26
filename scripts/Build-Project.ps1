@@ -18,7 +18,8 @@
     Enable the build step. By default, the solution is not built unless this parameter is explicitly set.
 
 .PARAMETER Lint
-    Enable linting with the specified action. Defaults to 'View'.
+    Enable linting with the specified action. Defaults to 'None'.
+    - 'None': Skip linting.
     - 'View': Check for formatting issues without fixing them (runs 'dotnet format --verify-no-changes').
     - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded.
 
@@ -88,7 +89,7 @@ param(
     [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
 
-    [Parameter()]
+    [Parameter]
     [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
     [string]$Verbosity = 'minimal'
 )
@@ -108,6 +109,7 @@ $slnPath = Join-Path $repoRoot 'MediaForgePS.sln'
 if (-not (Test-Path $slnPath)) {
     throw "Solution file not found: $slnPath"
 }
+
 #
 # --------------------------------------------------------------------------------
 # Helper function to check if build output exists for the specified configuration
@@ -131,7 +133,7 @@ if (-not (Test-Path $slnPath)) {
 .PARAMETER Operation
     Optional. If specified and build output does not exist, throws an error
     with a message indicating which operation requires the build.
-    Example values are operation names like "Test", "Publish", or "Lint".
+    Example values are operation names like "Test", "Publish", or "Lint fix".
 
 .OUTPUTS
     System.Boolean
@@ -139,14 +141,14 @@ if (-not (Test-Path $slnPath)) {
 
 .EXAMPLE
     Test-BuildOutput -RepoRoot $repoRoot -Configuration "Debug"
-    Checks if Debug build output exists without throwing an error.
+    Checks if Debug build output exists without throwing an error. Returns $true if found, $false otherwise.
 
 .EXAMPLE
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration "Release" -Operation "Publish") {
         # Publish step code
     }
-    Checks if Release build output exists and returns $false on return
-    otherwise proceeds with publish operation.
+    Checks if Release build output exists. Returns $true if found, $false otherwise.
+    If Operation is specified and output is missing, throws an error.
 #>
 function Test-BuildOutput {
     [CmdletBinding()]
@@ -157,16 +159,19 @@ function Test-BuildOutput {
         [Parameter(Mandatory)]
         [string]$Configuration,
 
-        [Parameter(Mandatory)]
-        [string]$Operation
+        [Parameter]
+        [switch]$Throw,
+
+        [Parameter]
+        [string]$Operation = ''
     )
     
     $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
     $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
 
     $exists = Test-Path $dllPath
-    if (-not $exists) {
-        Write-Error "$Operation requires a successful build. Build output not found for $Configuration configuration."
+    if (-not $exists -and $Throw) {
+        throw "$Operation requires a successful build. Build output not found for $Configuration configuration."
     }
 
     return $exists
@@ -176,10 +181,21 @@ function Test-BuildOutput {
 # --------------------------------------------------------------------------------
 #
 
+# Check if any operations were requested
+$operationsRequested = $Full -or $Clean -or $Build -or ($Lint -ne 'None') -or $Test -or $Publish
+
+# If no operations requested, enable all operations by default
+if (-not $operationsRequested) {
+    Write-Host "No operations specified. Running all operations by default." -ForegroundColor Cyan
+    Write-Information "Build:DefaultOperations:Enabled=All" -InformationAction Continue
+    $Full = $true
+}
+
 # Check for Full build, and enable all operations if specified
 if ($Full) {
     Write-Host "Performing *all* operations for this project" -ForegroundColor Cyan
     Write-Host ""
+    Write-Information "Build:Full:Enabled=True" -InformationAction Continue
 
     $Clean = $true
     $Build = $true
@@ -198,15 +214,18 @@ if ($Clean) {
     Write-Host "Cleaning solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
+    Write-Information "Build:Clean:Started:Configuration=$Configuration" -InformationAction Continue
 
     dotnet clean $slnPath --configuration $Configuration --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
+        Write-Information "Build:Clean:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
         throw "Clean failed with exit code $LASTEXITCODE"
     }
 
     Write-Host "Clean completed successfully." -ForegroundColor Green
     Write-Host ""
+    Write-Information "Build:Clean:Completed:Success=True" -InformationAction Continue
 }
 
 # Step 2: Build (optional, enabled by -Build)
@@ -214,6 +233,7 @@ if ($Build) {
     Write-Host "Building solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
+    Write-Information "Build:Build:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
 
     $buildArgs = @(
         'build',
@@ -225,43 +245,51 @@ if ($Build) {
     & dotnet $buildArgs
 
     if ($LASTEXITCODE -ne 0) {
+        Write-Information "Build:Build:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
         throw "Build failed with exit code $LASTEXITCODE"
     }
 
     Write-Host "Build completed successfully." -ForegroundColor Green
     Write-Host ""
+    Write-Information "Build:Build:Completed:Success=True" -InformationAction Continue
 }
 
 # Step 3: Lint (optional, enabled with -Lint, defaults to None)
 if ($Lint -eq 'View') {
     Write-Host "Checking for linting issues..." -ForegroundColor Cyan
     Write-Host ""
+    Write-Information "Build:Lint:Started:Action=View:Solution=$slnPath" -InformationAction Continue
 
     dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
         Write-Host ""
+        Write-Information "Build:Lint:View:Completed:IssuesFound=True:ExitCode=$LASTEXITCODE" -InformationAction Continue
     }
     else {
         Write-Host "No linting issues found." -ForegroundColor Green
         Write-Host ""
+        Write-Information "Build:Lint:View:Completed:IssuesFound=False" -InformationAction Continue
     }
 }
 elseif ($Lint -eq 'Fix') {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
         Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
+        Write-Information "Build:Lint:Started:Action=Fix:Solution=$slnPath" -InformationAction Continue
 
         dotnet format $slnPath --verbosity $Verbosity
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Lint fix completed with warnings or errors." -ForegroundColor Yellow
             Write-Host ""
+            Write-Information "Build:Lint:Fix:Completed:Success=False:ExitCode=$LASTEXITCODE" -InformationAction Continue
         }
         else {
             Write-Host "Lint fix (if any) completed successfully." -ForegroundColor Green
             Write-Host ""
+            Write-Information "Build:Lint:Fix:Completed:Success=True" -InformationAction Continue
         }
     }
 }
@@ -272,6 +300,7 @@ if ($Test) {
         Write-Host "Running tests..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
+        Write-Information "Build:Test:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
 
         $testArgs = @(
             'test',
@@ -284,11 +313,13 @@ if ($Test) {
         & dotnet $testArgs
 
         if ($LASTEXITCODE -ne 0) {
+            Write-Information "Build:Test:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
             throw "Tests failed with exit code $LASTEXITCODE"
         }
 
         Write-Host "Tests completed successfully." -ForegroundColor Green
         Write-Host ""
+        Write-Information "Build:Test:Completed:Success=True" -InformationAction Continue
     }
 }
 
@@ -311,16 +342,19 @@ if ($Publish) {
         $outputDir = Join-Path $projDir "bin\$Configuration\net9.0"
         Write-Host "Output: $outputDir" -ForegroundColor Gray
         Write-Host ""
+        Write-Information "Build:Publish:Started:Configuration=$Configuration:Project=$csprojPath:Output=$outputDir" -InformationAction Continue
 
         dotnet publish $csprojPath --configuration $Configuration --verbosity $Verbosity --output $outputDir
 
         if ($LASTEXITCODE -ne 0) {
+            Write-Information "Build:Publish:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
             throw "Publish failed with exit code $LASTEXITCODE"
         }
 
         Write-Host "Publish completed successfully." -ForegroundColor Green
+        Write-Information "Build:Publish:Completed:Success=True" -InformationAction Continue
     }
 }
 
 Write-Host "All requested operations completed." -ForegroundColor Green
-
+Write-Information "Build:AllOperations:Completed" -InformationAction Continue
