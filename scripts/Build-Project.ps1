@@ -266,6 +266,8 @@ if ($Clean) {
     Write-Host ""
     Write-Information "Build:Clean:Started:Configuration=$Configuration" -InformationAction Continue
 
+    Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Cleaning solution ($Configuration)" -PercentComplete 10
+
     dotnet clean $slnPath --configuration $Configuration --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
@@ -284,6 +286,8 @@ if ($Build) {
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
     Write-Information "Build:Build:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
+
+    Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Building solution ($Configuration)" -PercentComplete 30
 
     $buildArgs = @(
         'build',
@@ -310,6 +314,8 @@ if ($Lint -eq 'View') {
     Write-Host ""
     Write-Information "Build:Lint:Started:Action=View:Solution=$slnPath" -InformationAction Continue
 
+    Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Checking linting issues (View)' -PercentComplete 50
+
     dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
@@ -328,6 +334,8 @@ elseif ($Lint -eq 'Fix') {
         Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
         Write-Information "Build:Lint:Started:Action=Fix:Solution=$slnPath" -InformationAction Continue
+
+        Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Auto-fixing linting issues (Fix)' -PercentComplete 60
 
         dotnet format $slnPath --verbosity $Verbosity
 
@@ -351,6 +359,8 @@ if ($Test) {
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
         Write-Information "Build:Test:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
+
+        Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Running tests ($Configuration)" -PercentComplete 80
 
         $testArgs = @(
             'test',
@@ -396,6 +406,8 @@ if ($Publish) {
         Write-Host ""
         Write-Information "Build:Publish:Started:Configuration=$Configuration:Project=$csprojPath:Output=$outputDir" -InformationAction Continue
 
+        Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Publishing MediaForgePS module ($Configuration)" -PercentComplete 95
+
         dotnet publish $csprojPath --configuration $Configuration --verbosity $Verbosity --output $outputDir
 
         if ($LASTEXITCODE -ne 0) {
@@ -408,5 +420,6 @@ if ($Publish) {
     }
 }
 
+Write-Progress -Activity 'MediaForgePS build pipeline' -Completed
 Write-Host "All requested operations completed." -ForegroundColor Green
 Write-Information "Build:AllOperations:Completed" -InformationAction Continue
