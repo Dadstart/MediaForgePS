@@ -62,29 +62,30 @@
     .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Lint View -Lint Fix -Test -Publish
     Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
 #>
-[CmdletBinding(DefaultParameterSetName = "SpecifiedOperations")]
+[CmdletBinding(DefaultParameterSetName = "PartialBuild")]
 param(
     [Parameter()]
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [Parameter(ParameterSetName = "AllOperations")]
+    [Parameter(ParameterSetName = "FullBuild")]
     [switch]$Full,
 
-    [Parameter(ParameterSetName = "SpecifiedOperations")]
+    [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Clean,
 
-    [Parameter(ParameterSetName = "SpecifiedOperations")]
+    [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Build,
 
-    [Parameter(ParameterSetName = "SpecifiedOperations")]
-    [ValidateSet('View', 'Fix')]
-    [string]$Lint = 'View',
+    [Parameter(ParameterSetName = "FullBuild")]
+    [Parameter(ParameterSetName = "PartialBuild")]
+    [ValidateSet('None', 'View', 'Fix')]
+    [string]$Lint = 'None',
 
-    [Parameter(ParameterSetName = "SpecifiedOperations")]
+    [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Test,
 
-    [Parameter(ParameterSetName = "SpecifiedOperations")]
+    [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
 
     [Parameter()]
@@ -182,7 +183,11 @@ if ($Full) {
 
     $Clean = $true
     $Build = $true
-    $Lint = 'Fix'
+
+    # override lint to fix unless -Lint was explicitly set
+    if (-not $PSBoundParameters.ContainsKey('Lint')) {
+        $Lint = 'Fix'
+    }
     $Test = $true
     $Publish = $true
 }
@@ -227,38 +232,36 @@ if ($Build) {
     Write-Host ""
 }
 
-# Step 3: Lint (optional, enabled with -Lint, defaults to View)
-if ($PSBoundParameters.ContainsKey('Lint')) {
-    if ($Lint -eq 'View') {
-        Write-Host "Checking for linting issues..." -ForegroundColor Cyan
+# Step 3: Lint (optional, enabled with -Lint, defaults to None)
+if ($Lint -eq 'View') {
+    Write-Host "Checking for linting issues..." -ForegroundColor Cyan
+    Write-Host ""
+
+    dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
+        Write-Host ""
+    }
+    else {
+        Write-Host "No linting issues found." -ForegroundColor Green
+        Write-Host ""
+    }
+}
+elseif ($Lint -eq 'Fix') {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
+        Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
 
-        dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
+        dotnet format $slnPath --verbosity $Verbosity
 
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
+            Write-Host "Lint fix completed with warnings or errors." -ForegroundColor Yellow
             Write-Host ""
         }
         else {
-            Write-Host "No linting issues found." -ForegroundColor Green
+            Write-Host "Lint fix (if any) completed successfully." -ForegroundColor Green
             Write-Host ""
-        }
-    }
-    elseif ($Lint -eq 'Fix') {
-        if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
-            Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
-            Write-Host ""
-
-            dotnet format $slnPath --verbosity $Verbosity
-
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "Lint fix completed with warnings or errors." -ForegroundColor Yellow
-                Write-Host ""
-            }
-            else {
-                Write-Host "Lint fix completed successfully." -ForegroundColor Green
-                Write-Host ""
-            }
         }
     }
 }
