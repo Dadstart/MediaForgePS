@@ -11,8 +11,8 @@
 .PARAMETER Configuration
     The build configuration to use (Debug or Release). Defaults to Debug.
 
-.PARAMETER NoClean
-    Skip the clean step. By default, the solution is cleaned before building.
+.PARAMETER Clean
+    Enable the clean step. By default, the solution is not cleaned before building.
 
 .PARAMETER NoBuild
     Skip the build step. Useful when only running lint or publish operations.
@@ -43,11 +43,11 @@
     Cleans, builds in Release configuration, and publishes the module.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -NoClean -Lint
+    .\scripts\Build-Project.ps1 -Lint
     Builds without cleaning, then checks for linting issues (defaults to View).
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -NoClean -Lint View
+    .\scripts\Build-Project.ps1 -Lint View
     Builds without cleaning, then checks for linting issues.
 
 .EXAMPLE
@@ -55,11 +55,11 @@
     Skips build and only runs lint fix to correct formatting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Test
+    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Test
     Cleans, builds in Release configuration, and runs all tests.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Lint View -Lint Fix -Test -Publish
+    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Lint View -Lint Fix -Test -Publish
     Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
 #>
 [CmdletBinding()]
@@ -69,7 +69,7 @@ param(
     [string]$Configuration = 'Debug',
 
     [Parameter()]
-    [switch]$NoClean,
+    [switch]$Clean,
 
     [Parameter()]
     [switch]$NoBuild,
@@ -166,25 +166,24 @@ function Test-BuildOutput {
 }
 
 
-# Step 1: Clean and Build (enabled by default, can skip with -NoBuild)
-if (-not $NoBuild) {
-    # Step 1a: Clean (enabled by default, can skip with -NoClean)
-    if (-not $NoClean) {
-        Write-Host "Cleaning solution..." -ForegroundColor Cyan
-        Write-Host "Configuration: $Configuration" -ForegroundColor Gray
-        Write-Host ""
+# Step 1: Clean (optional, enabled by -Clean)
+if ($Clean) {
+    Write-Host "Cleaning solution..." -ForegroundColor Cyan
+    Write-Host "Configuration: $Configuration" -ForegroundColor Gray
+    Write-Host ""
 
-        dotnet clean $slnPath --configuration $Configuration --verbosity $Verbosity
+    dotnet clean $slnPath --configuration $Configuration --verbosity $Verbosity
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "Clean failed with exit code $LASTEXITCODE"
-        }
-
-        Write-Host "Clean completed successfully." -ForegroundColor Green
-        Write-Host ""
+    if ($LASTEXITCODE -ne 0) {
+        throw "Clean failed with exit code $LASTEXITCODE"
     }
 
-    # Step 1b: Build
+    Write-Host "Clean completed successfully." -ForegroundColor Green
+    Write-Host ""
+}
+
+# Step 2: Build (optional, enabled by default, can skip with -NoBuild)
+if (-not $NoBuild) {
     Write-Host "Building solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
@@ -206,7 +205,7 @@ if (-not $NoBuild) {
     Write-Host ""
 }
 
-# Step 2: Lint (optional, enabled with -Lint, defaults to View)
+# Step 3: Lint (optional, enabled with -Lint, defaults to View)
 if ($PSBoundParameters.ContainsKey('Lint')) {
     if ($Lint -eq 'View') {
         Write-Host "Checking for linting issues..." -ForegroundColor Cyan
@@ -242,7 +241,7 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
     }
 }
 
-# Step 3: Test (optional, enabled with -Test)
+# Step 4: Test (optional, enabled with -Test)
 if ($Test) {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Test") {
         Write-Host "Running tests..." -ForegroundColor Cyan
@@ -268,7 +267,7 @@ if ($Test) {
     }
 }
 
-# Step 4: Publish (optional, enabled with -Publish)
+# Step 5: Publish (optional, enabled with -Publish)
 if ($Publish) {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Publish") {
         Write-Host "Publishing MediaForgePS module..." -ForegroundColor Cyan
