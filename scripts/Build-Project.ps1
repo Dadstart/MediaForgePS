@@ -94,8 +94,19 @@ if (-not (Test-Path $slnPath)) {
     throw "Solution file not found: $slnPath"
 }
 
-# Track whether we need to restore after clean
-$shouldRestore = $false
+# Helper function to check if build output exists for the specified configuration
+function Test-BuildOutput {
+    param(
+        [string]$RepoRoot,
+        [string]$Configuration
+    )
+    
+    $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
+    $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
+    
+    return (Test-Path $dllPath)
+}
+
 
 # Step 1: Clean and Build (enabled by default, can skip with -NoBuild)
 if (-not $NoBuild) {
@@ -112,7 +123,6 @@ if (-not $NoBuild) {
             throw "Clean failed with exit code $LASTEXITCODE"
         }
 
-        $shouldRestore = $true
         Write-Host "Clean completed successfully." -ForegroundColor Green
         Write-Host ""
     }
@@ -129,10 +139,6 @@ if (-not $NoBuild) {
         '--verbosity', $Verbosity
     )
 
-    if ($shouldRestore) {
-        $buildArgs += '--no-restore'
-    }
-
     & dotnet $buildArgs
 
     if ($LASTEXITCODE -ne 0) {
@@ -141,7 +147,6 @@ if (-not $NoBuild) {
 
     Write-Host "Build completed successfully." -ForegroundColor Green
     Write-Host ""
-}
 }
 
 # Step 2: Lint (optional, enabled with -Lint, defaults to View)
@@ -162,8 +167,8 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
         }
     }
     elseif ($Lint -eq 'Fix') {
-        if ($NoBuild) {
-            Write-Host "Lint fix requires a successful build. Skipping lint fix." -ForegroundColor Yellow
+        if (-not (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration)) {
+            Write-Host "Lint fix requires a successful build. Build output not found for $Configuration configuration. Skipping lint fix." -ForegroundColor Yellow
             Write-Host ""
         }
         else {
@@ -186,8 +191,8 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
 
 # Step 3: Publish (optional, enabled with -Publish)
 if ($Publish) {
-    if ($NoBuild) {
-        Write-Host "Publish requires a successful build. Skipping publish." -ForegroundColor Yellow
+    if (-not (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration)) {
+        Write-Host "Publish requires a successful build. Build output not found for $Configuration configuration. Skipping publish." -ForegroundColor Yellow
         Write-Host ""
     }
     else {
