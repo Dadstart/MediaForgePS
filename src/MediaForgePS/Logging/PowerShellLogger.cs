@@ -70,7 +70,7 @@ public class PowerShellLogger : ILogger
 
         // Try to marshal Write calls back to the cmdlet's thread using SynchronizationContext
         var syncContext = _contextAccessor.GetSynchronizationContext();
-        
+
         if (syncContext != null)
         {
             // Marshal the call back to the cmdlet's thread

@@ -45,12 +45,12 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     protected override void BeginProcessing()
     {
         ContextAccessor.SetCurrentContext(this);
-        
+
         // Capture the synchronization context from the cmdlet's thread so we can marshal
         // Write calls back to this thread from async contexts
         var syncContext = SynchronizationContext.Current;
         ContextAccessor.SetSynchronizationContext(syncContext);
-        
+
         Logger.LogDebug("Begin processing {CmdletName} command", GetType().Name);
     }
 
