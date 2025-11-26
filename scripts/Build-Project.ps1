@@ -160,17 +160,14 @@ function Test-BuildOutput {
         [string]$Configuration,
 
         [Parameter]
-        [switch]$Throw,
-
-        [Parameter]
-        [string]$Operation = ''
+        [string]$Operation
     )
     
     $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
     $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
 
     $exists = Test-Path $dllPath
-    if (-not $exists -and $Throw) {
+    if (-not $exists -and $Operation) {
         throw "$Operation requires a successful build. Build output not found for $Configuration configuration."
     }
 
