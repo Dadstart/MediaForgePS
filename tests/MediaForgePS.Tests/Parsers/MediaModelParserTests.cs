@@ -55,7 +55,7 @@ public class MediaModelParserTests
     }
 
     [Fact]
-    public void ParseChapter_WithMissingTitleTag_ThrowsKeyNotFoundException()
+    public void ParseChapter_WithMissingTitleTag_ReturnsNullTitle()
     {
         // Arrange
         var json = """
@@ -67,8 +67,12 @@ public class MediaModelParserTests
             }
             """;
 
-        // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() => _parser.ParseChapter(json));
+        // Act
+        var result = _parser.ParseChapter(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.Title);
     }
 
     [Fact]
@@ -183,7 +187,7 @@ public class MediaModelParserTests
     }
 
     [Fact]
-    public void ParseFormat_WithMissingTitleTag_ThrowsKeyNotFoundException()
+    public void ParseFormat_WithMissingTitleTag_ReturnsNullTitle()
     {
         // Arrange
         var json = """
@@ -200,8 +204,12 @@ public class MediaModelParserTests
             }
             """;
 
-        // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() => _parser.ParseFormat(json));
+        // Act
+        var result = _parser.ParseFormat(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.Title);
     }
 
     [Fact]
@@ -278,7 +286,7 @@ public class MediaModelParserTests
     }
 
     [Fact]
-    public void ParseStream_WithMissingLanguageTag_ThrowsKeyNotFoundException()
+    public void ParseStream_WithMissingLanguageTag_ReturnsNullLanguage()
     {
         // Arrange
         var json = """
@@ -292,12 +300,17 @@ public class MediaModelParserTests
             }
             """;
 
-        // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() => _parser.ParseStream(json));
+        // Act
+        var result = _parser.ParseStream(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.Language);
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
-    public void ParseStream_WithLanguageButMissingDurationTag_ThrowsException()
+    public void ParseStream_WithLanguageButMissingDurationTag_ReturnsZeroDuration()
     {
         // Arrange
         var json = """
@@ -311,8 +324,13 @@ public class MediaModelParserTests
             }
             """;
 
-        // Act & Assert
-        Assert.Throws<KeyNotFoundException>(() => _parser.ParseStream(json));
+        // Act
+        var result = _parser.ParseStream(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("eng", result.Language);
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
@@ -376,7 +394,7 @@ public class MediaModelParserTests
     #region ParseFile Tests
 
     [Fact]
-    public void ParseFile_WithValidJson_ThrowsJsonException()
+    public void ParseFile_WithValidJson_ReturnsMediaFile()
     {
         // Arrange
         var path = "C:\\Videos\\test.mkv";
@@ -416,11 +434,20 @@ public class MediaModelParserTests
             }
             """;
 
-        // Act & Assert
-        // Note: The current implementation tries to deserialize the entire JSON as MediaChapter[] and MediaStream[],
-        // which fails because the JSON structure has "chapters" and "streams" as properties, not the root.
-        // This test documents the current (buggy) behavior.
-        Assert.Throws<JsonException>(() => _parser.ParseFile(path, json));
+        // Act
+        var result = _parser.ParseFile(path, json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(path, result.Path);
+        Assert.NotNull(result.Format);
+        Assert.Equal("matroska", result.Format.Format);
+        Assert.Equal("Test Video", result.Format.Title);
+        Assert.Single(result.Chapters);
+        Assert.Equal("Chapter 1", result.Chapters[0].Title);
+        Assert.Single(result.Streams);
+        Assert.Equal("video", result.Streams[0].Type);
+        Assert.Equal("h264", result.Streams[0].Codec);
     }
 
     [Fact]
@@ -475,7 +502,8 @@ public class MediaModelParserTests
         var json = "{ invalid json }";
 
         // Act & Assert
-        Assert.Throws<JsonException>(() => _parser.ParseFile(path, json));
+        // JsonDocument.Parse throws JsonReaderException, which is a subclass of JsonException
+        Assert.ThrowsAny<JsonException>(() => _parser.ParseFile(path, json));
     }
 
     #endregion

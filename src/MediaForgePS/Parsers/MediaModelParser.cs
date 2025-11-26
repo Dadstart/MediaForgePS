@@ -43,7 +43,8 @@ public class MediaModelParser(ILogger logger) : IMediaModelParser
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
         _logger.LogInformation("Deserialized MediaChapter");
 
-        return chapter with { Title = chapter.Tags["title"], Raw = json };
+        chapter.Tags.TryGetValue("title", out var title);
+        return chapter with { Title = title, Raw = json };
     }
 
     /// <inheritdoc />
@@ -77,7 +78,8 @@ public class MediaModelParser(ILogger logger) : IMediaModelParser
         var format = JsonSerializer.Deserialize<MediaFormat>(json, Options)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
         _logger.LogInformation("Deserialized MediaFormat");
-        return format with { Title = format.Tags["title"], Raw = json };
+        format.Tags.TryGetValue("title", out var title);
+        return format with { Title = title, Raw = json };
     }
 
     /// <inheritdoc />
@@ -113,12 +115,12 @@ public class MediaModelParser(ILogger logger) : IMediaModelParser
             ?? throw new JsonException("Failed to deserialize MediaStream from JSON");
         _logger.LogInformation("Deserialized MediaStream");
 
-        var language = stream.Tags["language"];
+        stream.Tags.TryGetValue("language", out var language);
         TimeSpan duration = TimeSpan.Zero;
 
-        if (language is not null)
+        if (language is not null && stream.Tags.TryGetValue($"DURATION-{language}", out var durationStr))
         {
-            duration = TimeSpan.Parse(stream.Tags[$"DURATION-{language}"]);
+            duration = TimeSpan.Parse(durationStr);
         }
 
         return stream with { Language = language, Duration = duration, Raw = json };
@@ -139,19 +141,47 @@ public class MediaModelParser(ILogger logger) : IMediaModelParser
             }
         */
 
-
         _logger.LogInformation("Deserializing MediaFile");
         _logger.LogDebug("Json: {json}", json);
-        var format = JsonSerializer.Deserialize<MediaFormat>(json, Options)
-            ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
 
-        var chapters = JsonSerializer.Deserialize<MediaChapter[]>(json, Options)
-            ?? throw new JsonException("Failed to deserialize MediaChapter[] from JSON");
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
 
-        var streams = JsonSerializer.Deserialize<MediaStream[]>(json, Options)
-            ?? throw new JsonException("Failed to deserialize MediaStream[] from JSON");
+        // Parse format
+        if (!root.TryGetProperty("format", out var formatElement))
+            throw new JsonException("JSON does not contain a 'format' property");
+
+        var formatJson = formatElement.GetRawText();
+        var format = ParseFormat(formatJson);
+
+        // Parse chapters (optional - may not exist)
+        MediaChapter[] chapters = [];
+        if (root.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Array)
+        {
+            var chapterList = new List<MediaChapter>();
+            foreach (var chapterElement in chaptersElement.EnumerateArray())
+            {
+                var chapterJson = chapterElement.GetRawText();
+                var chapter = ParseChapter(chapterJson);
+                chapterList.Add(chapter);
+            }
+            chapters = chapterList.ToArray();
+        }
+
+        // Parse streams
+        if (!root.TryGetProperty("streams", out var streamsElement) || streamsElement.ValueKind != JsonValueKind.Array)
+            throw new JsonException("JSON does not contain a 'streams' property or it is not an array");
+
+        var streamList = new List<MediaStream>();
+        foreach (var streamElement in streamsElement.EnumerateArray())
+        {
+            var streamJson = streamElement.GetRawText();
+            var stream = ParseStream(streamJson);
+            streamList.Add(stream);
+        }
+        var streams = streamList.ToArray();
+
         _logger.LogInformation("Deserialized MediaFile");
-
         return new MediaFile(path, format, chapters, streams, json);
     }
 }
