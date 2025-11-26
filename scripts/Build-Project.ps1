@@ -89,7 +89,7 @@ param(
     [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
 
-    [Parameter]
+    [Parameter()]
     [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
     [string]$Verbosity = 'minimal'
 )
@@ -149,6 +149,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $repoRoot = $repoRoot.Trim()
+
 $slnPath = Join-Path $repoRoot 'MediaForgePS.sln'
 
 # Verify solution file exists
@@ -205,21 +206,12 @@ function Test-BuildOutput {
         [Parameter(Mandatory)]
         [string]$Configuration,
 
-        [Parameter]
+        [Parameter()]
         [string]$Operation
     )
-    
-    $dllPath = Join-Path
-        -Path $RepoRoot
-        -ChildPath 'src'
-        -AdditionalChildPath @(
-            'MediaForgePS',
-            'bin',
-            $Configuration,
-            $targetFramework,
-            'MediaForgePS.dll')
+    $dllPath = Join-Path -Path $RepoRoot -ChildPath 'src' -AdditionalChildPath ('MediaForgePS', 'bin', $Configuration, $targetFramework, 'MediaForgePS.dll')
 
-        $exists = Test-Path $dllPath
+    $exists = Test-Path $dllPath
     if (-not $exists -and $Operation) {
         throw "$Operation requires a successful build. Build output not found for $Configuration configuration."
     }
@@ -237,7 +229,6 @@ $operationsRequested = $Full -or $Clean -or $Build -or ($Lint -ne 'None') -or $T
 # If no operations requested, enable all operations by default
 if (-not $operationsRequested) {
     Write-Host "No operations specified. Running all operations by default." -ForegroundColor Cyan
-    Write-Information "Build:DefaultOperations:Enabled=All" -InformationAction Continue
     $Full = $true
 }
 
@@ -245,7 +236,6 @@ if (-not $operationsRequested) {
 if ($Full) {
     Write-Host "Performing *all* operations for this project" -ForegroundColor Cyan
     Write-Host ""
-    Write-Information "Build:Full:Enabled=True" -InformationAction Continue
 
     $Clean = $true
     $Build = $true
@@ -264,7 +254,6 @@ if ($Clean) {
     Write-Host "Cleaning solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
-    Write-Information "Build:Clean:Started:Configuration=$Configuration" -InformationAction Continue
 
     Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Cleaning solution ($Configuration)" -PercentComplete 10
 
@@ -277,7 +266,6 @@ if ($Clean) {
 
     Write-Host "Clean completed successfully." -ForegroundColor Green
     Write-Host ""
-    Write-Information "Build:Clean:Completed:Success=True" -InformationAction Continue
 }
 
 # Step 2: Build (optional, enabled by -Build)
@@ -285,7 +273,6 @@ if ($Build) {
     Write-Host "Building solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
-    Write-Information "Build:Build:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
 
     Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Building solution ($Configuration)" -PercentComplete 30
 
@@ -305,14 +292,12 @@ if ($Build) {
 
     Write-Host "Build completed successfully." -ForegroundColor Green
     Write-Host ""
-    Write-Information "Build:Build:Completed:Success=True" -InformationAction Continue
 }
 
 # Step 3: Lint (optional, enabled with -Lint, defaults to None)
 if ($Lint -eq 'View') {
     Write-Host "Checking for linting issues..." -ForegroundColor Cyan
     Write-Host ""
-    Write-Information "Build:Lint:Started:Action=View:Solution=$slnPath" -InformationAction Continue
 
     Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Checking linting issues (View)' -PercentComplete 50
 
@@ -321,19 +306,16 @@ if ($Lint -eq 'View') {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
         Write-Host ""
-        Write-Information "Build:Lint:View:Completed:IssuesFound=True:ExitCode=$LASTEXITCODE" -InformationAction Continue
     }
     else {
         Write-Host "No linting issues found." -ForegroundColor Green
         Write-Host ""
-        Write-Information "Build:Lint:View:Completed:IssuesFound=False" -InformationAction Continue
     }
 }
 elseif ($Lint -eq 'Fix') {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
         Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
-        Write-Information "Build:Lint:Started:Action=Fix:Solution=$slnPath" -InformationAction Continue
 
         Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Auto-fixing linting issues (Fix)' -PercentComplete 60
 
@@ -342,12 +324,10 @@ elseif ($Lint -eq 'Fix') {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Lint fix completed with warnings or errors." -ForegroundColor Yellow
             Write-Host ""
-            Write-Information "Build:Lint:Fix:Completed:Success=False:ExitCode=$LASTEXITCODE" -InformationAction Continue
         }
         else {
             Write-Host "Lint fix (if any) completed successfully." -ForegroundColor Green
             Write-Host ""
-            Write-Information "Build:Lint:Fix:Completed:Success=True" -InformationAction Continue
         }
     }
 }
@@ -358,7 +338,6 @@ if ($Test) {
         Write-Host "Running tests..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
-        Write-Information "Build:Test:Started:Configuration=$Configuration:Solution=$slnPath" -InformationAction Continue
 
         Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Running tests ($Configuration)" -PercentComplete 80
 
@@ -379,7 +358,6 @@ if ($Test) {
 
         Write-Host "Tests completed successfully." -ForegroundColor Green
         Write-Host ""
-        Write-Information "Build:Test:Completed:Success=True" -InformationAction Continue
     }
 }
 
@@ -399,12 +377,9 @@ if ($Publish) {
         }
 
         # Set output directory to bin\{Configuration}\{targetFramework}
-        $binDir = Join-Path $projDir 'bin'
-        $configDir = Join-Path $binDir $Configuration
-        $outputDir = Join-Path $configDir $targetFramework
+        $outputDir = Join-Path -Path $projDir  -ChildPath 'bin' -AdditionalChildPath ($Configuration)
         Write-Host "Output: $outputDir" -ForegroundColor Gray
         Write-Host ""
-        Write-Information "Build:Publish:Started:Configuration=$Configuration:Project=$csprojPath:Output=$outputDir" -InformationAction Continue
 
         Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Publishing MediaForgePS module ($Configuration)" -PercentComplete 95
 
@@ -416,10 +391,8 @@ if ($Publish) {
         }
 
         Write-Host "Publish completed successfully." -ForegroundColor Green
-        Write-Information "Build:Publish:Completed:Success=True" -InformationAction Continue
     }
 }
 
 Write-Progress -Activity 'MediaForgePS build pipeline' -Completed
 Write-Host "All requested operations completed." -ForegroundColor Green
-Write-Information "Build:AllOperations:Completed" -InformationAction Continue
