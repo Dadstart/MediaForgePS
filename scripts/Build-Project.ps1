@@ -209,10 +209,12 @@ function Test-BuildOutput {
         [string]$Operation
     )
     
-    $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
-    $dllPath = Join-Path $projDir "bin\$Configuration\$targetFramework\MediaForgePS.dll"
+    $dllPath = Join-Path
+        -Path $RepoRoot
+        -ChildPath 'src'
+        -AdditionalChildPath @('MediaForgePS', 'bin', $Configuration, $targetFramework, 'MediaForgePS.dll')
 
-    $exists = Test-Path $dllPath
+        $exists = Test-Path $dllPath
     if (-not $exists -and $Operation) {
         throw "$Operation requires a successful build. Build output not found for $Configuration configuration."
     }
@@ -382,7 +384,9 @@ if ($Publish) {
         }
 
         # Set output directory to bin\{Configuration}\{targetFramework}
-        $outputDir = Join-Path $projDir "bin\$Configuration\$targetFramework"
+        $binDir = Join-Path $projDir 'bin'
+        $configDir = Join-Path $binDir $Configuration
+        $outputDir = Join-Path $configDir $targetFramework
         Write-Host "Output: $outputDir" -ForegroundColor Gray
         Write-Host ""
         Write-Information "Build:Publish:Started:Configuration=$Configuration:Project=$csprojPath:Output=$outputDir" -InformationAction Continue
