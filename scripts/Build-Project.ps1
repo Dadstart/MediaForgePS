@@ -127,7 +127,7 @@ if (-not (Test-Path $slnPath)) {
 .PARAMETER Configuration
     The build configuration to check (Debug or Release).
 
-.PARAMETER ThrowFor
+.PARAMETER Operation
     Optional. If specified and build output does not exist, throws an error
     with a message indicating which operation requires the build.
     Example values are operation names like "Test", "Publish", or "Lint".
@@ -141,35 +141,36 @@ if (-not (Test-Path $slnPath)) {
     Checks if Debug build output exists without throwing an error.
 
 .EXAMPLE
-    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration "Release" -ThrowFor "Publish") {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration "Release" -Operation "Publish") {
         # Publish step code
     }
-    Checks if Release build output exists and throws an error if not found,
+    Checks if Release build output exists and returns $false on return
     otherwise proceeds with publish operation.
 #>
 function Test-BuildOutput {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [string]$RepoRoot,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory)]
         [string]$Configuration,
 
-        [Parameter(Mandatory = $false)]
-        [string]$ThrowFor
+        [Parameter(Mandatory)]
+        [string]$Operation
     )
     
     $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
     $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
-    $exists = Test-Path $dllPath
 
-    if (-not $exists -and $ThrowFor) {
-        throw "$ThrowFor requires a successful build. Build output not found for $Configuration configuration."
+    $exists = Test-Path $dllPath
+    if (-not $exists) {
+        Write-Error "$Operation requires a successful build. Build output not found for $Configuration configuration."
     }
 
     return $exists
 }
+
 #
 # --------------------------------------------------------------------------------
 #
@@ -244,7 +245,7 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
         }
     }
     elseif ($Lint -eq 'Fix') {
-        if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Lint fix") {
+        if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
             Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
             Write-Host ""
 
@@ -264,7 +265,7 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
 
 # Step 4: Test (optional, enabled with -Test)
 if ($Test) {
-    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Test") {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Test") {
         Write-Host "Running tests..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
@@ -290,7 +291,7 @@ if ($Test) {
 
 # Step 5: Publish (optional, enabled with -Publish)
 if ($Publish) {
-    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Publish") {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Publish") {
         Write-Host "Publishing MediaForgePS module..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
 
