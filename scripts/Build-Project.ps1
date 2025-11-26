@@ -68,20 +68,23 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
 
-    [Parameter()]
+    [Parameter(ParameterSetName = "AllOperations")]
+    [switch]$Full,
+
+    [Parameter(ParameterSetName = "SpecifiedOperations")]
     [switch]$Clean,
 
-    [Parameter()]
+    [Parameter(ParameterSetName = "SpecifiedOperations")]
     [switch]$NoBuild,
 
-    [Parameter()]
+    [Parameter(ParameterSetName = "SpecifiedOperations")]
     [ValidateSet('View', 'Fix')]
     [string]$Lint = 'View',
 
-    [Parameter()]
+    [Parameter(ParameterSetName = "SpecifiedOperations")]
     [switch]$Test,
 
-    [Parameter()]
+    [Parameter(ParameterSetName = "SpecifiedOperations")]
     [switch]$Publish,
 
     [Parameter()]
@@ -104,8 +107,11 @@ $slnPath = Join-Path $repoRoot 'MediaForgePS.sln'
 if (-not (Test-Path $slnPath)) {
     throw "Solution file not found: $slnPath"
 }
-
+#
+# --------------------------------------------------------------------------------
 # Helper function to check if build output exists for the specified configuration
+# --------------------------------------------------------------------------------
+#
 <#
 .SYNOPSIS
     Checks if build output exists for the specified configuration.
@@ -163,6 +169,21 @@ function Test-BuildOutput {
     }
 
     return $exists
+}
+#
+# --------------------------------------------------------------------------------
+#
+
+# Check for Full build, and enable all operations if specified
+if ($Full) {
+    Write-Host "Performing *all* operations for this project" -ForegroundColor Cyan
+    Write-Host ""
+
+    $Clean = $true
+    $NoBuild = $false
+    $Lint = 'Fix'
+    $Test = $true
+    $Publish = $true
 }
 
 
