@@ -124,7 +124,7 @@ if (-not (Test-Path $slnPath)) {
 .PARAMETER ThrowFor
     Optional. If specified and build output does not exist, throws an error
     with a message indicating which operation requires the build.
-    Valid values are operation names like "Test", "Publish", "Lint".
+    Example values are operation names like "Test", "Publish", or "Lint".
 
 .OUTPUTS
     System.Boolean
