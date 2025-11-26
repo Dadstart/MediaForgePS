@@ -106,10 +106,51 @@ if (-not (Test-Path $slnPath)) {
 }
 
 # Helper function to check if build output exists for the specified configuration
+<#
+.SYNOPSIS
+    Checks if build output exists for the specified configuration.
+
+.DESCRIPTION
+    Tests for the presence of the main module DLL at the expected build output path.
+    This is used by various script steps (Test, Publish, Lint Fix) to verify that
+    a successful build has occurred before proceeding.
+
+.PARAMETER RepoRoot
+    The root directory of the git repository.
+
+.PARAMETER Configuration
+    The build configuration to check (Debug or Release).
+
+.PARAMETER ThrowFor
+    Optional. If specified and build output does not exist, throws an error
+    with a message indicating which operation requires the build.
+    Valid values are operation names like "Test", "Publish", "Lint".
+
+.OUTPUTS
+    System.Boolean
+    Returns $true if build output exists, $false otherwise.
+
+.EXAMPLE
+    Test-BuildOutput -RepoRoot $repoRoot -Configuration "Debug"
+    Checks if Debug build output exists without throwing an error.
+
+.EXAMPLE
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration "Release" -ThrowFor "Publish") {
+        # Publish step code
+    }
+    Checks if Release build output exists and throws an error if not found,
+    otherwise proceeds with publish operation.
+#>
 function Test-BuildOutput {
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $true)]
         [string]$RepoRoot,
+
+        [Parameter(Mandatory = $true)]
         [string]$Configuration,
+
+        [Parameter(Mandatory = $false)]
         [string]$ThrowFor
     )
     
@@ -118,7 +159,7 @@ function Test-BuildOutput {
     $exists = Test-Path $dllPath
 
     if (-not $exists -and $ThrowFor) {
-        throw "$ThrowFor requires a successful build. Build output not found for $Configuration configuration. Skipping tests."
+        throw "$ThrowFor requires a successful build. Build output not found for $Configuration configuration."
     }
 
     return $exists
@@ -127,7 +168,6 @@ function Test-BuildOutput {
 
 # Step 1: Clean and Build (enabled by default, can skip with -NoBuild)
 if (-not $NoBuild) {
-
     # Step 1a: Clean (enabled by default, can skip with -NoClean)
     if (-not $NoClean) {
         Write-Host "Cleaning solution..." -ForegroundColor Cyan
@@ -184,11 +224,7 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
         }
     }
     elseif ($Lint -eq 'Fix') {
-        if (-not (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration)) {
-            Write-Host "Lint fix requires a successful build. Build output not found for $Configuration configuration. Skipping lint fix." -ForegroundColor Yellow
-            Write-Host ""
-        }
-        else {
+        if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Lint fix") {
             Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
             Write-Host ""
 
@@ -208,7 +244,7 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
 
 # Step 3: Test (optional, enabled with -Test)
 if ($Test) {
-    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $configuration -ThrowFor "Test" {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Test") {
         Write-Host "Running tests..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
@@ -234,11 +270,7 @@ if ($Test) {
 
 # Step 4: Publish (optional, enabled with -Publish)
 if ($Publish) {
-    if (-not (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration)) {
-        Write-Host "Publish requires a successful build. Build output not found for $Configuration configuration. Skipping publish." -ForegroundColor Yellow
-        Write-Host ""
-    }
-    else {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -ThrowFor "Publish") {
         Write-Host "Publishing MediaForgePS module..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
 
