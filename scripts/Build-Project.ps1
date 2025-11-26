@@ -139,6 +139,9 @@ function Test-Command {
 Test-Command -CommandName 'git'
 Test-Command -CommandName 'dotnet'
 
+# Target framework version (matches MediaForgePS.csproj)
+$targetFramework = 'net9.0'
+
 # Determine repository root using git
 $repoRoot = git rev-parse --show-toplevel
 if ($LASTEXITCODE -ne 0) {
@@ -207,7 +210,7 @@ function Test-BuildOutput {
     )
     
     $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
-    $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
+    $dllPath = Join-Path $projDir "bin\$Configuration\$targetFramework\MediaForgePS.dll"
 
     $exists = Test-Path $dllPath
     if (-not $exists -and $Operation) {
@@ -378,8 +381,8 @@ if ($Publish) {
             throw "Project file not found: $csprojPath"
         }
 
-        # Set output directory to bin\{Configuration}\net9.0
-        $outputDir = Join-Path $projDir "bin\$Configuration\net9.0"
+        # Set output directory to bin\{Configuration}\{targetFramework}
+        $outputDir = Join-Path $projDir "bin\$Configuration\$targetFramework"
         Write-Host "Output: $outputDir" -ForegroundColor Gray
         Write-Host ""
         Write-Information "Build:Publish:Started:Configuration=$Configuration:Project=$csprojPath:Output=$outputDir" -InformationAction Continue
