@@ -14,8 +14,8 @@
 .PARAMETER Clean
     Enable the clean step. By default, the solution is not cleaned before building.
 
-.PARAMETER NoBuild
-    Skip the build step. Useful when only running lint or publish operations.
+.PARAMETER Build
+    Enable the build step. By default, the solution is not built unless this parameter is explicitly set.
 
 .PARAMETER Lint
     Enable linting with the specified action. Defaults to 'View'.
@@ -36,33 +36,33 @@
 
 .EXAMPLE
     .\scripts\Build-Project.ps1
-    Cleans and builds the solution in Debug configuration.
+    Runs all operations (equivalent to -Build -Clean -Lint -Test -Publish).
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Publish
-    Cleans, builds in Release configuration, and publishes the module.
+    .\scripts\Build-Project.ps1 -Configuration Release -Build -Publish
+    Builds in Release configuration, then publishes the module.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Lint
+    .\scripts\Build-Project.ps1 -Build -Lint
     Builds without cleaning, then checks for linting issues (defaults to View).
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Lint View
+    .\scripts\Build-Project.ps1 -Build -Lint View
     Builds without cleaning, then checks for linting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -NoBuild -Lint Fix
-    Skips build and only runs lint fix to correct formatting issues.
+    .\scripts\Build-Project.ps1 -Build -Lint Fix
+    Builds the solution, then runs lint fix to correct formatting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Test
+    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Test
     Cleans, builds in Release configuration, and runs all tests.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Lint View -Lint Fix -Test -Publish
+    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Lint View -Lint Fix -Test -Publish
     Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = "SpecifiedOperations")]
 param(
     [Parameter()]
     [ValidateSet('Debug', 'Release')]
@@ -75,7 +75,7 @@ param(
     [switch]$Clean,
 
     [Parameter(ParameterSetName = "SpecifiedOperations")]
-    [switch]$NoBuild,
+    [switch]$Build,
 
     [Parameter(ParameterSetName = "SpecifiedOperations")]
     [ValidateSet('View', 'Fix')]
@@ -180,7 +180,7 @@ if ($Full) {
     Write-Host ""
 
     $Clean = $true
-    $NoBuild = $false
+    $Build = $true
     $Lint = 'Fix'
     $Test = $true
     $Publish = $true
@@ -203,8 +203,8 @@ if ($Clean) {
     Write-Host ""
 }
 
-# Step 2: Build (optional, enabled by default, can skip with -NoBuild)
-if (-not $NoBuild) {
+# Step 2: Build (optional, enabled by -Build)
+if ($Build) {
     Write-Host "Building solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
