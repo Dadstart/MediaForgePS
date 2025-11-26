@@ -9,9 +9,9 @@ using Microsoft.PowerShell.Commands;
 
 namespace Dadstart.Labs.MediaForge.Parsers;
 
-public class MediaModelParser(ILogger logger) : IMediaModelParser
+public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelParser
 {
-    private readonly ILogger _logger = logger;
+    private readonly ILogger<MediaModelParser> _logger = logger;
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,

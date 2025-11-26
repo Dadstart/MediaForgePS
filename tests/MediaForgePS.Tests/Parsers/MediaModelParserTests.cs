@@ -11,12 +11,12 @@ namespace Dadstart.Labs.MediaForge.Tests.Parsers;
 
 public class MediaModelParserTests
 {
-    private readonly Mock<ILogger> _loggerMock;
+    private readonly Mock<ILogger<MediaModelParser>> _loggerMock;
     private readonly MediaModelParser _parser;
 
     public MediaModelParserTests()
     {
-        _loggerMock = new Mock<ILogger>();
+        _loggerMock = new Mock<ILogger<MediaModelParser>>();
         _parser = new MediaModelParser(_loggerMock.Object);
     }
 
