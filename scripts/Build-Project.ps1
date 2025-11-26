@@ -212,7 +212,12 @@ function Test-BuildOutput {
     $dllPath = Join-Path
         -Path $RepoRoot
         -ChildPath 'src'
-        -AdditionalChildPath @('MediaForgePS', 'bin', $Configuration, $targetFramework, 'MediaForgePS.dll')
+        -AdditionalChildPath @(
+            'MediaForgePS',
+            'bin',
+            $Configuration,
+            $targetFramework,
+            'MediaForgePS.dll')
 
         $exists = Test-Path $dllPath
     if (-not $exists -and $Operation) {
