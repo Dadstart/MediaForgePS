@@ -22,6 +22,10 @@
     - 'View': Check for formatting issues without fixing them (runs 'dotnet format --verify-no-changes').
     - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded.
 
+.PARAMETER Test
+    Enable test step. Runs all tests in the solution.
+    Only runs if build succeeded. Uses --no-build flag if build output exists.
+
 .PARAMETER Publish
     Enable publish step. Publishes the main module project to the bin directory.
     Only runs if build succeeded.
@@ -51,8 +55,12 @@
     Skips build and only runs lint fix to correct formatting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Lint View -Lint Fix -Publish
-    Full workflow: clean, build in Release, check linting, fix linting, and publish.
+    .\scripts\Build-Project.ps1 -Configuration Release -Test
+    Cleans, builds in Release configuration, and runs all tests.
+
+.EXAMPLE
+    .\scripts\Build-Project.ps1 -Configuration Release -Lint View -Lint Fix -Test -Publish
+    Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
 #>
 [CmdletBinding()]
 param(
@@ -69,6 +77,9 @@ param(
     [Parameter()]
     [ValidateSet('View', 'Fix')]
     [string]$Lint = 'View',
+
+    [Parameter()]
+    [switch]$Test,
 
     [Parameter()]
     [switch]$Publish,
@@ -98,13 +109,19 @@ if (-not (Test-Path $slnPath)) {
 function Test-BuildOutput {
     param(
         [string]$RepoRoot,
-        [string]$Configuration
+        [string]$Configuration,
+        [string]$ThrowFor
     )
     
     $projDir = Join-Path $RepoRoot 'src\MediaForgePS'
     $dllPath = Join-Path $projDir "bin\$Configuration\net9.0\MediaForgePS.dll"
-    
-    return (Test-Path $dllPath)
+    $exists = Test-Path $dllPath
+
+    if (-not $exists -and $ThrowFor) {
+        throw "$ThrowFor requires a successful build. Build output not found for $Configuration configuration. Skipping tests."
+    }
+
+    return $exists
 }
 
 
@@ -189,7 +206,33 @@ if ($PSBoundParameters.ContainsKey('Lint')) {
     }
 }
 
-# Step 3: Publish (optional, enabled with -Publish)
+# Step 3: Test (optional, enabled with -Test)
+if ($Test) {
+    if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $configuration -ThrowFor "Test" {
+        Write-Host "Running tests..." -ForegroundColor Cyan
+        Write-Host "Configuration: $Configuration" -ForegroundColor Gray
+        Write-Host ""
+
+        $testArgs = @(
+            'test',
+            $slnPath,
+            '--configuration', $Configuration,
+            '--verbosity', $Verbosity,
+            '--no-build'
+        )
+
+        & dotnet $testArgs
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Tests failed with exit code $LASTEXITCODE"
+        }
+
+        Write-Host "Tests completed successfully." -ForegroundColor Green
+        Write-Host ""
+    }
+}
+
+# Step 4: Publish (optional, enabled with -Publish)
 if ($Publish) {
     if (-not (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration)) {
         Write-Host "Publish requires a successful build. Build output not found for $Configuration configuration. Skipping publish." -ForegroundColor Yellow
