@@ -13,17 +13,24 @@ public class DebuggerService : IDebuggerService
 
     public static bool ForceDebugging { get; set; } = true;
 
+    public static bool BreakAll { get; set; } = true;
+
     /// <summary>
     /// Indicates whether debugging is currently active, either through a forced state or when a debugger is already attached.
     /// </summary>
     public bool IsDebugging => ForceDebugging || Debugger.IsAttached;
+
+    private bool ShouldBreak(bool setting)
+    {
+        return IsDebugging && (BreakAll || setting);
+    }
 
     /// <summary>
     /// Controls whether to break execution at the BeginProcessing stage of PowerShell cmdlets when debugging is active.
     /// </summary>
     public bool PowerShellBreakOnBeginProcessing
     {
-        get => IsDebugging && _powerShellBreakOnBeginProcessing;
+        get => ShouldBreak(_powerShellBreakOnBeginProcessing);
         set => _powerShellBreakOnBeginProcessing = value;
     }
 
@@ -32,7 +39,7 @@ public class DebuggerService : IDebuggerService
     /// </summary>
     public bool PowerShellBreakOnProcessRecord
     {
-        get => IsDebugging && _powerShellBreakOnProcessRecord;
+        get => ShouldBreak(_powerShellBreakOnProcessRecord);
         set => _powerShellBreakOnProcessRecord = value;
     }
 
@@ -41,7 +48,7 @@ public class DebuggerService : IDebuggerService
     /// </summary>
     public bool PowerShellBreakOnEndProcessing
     {
-        get => IsDebugging && _powerShellBreakOnEndProcessing;
+        get => ShouldBreak(_powerShellBreakOnEndProcessing);
         set => _powerShellBreakOnEndProcessing = value;
     }
 
