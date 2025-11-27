@@ -5,6 +5,7 @@ using Dadstart.Labs.MediaForge.Parsers;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
+using System.Diagnostics;
 
 namespace Dadstart.Labs.MediaForge.DependencyInjection;
 
@@ -49,6 +50,7 @@ public static class ServiceCollectionExtensions
         {
             builder.SetMinimumLevel(LogLevel.Trace);
         });
+        services.AddSingleton<IDebuggerService, DebuggerService>();
 
         return services;
     }

@@ -1,11 +1,9 @@
 using System.Management.Automation;
-using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.DependencyInjection;
 using Dadstart.Labs.MediaForge.Logging;
-using System.ComponentModel;
-using System.Diagnostics;
+using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -17,6 +15,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
 {
     private ILogger? _logger;
     private IPowerShellCommandContextAccessor? _contextAccessor;
+    private IDebuggerService? _debugger;
 
     /// <summary>
     /// Logger instance for the derived cmdlet type.
@@ -42,6 +41,19 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     }
 
     /// <summary>
+    /// Debugging service for managing debugging state and breakpoint behavior.
+    /// </summary>
+    protected IDebuggerService Debugger
+    {
+        get
+        {
+            return _debugger ?? ServiceProviderAccessor.ServiceProvider.GetRequiredService<IDebuggerService>();
+        }
+    }
+
+    public string CmdletName => GetType().Name;
+
+    /// <summary>
     /// Sets up the PowerShell command context for logging before processing begins.
     /// </summary>
     protected sealed override void BeginProcessing()
@@ -53,20 +65,30 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         var syncContext = SynchronizationContext.Current;
         ContextAccessor.SetSynchronizationContext(syncContext);
 
-        Logger.LogDebug("Begin processing {CmdletName} command", GetType().Name);
-
+        Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
         Begin();
     }
 
-    protected sealed override void ProcessRecord() => Process();
+    /// <summary>
+    /// Processes each record in the pipeline.
+    /// Handles common behavior and then calls child Process to do the actual record process
+    /// </summary>
+    protected sealed override void ProcessRecord()
+    {
+        Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnProcessRecord);
+
+        Logger.LogDebug("Processing {CmdletName} command", CmdletName);
+        Process();
+    }
 
     /// <summary>
     /// Cleans up the PowerShell command context after processing completes.
     /// </summary>
     protected sealed override void EndProcessing()
     {
-        Logger.LogDebug("End processing {CmdletName} command", GetType().Name);
+        Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
 
+        Logger.LogDebug("End processing {CmdletName} command", CmdletName);
         End();
 
         ContextAccessor.SetCurrentContext(null);
