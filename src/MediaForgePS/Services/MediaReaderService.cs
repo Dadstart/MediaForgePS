@@ -20,7 +20,7 @@ public class MediaReaderService : IMediaReaderService
         _logger = logger;
     }
 
-    public async Task<MediaFile?> GetMediaFile(string path)
+    public async Task<MediaFile?> GetMediaFileAsync(string path)
     {
         _logger.LogInformation("Reading media file: {Path}", path);
 

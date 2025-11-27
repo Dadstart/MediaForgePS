@@ -4,14 +4,15 @@ using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.Services.System;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Module;
+using System.Threading.Tasks.Dataflow;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Base class for MediaForge PowerShell cmdlets that provides common functionality
-/// for logging and PowerShell command context management.
+/// Base class for MediaForge PowerShell cmdlets that supports async and
+/// provides provides common functionality for logging and other.
 /// </summary>
-public abstract class MediaForgeCmdletBase : PSCmdlet
+public abstract class CmdletBaseAsync : PSCmdlet
 {
     private IDebuggerService? _debugger;
     private ILogger? _logger;
@@ -26,11 +27,11 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
 
     public string CmdletName => GetType().Name;
 
-    protected MediaForgeCmdletBase()
+    protected CmdletBaseAsync()
     {
         ModuleServices.EnsureInitialized();
         CmdletContext.Current = this;
-        
+
     }
 
     /// <summary>
@@ -42,7 +43,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
         Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
-        Begin();
+        BeginAsync().ConfigureAwait(false).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -54,7 +55,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnProcessRecord);
 
         Logger.LogDebug("Processing {CmdletName} command", CmdletName);
-        Process();
+        ProcessAsync().ConfigureAwait(false).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -65,7 +66,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
 
         Logger.LogDebug("End processing {CmdletName} command", CmdletName);
-        End();
+        EndAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 
         CmdletContext.Current = null;
     }
@@ -74,25 +75,18 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     /// Override this method to perform custom initialization logic when processing begins.
     /// This method is called by BeginProcessing after any necessary setup
     /// </summary>
-    protected virtual void Begin()
-    {
-    }
+    protected virtual Task BeginAsync() => Task.CompletedTask;
 
     /// <summary>
     /// Override this method with processing logic.
     /// This method is called by ProcessRecord after any necessary setup
     /// </summary>
-    protected virtual void Process()
-    {
-
-    }
+    protected virtual Task ProcessAsync() => Task.CompletedTask;
 
     /// <summary>
     /// Override this method to perform custom cleanup logic when processing emds.
     /// This method is called by EndProcessing after any necessary setup
     /// </summary>
-    protected virtual void End()
-    {
-    }
+    protected virtual Task EndAsync() => Task.CompletedTask;
 }
 
