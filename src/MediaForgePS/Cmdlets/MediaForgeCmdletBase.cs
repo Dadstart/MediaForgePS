@@ -1,9 +1,9 @@
 using System.Management.Automation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Dadstart.Labs.MediaForge.DependencyInjection;
-using Dadstart.Labs.MediaForge.Logging;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Module;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -13,39 +13,33 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </summary>
 public abstract class MediaForgeCmdletBase : PSCmdlet
 {
-    private ILogger? _logger;
-    private IPowerShellCommandContextAccessor? _contextAccessor;
     private IDebuggerService? _debugger;
+    private ILogger? _logger;
 
     /// <summary>
     /// Logger instance for the derived cmdlet type.
     /// </summary>
-    protected ILogger Logger => _logger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<ILoggerFactory>()
+    protected ILogger Logger => _logger ??= ModuleServices.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(GetType());
 
-    /// <summary>
-    /// PowerShell command context accessor for logging integration.
-    /// </summary>
-    protected IPowerShellCommandContextAccessor ContextAccessor => _contextAccessor ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IPowerShellCommandContextAccessor>();
-
-    /// <summary>
-    /// Debugging service for managing debugging state and breakpoint behavior.
-    /// </summary>
-    protected IDebuggerService Debugger => _debugger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IDebuggerService>();
+    protected IDebuggerService Debugger => _debugger ??= ModuleServices.GetRequiredService<IDebuggerService>();
 
     public string CmdletName => GetType().Name;
+
+    protected MediaForgeCmdletBase()
+    {
+        ModuleServices.EnsureInitialized();
+        CmdletContext.Current = this;
+        
+    }
 
     /// <summary>
     /// Sets up the PowerShell command context for logging before processing begins.
     /// </summary>
     protected sealed override void BeginProcessing()
     {
-        ContextAccessor.SetCurrentContext(this);
-
-        // Capture the synchronization context from the cmdlet's thread so we can marshal
-        // Write calls back to this thread from async contexts
-        var syncContext = SynchronizationContext.Current;
-        ContextAccessor.SetSynchronizationContext(syncContext);
+        CmdletContext.Current = this;
+        Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
         Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
         Begin();
@@ -73,8 +67,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         Logger.LogDebug("End processing {CmdletName} command", CmdletName);
         End();
 
-        ContextAccessor.SetCurrentContext(null);
-        ContextAccessor.SetSynchronizationContext(null);
+        CmdletContext.Current = null;
     }
 
     /// <summary>

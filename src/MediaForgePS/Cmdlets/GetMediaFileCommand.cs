@@ -3,7 +3,6 @@ using System.IO;
 using System.Management.Automation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Dadstart.Labs.MediaForge.DependencyInjection;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 
@@ -38,7 +37,7 @@ public class GetMediaFileCommand : MediaForgeCmdletBase
     /// <summary>
     /// Media reader service instance for retrieving media file information.
     /// </summary>
-    private IMediaReaderService MediaReaderService => _mediaReaderService ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IMediaReaderService>();
+    private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
 
     /// <summary>
     /// Initializes the command processing and logs the operation start.
