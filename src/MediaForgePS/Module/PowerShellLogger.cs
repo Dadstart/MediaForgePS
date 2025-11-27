@@ -63,9 +63,10 @@ namespace Dadstart.Labs.MediaForge.Module
             switch (level)
             {
                 case LogLevel.Trace:
-                case LogLevel.Debug:
-                    // Use WriteVerbose for informational messages so they respect -Verbose
                     cmdlet.WriteVerbose(output);
+                    break;
+                case LogLevel.Debug:
+                    cmdlet.WriteDebug(output);
                     break;
                 case LogLevel.Information:
                     var infoRecord = new InformationRecord(output, _category);
