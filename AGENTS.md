@@ -33,6 +33,10 @@
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
 
+#### Async operation
+- Using 'ConfigureAwait(false) on all async calls
+- Use GetAwaiter().GetResult() to synchronously wait for the async operation in PowerShell code
+
 #### Naming Conventions
 - Constants: PascalCase
 - Private instance fields: Prefix with underscore then camelCase
@@ -82,7 +86,6 @@
   - No CD. Do not publish.
 
 ## Testing
-
 
 ### General
 - Full testing required for all code
