@@ -32,6 +32,7 @@
 - Put return statements on separate lines]
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
+- Do not put return on same line as other statements
 
 #### Async operation
 - Using 'ConfigureAwait(false) on all async calls
