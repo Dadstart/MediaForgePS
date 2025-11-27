@@ -27,7 +27,7 @@ public class MediaReaderService : IMediaReaderService
         var ffprobeArguments = new[] { "-show_format", "-show_chapters", "-show_streams" };
         _logger.LogDebug("Using ffprobe arguments: {Arguments}", string.Join(", ", ffprobeArguments));
 
-        var result = await _ffprobeService.Execute(path, ffprobeArguments);
+        var result = await _ffprobeService.Execute(path, ffprobeArguments).ConfigureAwait(false);
         if (!result.Success)
         {
             _logger.LogWarning("Failed to retrieve media file information for: {Path}", path);

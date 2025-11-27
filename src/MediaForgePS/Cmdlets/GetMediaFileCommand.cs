@@ -17,7 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsCommon.Get, "MediaFile")]
 [OutputType(typeof(MediaFile))]
-public class GetMediaFileCommand : CmdletBaseAsync
+public class GetMediaFileCommand : CmdletBase
 {
     /// <summary>
     /// Path to the media file to analyze. Can be a relative or absolute path, and supports
@@ -42,7 +42,7 @@ public class GetMediaFileCommand : CmdletBaseAsync
     /// <summary>
     /// Processes the media file path, resolves it, validates existence, and retrieves media information.
     /// </summary>
-    protected override async Task ProcessAsync()
+    protected override void Process()
     {
         Logger.LogInformation("Processing Get-MediaFile request for path: {Path}", Path);
 
@@ -98,7 +98,7 @@ public class GetMediaFileCommand : CmdletBaseAsync
             // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Reading media file information: {ResolvedPath}", resolvedPath);
-            var mediaFile = await MediaReaderService.GetMediaFileAsync(resolvedPath).ConfigureAwait(false);
+            var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedPath).ConfigureAwait(false).GetAwaiter().GetResult();
             if (mediaFile is null)
             {
                 Logger.LogWarning("Media file information is null for: {ResolvedPath}", resolvedPath);

@@ -44,6 +44,7 @@ namespace Dadstart.Labs.MediaForge.Services
 
                 // register application services
                 services.AddSingleton<IPlatformService, PlatformService>();
+                services.AddSingleton<IDebuggerService, DebuggerService>();
                 services.AddSingleton<IExecutableService, ExecutableService>();
                 services.AddSingleton<IFfprobeService, FfprobeService>();
                 services.AddSingleton<IFfmpegService, FfmpegService>();

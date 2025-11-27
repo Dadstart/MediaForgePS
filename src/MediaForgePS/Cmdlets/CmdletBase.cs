@@ -12,7 +12,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Base class for MediaForge PowerShell cmdlets that supports async and
 /// provides provides common functionality for logging and other.
 /// </summary>
-public abstract class CmdletBaseAsync : PSCmdlet
+public abstract class CmdletBase : PSCmdlet
 {
     private IDebuggerService? _debugger;
     private ILogger? _logger;
@@ -27,7 +27,7 @@ public abstract class CmdletBaseAsync : PSCmdlet
 
     public string CmdletName => GetType().Name;
 
-    protected CmdletBaseAsync()
+    protected CmdletBase()
     {
         ModuleServices.EnsureInitialized();
         CmdletContext.Current = this;
@@ -43,7 +43,7 @@ public abstract class CmdletBaseAsync : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
         Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
-        BeginAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        Begin();
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public abstract class CmdletBaseAsync : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnProcessRecord);
 
         Logger.LogDebug("Processing {CmdletName} command", CmdletName);
-        ProcessAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        Process();
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ public abstract class CmdletBaseAsync : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
 
         Logger.LogDebug("End processing {CmdletName} command", CmdletName);
-        EndAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        End();
 
         CmdletContext.Current = null;
     }
@@ -75,18 +75,23 @@ public abstract class CmdletBaseAsync : PSCmdlet
     /// Override this method to perform custom initialization logic when processing begins.
     /// This method is called by BeginProcessing after any necessary setup
     /// </summary>
-    protected virtual Task BeginAsync() => Task.CompletedTask;
+    protected virtual void Begin()
+    {
+    }
 
     /// <summary>
     /// Override this method with processing logic.
     /// This method is called by ProcessRecord after any necessary setup
     /// </summary>
-    protected virtual Task ProcessAsync() => Task.CompletedTask;
+    protected virtual void Process()
+    {
+    }
 
     /// <summary>
     /// Override this method to perform custom cleanup logic when processing emds.
     /// This method is called by EndProcessing after any necessary setup
     /// </summary>
-    protected virtual Task EndAsync() => Task.CompletedTask;
+    protected virtual void End()
+    {
+    }
 }
-

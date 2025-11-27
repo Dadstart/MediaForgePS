@@ -12,6 +12,7 @@
     <Company>Dadstart Labs</Company>
     <Product>MediaForgePS</Product>
     <Version>0.1.0</Version>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,5 +23,6 @@
     <PackageReference Include="Microsoft.PowerShell.Sdk" Version="7.5.0" />
     <PackageReference Include="System.Management.Automation" Version="7.5.0" />
   </ItemGroup>
+
 
 </Project>

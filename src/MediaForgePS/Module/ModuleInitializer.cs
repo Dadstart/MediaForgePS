@@ -2,7 +2,7 @@ using Dadstart.Labs.MediaForge.Services;
 
 namespace Dadstart.Labs.MediaForge.Module;
 
-internal static class ModuleInitializer
+public static class ModuleInitializer
 {
     public static void Initialize()
     {
@@ -12,13 +12,38 @@ internal static class ModuleInitializer
         // Dispose the module services when the process exits (PowerShell session end)
         AppDomain.CurrentDomain.ProcessExit += (s, e) =>
         {
-            try { ModuleServices.Dispose(); } catch { }
+            try
+            {
+                ModuleServices.Dispose();
+            }
+            catch
+            {
+
+            }
         };
 
         // handle unhandled exceptions to attempt cleanup
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
-            try { ModuleServices.Dispose(); } catch { }
+            try
+            {
+                ModuleServices.Dispose();
+            }
+            catch
+            {
+
+            }
         };
+    }
+
+    public static void Cleanup()
+    {
+        try
+        {
+            ModuleServices.Dispose();
+        }
+        catch
+        {
+        }
     }
 }
