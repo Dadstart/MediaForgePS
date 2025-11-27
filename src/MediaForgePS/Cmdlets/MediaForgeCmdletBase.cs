@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.DependencyInjection;
 using Dadstart.Labs.MediaForge.Logging;
+using System.ComponentModel;
+using System.Diagnostics;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -42,7 +44,7 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     /// <summary>
     /// Sets up the PowerShell command context for logging before processing begins.
     /// </summary>
-    protected override void BeginProcessing()
+    protected sealed override void BeginProcessing()
     {
         ContextAccessor.SetCurrentContext(this);
 
@@ -52,16 +54,48 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
         ContextAccessor.SetSynchronizationContext(syncContext);
 
         Logger.LogDebug("Begin processing {CmdletName} command", GetType().Name);
+
+        Begin();
     }
+
+    protected sealed override void ProcessRecord() => Process();
 
     /// <summary>
     /// Cleans up the PowerShell command context after processing completes.
     /// </summary>
-    protected override void EndProcessing()
+    protected sealed override void EndProcessing()
     {
         Logger.LogDebug("End processing {CmdletName} command", GetType().Name);
+
+        End();
+
         ContextAccessor.SetCurrentContext(null);
         ContextAccessor.SetSynchronizationContext(null);
+    }
+
+    /// <summary>
+    /// Override this method to perform custom initialization logic when processing begins.
+    /// This method is called by BeginProcessing after any necessary setup
+    /// </summary>
+    protected virtual void Begin()
+    {
+    }
+
+    /// <summary>
+    /// Override this method with processing logic.
+    /// This method is called by ProcessRecord after any necessary setup
+    /// </summary>
+    protected virtual void Process()
+    {
+
+    }
+
+    /// <summary>
+    /// Override this method to perform custom cleanup logic when processing emds.
+    /// This method is called by EndProcessing after any necessary setup
+    /// </summary>
+    protected virtual void End()
+    {
     }
 }
 

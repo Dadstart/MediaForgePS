@@ -32,13 +32,12 @@ public class GetMediaFileCommand : MediaForgeCmdletBase
         }
     }
 
-    protected override void BeginProcessing()
+    protected override void Begin()
     {
-        base.BeginProcessing();
         Logger.LogDebug("Processing Get-MediaFile command for path: {Path}", Path);
     }
 
-    protected override void ProcessRecord()
+    protected override void Process()
     {
         Logger.LogInformation("Processing Get-MediaFile request for path: {Path}", Path);
 
