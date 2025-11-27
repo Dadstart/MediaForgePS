@@ -33,10 +33,11 @@
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
 - Do not put return on same line as other statements
+- Do not put try and catch blocks on the same line
 
 #### Async operation
-- Using 'ConfigureAwait(false) on all async calls
-- Use GetAwaiter().GetResult() to synchronously wait for the async operation in PowerShell code
+- Using `ConfigureAwait(false)` on all async calls
+- Use `GetAwaiter().GetResult()` to synchronously wait for the async operation in PowerShell code
 
 #### Naming Conventions
 - Constants: PascalCase
