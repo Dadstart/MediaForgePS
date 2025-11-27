@@ -20,36 +20,18 @@ public abstract class MediaForgeCmdletBase : PSCmdlet
     /// <summary>
     /// Logger instance for the derived cmdlet type.
     /// </summary>
-    protected ILogger Logger
-    {
-        get
-        {
-            return _logger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<ILoggerFactory>()
+    protected ILogger Logger => _logger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(GetType());
-        }
-    }
 
     /// <summary>
     /// PowerShell command context accessor for logging integration.
     /// </summary>
-    protected IPowerShellCommandContextAccessor ContextAccessor
-    {
-        get
-        {
-            return _contextAccessor ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IPowerShellCommandContextAccessor>();
-        }
-    }
+    protected IPowerShellCommandContextAccessor ContextAccessor => _contextAccessor ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IPowerShellCommandContextAccessor>();
 
     /// <summary>
     /// Debugging service for managing debugging state and breakpoint behavior.
     /// </summary>
-    protected IDebuggerService Debugger
-    {
-        get
-        {
-            return _debugger ?? ServiceProviderAccessor.ServiceProvider.GetRequiredService<IDebuggerService>();
-        }
-    }
+    protected IDebuggerService Debugger => _debugger ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IDebuggerService>();
 
     public string CmdletName => GetType().Name;
 
