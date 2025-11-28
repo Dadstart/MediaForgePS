@@ -1,6 +1,5 @@
 using System.Management.Automation;
 using System.Threading;
-using Microsoft.CodeAnalysis;
 
 namespace Dadstart.Labs.MediaForge.Module;
 
