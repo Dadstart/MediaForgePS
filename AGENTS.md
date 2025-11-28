@@ -29,14 +29,21 @@
 - Do not use `this.` when unneeded
 - Prefer using statements over fully qualified type names
 - Omit braces for single-line C# statement bodies
-- Put return statements on separate lines]
+- Put return statements on separate lines
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
+- Do not put return on same line as other statements
+- Do not put try and catch blocks on the same line
+
+#### Async operation
+- Using `ConfigureAwait(false)` on all async calls
+- Use `GetAwaiter().GetResult()` to synchronously wait for the async operation in PowerShell code
 
 #### Naming Conventions
+- Public members: PascalCase
 - Constants: PascalCase
 - Private instance fields: Prefix with underscore then camelCase
-- Static readonly fields: PascalCase
+- Private static fields: Prefix with underscore then camelCase
 - Enums: Use PascalCase for members
 
 #### Documentation Comments
@@ -82,7 +89,6 @@
   - No CD. Do not publish.
 
 ## Testing
-
 
 ### General
 - Full testing required for all code

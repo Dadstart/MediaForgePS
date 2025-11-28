@@ -1,9 +1,9 @@
 using System.Management.Automation;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Parsers;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services;
 
@@ -20,14 +20,14 @@ public class MediaReaderService : IMediaReaderService
         _logger = logger;
     }
 
-    public async Task<MediaFile?> GetMediaFile(string path)
+    public async Task<MediaFile?> GetMediaFileAsync(string path)
     {
         _logger.LogInformation("Reading media file: {Path}", path);
 
         var ffprobeArguments = new[] { "-show_format", "-show_chapters", "-show_streams" };
         _logger.LogDebug("Using ffprobe arguments: {Arguments}", string.Join(", ", ffprobeArguments));
 
-        var result = await _ffprobeService.Execute(path, ffprobeArguments);
+        var result = await _ffprobeService.Execute(path, ffprobeArguments).ConfigureAwait(false);
         if (!result.Success)
         {
             _logger.LogWarning("Failed to retrieve media file information for: {Path}", path);

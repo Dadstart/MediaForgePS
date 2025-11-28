@@ -4,5 +4,5 @@ namespace Dadstart.Labs.MediaForge.Services;
 
 public interface IMediaReaderService
 {
-    Task<MediaFile?> GetMediaFile(string path);
+    Task<MediaFile?> GetMediaFileAsync(string path);
 }

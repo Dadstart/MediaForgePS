@@ -48,10 +48,10 @@ public class ExecutableService : IExecutableService
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             var stderrTask = process.StandardError.ReadToEndAsync();
 
-            await process.WaitForExitAsync();
+            await process.WaitForExitAsync().ConfigureAwait(false);
 
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
+            var stdout = await stdoutTask.ConfigureAwait(false);
+            var stderr = await stderrTask.ConfigureAwait(false);
 
             _logger.LogDebug(
                 "Process completed. Exit code: {ExitCode}, StdOut length: {StdOutLength}, StdErr length: {StdErrLength}",
@@ -75,10 +75,10 @@ public class ExecutableService : IExecutableService
             return new ExecutableResult(stdout, stderr, process.ExitCode);
 
         }
-        catch (Exception exc)
+        catch (Exception ex)
         {
-            _logger.LogError(exc, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
-            return new ExecutableResult(null, null, null, exc);
+            _logger.LogError(ex, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
+            return new ExecutableResult(null, null, null, ex);
         }
     }
 }

@@ -16,15 +16,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '10.0.x'
-    
+        dotnet-version: '9.0.x'
+
     - name: Install PowerShell 7.5 (Linux)
       if: runner.os == 'Linux'
       shell: bash
@@ -34,14 +34,14 @@ jobs:
         sudo tar -xzf /tmp/powershell.tar.gz -C /usr/local/share/powershell
         sudo chmod +x /usr/local/share/powershell/pwsh
         sudo ln -sf /usr/local/share/powershell/pwsh /usr/bin/pwsh
-    
+
     - name: Install PowerShell 7.5 (macOS)
       if: runner.os == 'macOS'
       shell: bash
       run: |
         brew install --cask powershell
         brew upgrade --cask powershell || true
-    
+
     - name: Install PowerShell 7.5 (Windows)
       if: runner.os == 'Windows'
       shell: powershell
@@ -52,49 +52,71 @@ jobs:
         Invoke-WebRequest -Uri $url -OutFile $output
         Start-Process msiexec.exe -Wait -ArgumentList "/i $output /quiet /norestart" -NoNewWindow
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-    
+
     - name: Verify PowerShell version
       shell: pwsh
       run: $PSVersionTable.PSVersion
-    
+
     - name: Cache NuGet packages
-      if: false
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('MediaForgePS.sln') }}-${{ hashFiles('**/*.csproj') }}-${{ hashFiles('global.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
-    
+
     - name: Restore dependencies
       run: dotnet restore
-    
+
     - name: Build
       run: dotnet build --no-restore
-    
+
     - name: Format check
       run: dotnet format --verify-no-changes
-    
+
     - name: Run C# unit tests
       run: dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
-    
+
     - name: Run component tests
       run: dotnet test tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj --no-build --verbosity normal --logger "trx;LogFileName=component-test-results.trx"
-    
+
     - name: Run E2E tests
       run: dotnet test tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj --no-build --verbosity normal --logger "trx;LogFileName=e2e-test-results.trx"
-    
+
     - name: Install Pester
       shell: pwsh
       run: |
         Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
         Import-Module Pester
-    
-    - name: Run PowerShell unit tests
-      if: false
+
+    - name: Locate built MediaForgePS.dll
+      id: locate_module
       shell: pwsh
       run: |
-        $modulePath = Resolve-Path "src/MediaForgePS"
+        $projectRoot = Join-Path $PWD 'src/MediaForgePS'
+        $binFolder = Join-Path $projectRoot 'bin'
+        if (-not (Test-Path $binFolder)) {
+          Write-Error "Bin folder not found: $binFolder. Ensure 'dotnet build' ran successfully."
+          exit 1
+        }
+        # Find the most recently written MediaForgePS.dll under bin (handles Debug/Release and multi-targeting)
+        $dll = Get-ChildItem -Path $binFolder -Filter 'MediaForgePS.dll' -Recurse -ErrorAction SilentlyContinue |
+               Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $dll) {
+          Write-Error "MediaForgePS.dll not found under $binFolder. Ensure 'dotnet build' produced the assembly."
+          exit 1
+        }
+        Write-Host "Found module DLL: $($dll.FullName)"
+        Write-Output "module_path=$($dll.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+    - name: Run PowerShell unit tests
+      shell: pwsh
+      run: |
+        $modulePath = '${{ steps.locate_module.outputs.module_path }}'
+        if (-not (Test-Path $modulePath)) {
+          Write-Error "Module DLL not found at $modulePath"
+          exit 1
+        }
         Import-Module $modulePath -Force
         $testResultsPath = "TestResults"
         if (-not (Test-Path $testResultsPath)) {
@@ -105,7 +127,7 @@ jobs:
         $pesterConfig.Run.Path = "tests/MediaForgePS.Tests/PowerShell"
         $pesterConfig.TestResult.OutputPath = "$testResultsPath/PesterResults.xml"
         Invoke-Pester -Configuration $pesterConfig
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -116,15 +138,15 @@ jobs:
           **/TestResults/*.xml
           **/coverage.cobertura.xml
         retention-days: 30
-    
+
     - name: Build Release configuration for packaging
       if: matrix.os == 'ubuntu-latest'
       run: dotnet build -c Release --no-restore
-    
+
     - name: Pack artifacts
       if: matrix.os == 'ubuntu-latest'
       run: dotnet pack --no-build -c Release -o ./artifacts
-    
+
     - name: Upload artifacts
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4

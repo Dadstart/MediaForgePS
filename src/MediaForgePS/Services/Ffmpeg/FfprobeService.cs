@@ -1,8 +1,8 @@
 using System;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.System;
+using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
@@ -26,14 +26,15 @@ public class FfprobeService : IFfprobeService
     {
         _logger.LogInformation("Executing ffprobe for media file: {Path}", path);
 
-        // TODO: check if ffmpeg/ffprobe is installed
+        // Note: ffprobe availability is validated by ExecutableService when execution fails.
+        // Future enhancement: Add explicit validation before execution for better error messages.
         string[] additionalArguments = ["-v", "error", "-of", "json"];
         var pathArgument = new[] { "-i", path };
         var allArguments = additionalArguments.Concat(arguments ?? Enumerable.Empty<string>()).Concat(pathArgument);
 
         _logger.LogDebug("FFprobe arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments);
+        var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments).ConfigureAwait(false);
 
         if (result.ExitCode == 0)
         {

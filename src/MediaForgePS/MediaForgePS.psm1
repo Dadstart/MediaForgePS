@@ -1,29 +1,14 @@
-$dllPath = $null
-
-$debugPath = Join-Path $PSScriptRoot "bin\Debug\net9.0\MediaForgePS.dll"
-$releasePath = Join-Path $PSScriptRoot "bin\Release\net9.0\MediaForgePS.dll"
-
-if (Test-Path $releasePath)
-{
-    $dllPath = $releasePath
-}
-elseif (Test-Path $debugPath)
-{
-    $dllPath = $debugPath
+$dllPath = Join-Path $PSScriptRoot 'MediaForgePS.dll'
+if (-not (Test-Path $dllPath)) {
+    throw "Module not found at $dllPath"
 }
 
-if ($dllPath)
-{
-    Import-Module $dllPath
-    
-    # Initialize dependency injection container
-    [Dadstart.Labs.MediaForge.DependencyInjection.ModuleInitializer]::Initialize() | Out-Null
-}
+# Import the binary module directly (no .psd1 manifest needed)
+Import-Module $dllPath
 
-function OnRemove
-{
-    # Cleanup dependency injection container when module is removed
-    [Dadstart.Labs.MediaForge.DependencyInjection.ModuleInitializer]::Cleanup()
-}
+# Initialize dependency injection container
+[Dadstart.Labs.MediaForge.Module.ModuleInitializer]::Initialize() | Out-Null
 
-$ExecutionContext.SessionState.Module.OnRemove = { OnRemove }
+$ExecutionContext.SessionState.Module.OnRemove = {
+    [Dadstart.Labs.MediaForge.Module.ModuleInitializer]::Cleanup()
+}

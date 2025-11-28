@@ -1,18 +1,28 @@
 using System;
 using System.IO;
 using System.Management.Automation;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Dadstart.Labs.MediaForge.DependencyInjection;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
+/// <summary>
+/// Retrieves detailed information about a media file, including format, streams, and chapters.
+/// </summary>
+/// <remarks>
+/// This cmdlet uses ffprobe to analyze media files and returns a <see cref="MediaFile"/> object
+/// containing comprehensive metadata about the file's structure and content.
+/// </remarks>
 [Cmdlet(VerbsCommon.Get, "MediaFile")]
 [OutputType(typeof(MediaFile))]
-public class GetMediaFileCommand : MediaForgeCmdletBase
+public class GetMediaFileCommand : CmdletBase
 {
+    /// <summary>
+    /// Path to the media file to analyze. Can be a relative or absolute path, and supports
+    /// PowerShell path resolution including wildcards and provider paths.
+    /// </summary>
     [Parameter(
         Mandatory = true,
         Position = 0,
@@ -24,27 +34,22 @@ public class GetMediaFileCommand : MediaForgeCmdletBase
 
     private IMediaReaderService? _mediaReaderService;
 
-    private IMediaReaderService MediaReaderService
-    {
-        get
-        {
-            return _mediaReaderService ??= ServiceProviderAccessor.ServiceProvider.GetRequiredService<IMediaReaderService>();
-        }
-    }
+    /// <summary>
+    /// Media reader service instance for retrieving media file information.
+    /// </summary>
+    private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
 
-    protected override void BeginProcessing()
-    {
-        base.BeginProcessing();
-        Logger.LogDebug("Processing Get-MediaFile command for path: {Path}", Path);
-    }
-
-    protected override void ProcessRecord()
+    /// <summary>
+    /// Processes the media file path, resolves it, validates existence, and retrieves media information.
+    /// </summary>
+    protected override void Process()
     {
         Logger.LogInformation("Processing Get-MediaFile request for path: {Path}", Path);
 
         string resolvedPath;
         try
         {
+            // Resolve PowerShell path (handles wildcards, provider paths, relative paths, etc.)
             Logger.LogDebug("Resolving PowerShell path: {Path}", Path);
             var providerPaths = GetResolvedProviderPathFromPSPath(Path, out var provider);
             if (providerPaths.Count == 0)
@@ -60,21 +65,41 @@ public class GetMediaFileCommand : MediaForgeCmdletBase
             }
             resolvedPath = providerPaths[0];
             Logger.LogDebug("Resolved path: {ResolvedPath}", resolvedPath);
+
+            // If the resolved path is the same as the input path and the file doesn't exist,
+            // it means the path couldn't be resolved (file not found)
+            if (resolvedPath.Equals(Path, StringComparison.OrdinalIgnoreCase) && !File.Exists(resolvedPath))
+            {
+                Logger.LogWarning("Path could not be resolved and file does not exist: {Path}", Path);
+                var errorRecord = new ErrorRecord(
+                    new FileNotFoundException($"Media file not found: {Path}"),
+                    "FileNotFound",
+                    ErrorCategory.ObjectNotFound,
+                    Path);
+                WriteError(errorRecord);
+                return;
+            }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to resolve path: {Path}", Path);
-            var errorRecord = new ErrorRecord(
-                ex,
-                "PathResolutionFailed",
-                ErrorCategory.InvalidArgument,
+
+            // Always create a new FileNotFoundException with ObjectNotFound category
+            // Don't reference the original exception to ensure PowerShell uses our category
+            var fileNotFoundException = new FileNotFoundException($"Media file not found: {Path}");
+            var errorRecordToWrite = new ErrorRecord(
+                fileNotFoundException,
+                "FileNotFound",
+                ErrorCategory.ObjectNotFound,
                 Path);
-            WriteError(errorRecord);
+
+            ThrowTerminatingError(errorRecordToWrite);
             return;
         }
 
         try
         {
+            // Verify the file exists before attempting to read it
             Logger.LogDebug("Checking if file exists: {ResolvedPath}", resolvedPath);
             if (!File.Exists(resolvedPath))
             {
@@ -88,9 +113,11 @@ public class GetMediaFileCommand : MediaForgeCmdletBase
                 return;
             }
 
+            // Read media file information using the media reader service
+            // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
+            // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Reading media file information: {ResolvedPath}", resolvedPath);
-            var task = MediaReaderService.GetMediaFile(resolvedPath).ConfigureAwait(false).GetAwaiter();
-            var mediaFile = task.GetResult();
+            var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedPath).ConfigureAwait(false).GetAwaiter().GetResult();
             if (mediaFile is null)
             {
                 Logger.LogWarning("Media file information is null for: {ResolvedPath}", resolvedPath);
