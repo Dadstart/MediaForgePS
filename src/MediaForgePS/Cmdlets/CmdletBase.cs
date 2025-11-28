@@ -10,7 +10,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
 /// Base class for MediaForge PowerShell cmdlets that supports async and
-/// provides provides common functionality for logging and other.
+/// provides common functionality for logging and other.
 /// </summary>
 public abstract class CmdletBase : PSCmdlet
 {
@@ -88,7 +88,7 @@ public abstract class CmdletBase : PSCmdlet
     }
 
     /// <summary>
-    /// Override this method to perform custom cleanup logic when processing emds.
+    /// Override this method to perform custom cleanup logic when processing ends.
     /// This method is called by EndProcessing after any necessary setup
     /// </summary>
     protected virtual void End()
