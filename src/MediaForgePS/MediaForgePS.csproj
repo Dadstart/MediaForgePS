@@ -7,11 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Dadstart.Labs.MediaForge</RootNamespace>
     <AssemblyName>MediaForgePS</AssemblyName>
-    <Description>PowerShell module for managing video files</Description>
-    <Authors>Dadstart Labs</Authors>
-    <Company>Dadstart Labs</Company>
-    <Product>MediaForgePS</Product>
-    <Version>0.1.0</Version>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -24,5 +20,8 @@
     <PackageReference Include="System.Management.Automation" Version="7.5.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

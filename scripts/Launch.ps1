@@ -93,6 +93,7 @@ Write-Host "Configuration: $Configuration" -ForegroundColor Gray
 Write-Host ""
 
 # Launch new PowerShell instance
+<#
 # Use -NoExit to keep the session open, and -File to execute the import script
 $pwshPath = (Get-Command pwsh).Source
 $importArgs = @(
@@ -101,8 +102,15 @@ $importArgs = @(
     $importScriptPath,
     '-Configuration', $Configuration
 )
-# Start-Process -FilePath $pwshPath -NoNewWindow -ArgumentList $importArgs
+Start-Process -FilePath $pwshPath -NoNewWindow -ArgumentList $importArgs
+#>
 
-Write-Host "PowerShell instance launched successfully." -ForegroundColor Green
-Write-Host "Check the new window for the Process ID (PID) to attach your debugger." -ForegroundColor Cyan
+$command = @"
+Write-Host "`$(`$PSStyle.Dim)Started new PowerShell process `$(`$PSStyle.DimOff)`$(`$PSStyle.Foreground.Cyan)`$PID`$(`$PSStyle.Reset)"
+& "$($importScriptPath)" -Configuration "$Configuration"
+"@
+pwsh -NoExit -Command $command
+
+#Write-Host "PowerShell instance launched successfully." -ForegroundColor Green
+#Write-Host "Check the new window for the Process ID (PID) to attach your debugger." -ForegroundColor Cyan
 
