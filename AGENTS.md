@@ -29,7 +29,7 @@
 - Do not use `this.` when unneeded
 - Prefer using statements over fully qualified type names
 - Omit braces for single-line C# statement bodies
-- Put return statements on separate lines]
+- Put return statements on separate lines
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
 - Do not put return on same line as other statements
