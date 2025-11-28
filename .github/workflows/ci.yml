@@ -3,6 +3,8 @@
 # Does NOT publish (per AGENTS.md requirements)
 
 name: CI
+permissions:
+  contents: read
 
 on:
   push:
