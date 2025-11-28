@@ -63,7 +63,6 @@ MediaForgePS/
 ├── src/
 │   └── MediaForgePS/          # Main module project
 │       ├── Cmdlets/           # C# cmdlet implementations
-│       ├── MediaForgePS.psd1  # Module manifest
 │       └── MediaForgePS.psm1  # Module root script
 ├── tests/
 │   ├── MediaForgePS.Tests/           # Unit tests (xUnit + Pester)
