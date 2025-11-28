@@ -26,7 +26,8 @@ public class FfprobeService : IFfprobeService
     {
         _logger.LogInformation("Executing ffprobe for media file: {Path}", path);
 
-        // TODO: check if ffmpeg/ffprobe is installed
+        // Note: ffprobe availability is validated by ExecutableService when execution fails.
+        // Future enhancement: Add explicit validation before execution for better error messages.
         string[] additionalArguments = ["-v", "error", "-of", "json"];
         var pathArgument = new[] { "-i", path };
         var allArguments = additionalArguments.Concat(arguments ?? Enumerable.Empty<string>()).Concat(pathArgument);
