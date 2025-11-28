@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class ModuleServices
 {
-    private static readonly Lock _sync = new();
+    private static readonly object _sync = new();
     private static IServiceProvider? _provider;
     private static bool _initialized;
     private static bool _disposed;
@@ -82,7 +82,7 @@ public static class ModuleServices
             if (_provider is IDisposable d)
             {
                 try { d.Dispose(); }
-                catch { /* swallow exceptions during module unload */ }
+                catch { /* Exceptions during module unload are ignored to prevent cascading failures */ }
             }
 
             _provider = null;

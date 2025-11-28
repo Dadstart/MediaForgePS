@@ -73,5 +73,4 @@ MediaForgePS/
 
 ## Current Cmdlets
 
-- `Add-Number` - Adds two numbers
-- `Subtract-Number` - Subtracts two numbers
+- `Get-MediaFile` - Retrieves detailed information about a media file, including format, streams, and chapters

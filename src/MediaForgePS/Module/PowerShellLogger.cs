@@ -37,7 +37,7 @@ public class PowerShellLogger : ILogger
         }
         catch
         {
-            // catch logging exceptions
+            // Exceptions during logging are ignored to prevent logging failures from breaking application flow
         }
     }
 
