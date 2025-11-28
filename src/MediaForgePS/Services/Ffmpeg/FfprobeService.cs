@@ -33,7 +33,7 @@ public class FfprobeService : IFfprobeService
 
         _logger.LogDebug("FFprobe arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments);
+        var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments).ConfigureAwait(false);
 
         if (result.ExitCode == 0)
         {
