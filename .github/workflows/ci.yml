@@ -89,10 +89,34 @@ jobs:
         Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
         Import-Module Pester
 
+    - name: Locate built MediaForgePS.dll
+      id: locate_module
+      shell: pwsh
+      run: |
+        $projectRoot = Join-Path $PWD 'src/MediaForgePS'
+        $binFolder = Join-Path $projectRoot 'bin'
+        if (-not (Test-Path $binFolder)) {
+          Write-Error "Bin folder not found: $binFolder. Ensure 'dotnet build' ran successfully."
+          exit 1
+        }
+        # Find the most recently written MediaForgePS.dll under bin (handles Debug/Release and multi-targeting)
+        $dll = Get-ChildItem -Path $binFolder -Filter 'MediaForgePS.dll' -Recurse -ErrorAction SilentlyContinue |
+               Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $dll) {
+          Write-Error "MediaForgePS.dll not found under $binFolder. Ensure 'dotnet build' produced the assembly."
+          exit 1
+        }
+        Write-Host "Found module DLL: $($dll.FullName)"
+        Write-Output "module_path=$($dll.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
     - name: Run PowerShell unit tests
       shell: pwsh
       run: |
-        $modulePath = Resolve-Path "src/MediaForgePS"
+        $modulePath = '${{ steps.locate_module.outputs.module_path }}'
+        if (-not (Test-Path $modulePath)) {
+          Write-Error "Module DLL not found at $modulePath"
+          exit 1
+        }
         Import-Module $modulePath -Force
         $testResultsPath = "TestResults"
         if (-not (Test-Path $testResultsPath)) {
