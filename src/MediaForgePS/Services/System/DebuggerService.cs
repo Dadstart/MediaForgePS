@@ -11,9 +11,9 @@ public class DebuggerService : IDebuggerService
     private bool _powerShellBreakOnProcessRecord = false;
     private bool _powerShellBreakOnEndProcessing = false;
 
-    public static bool ForceDebugging { get; set; } = true;
+    public static bool ForceDebugging { get; set; } = false;
 
-    public static bool BreakAll { get; set; } = true;
+    public static bool BreakAll { get; set; } = false;
 
     /// <summary>
     /// Indicates whether debugging is currently active, either through a forced state or when a debugger is already attached.
