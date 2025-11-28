@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Services
     /// </summary>
     public static class ModuleServices
     {
-        private static readonly object _sync = new object();
+        private static readonly Lock _sync = new();
         private static IServiceProvider? _provider;
         private static bool _initialized;
         private static bool _disposed;
