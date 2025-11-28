@@ -12,7 +12,7 @@ namespace Dadstart.Labs.MediaForge.Parsers;
 public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelParser
 {
     private readonly ILogger<MediaModelParser> _logger = logger;
-    private static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions _options = new()
     {
         PropertyNameCaseInsensitive = true,
         AllowTrailingCommas = true,
@@ -162,7 +162,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaChapter");
         _logger.LogDebug("Json: {json}", json);
-        var chapter = JsonSerializer.Deserialize<MediaChapter>(json, Options)
+        var chapter = JsonSerializer.Deserialize<MediaChapter>(json, _options)
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
         _logger.LogInformation("Deserialized MediaChapter");
 
@@ -198,7 +198,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaFormat");
         _logger.LogDebug("Json: {json}", json);
-        var format = JsonSerializer.Deserialize<MediaFormat>(json, Options)
+        var format = JsonSerializer.Deserialize<MediaFormat>(json, _options)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
         _logger.LogInformation("Deserialized MediaFormat");
         format.Tags.TryGetValue("title", out var title);
@@ -234,7 +234,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaStream");
         _logger.LogDebug("Json: {json}", json);
-        var stream = JsonSerializer.Deserialize<MediaStream>(json, Options)
+        var stream = JsonSerializer.Deserialize<MediaStream>(json, _options)
             ?? throw new JsonException("Failed to deserialize MediaStream from JSON");
         _logger.LogInformation("Deserialized MediaStream");
 

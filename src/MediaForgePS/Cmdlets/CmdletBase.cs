@@ -1,9 +1,9 @@
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Module;
+using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Dadstart.Labs.MediaForge.Services.System;
-using Dadstart.Labs.MediaForge.Services;
-using Dadstart.Labs.MediaForge.Module;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 

@@ -81,7 +81,7 @@ public static class ProcessArgumentExtensions
         return result.ToString();
     }
 
-    private static readonly char[] UnixSpecialCharacters = [' ', '\t', '\n', '\v', '\'', '"', '\\', '$', '`', '*', '?', '[', ']', '(', ')', '{', '}', '|', '&', ';', '<', '>', '!'];
+    private static readonly char[] _unixSpecialCharacters = [' ', '\t', '\n', '\v', '\'', '"', '\\', '$', '`', '*', '?', '[', ']', '(', ')', '{', '}', '|', '&', ';', '<', '>', '!'];
 
     /// <summary>
     /// Quotes a single argument for Unix.
@@ -94,7 +94,7 @@ public static class ProcessArgumentExtensions
             return "''";
 
         // Characters that require quoting on Unix-like systems
-        if (argument.IndexOfAny(UnixSpecialCharacters) == -1)
+        if (argument.IndexOfAny(_unixSpecialCharacters) == -1)
             return argument;
 
         // Use single quotes (simpler and safer for most cases)
