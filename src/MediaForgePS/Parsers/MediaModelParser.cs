@@ -16,6 +16,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
     {
         PropertyNameCaseInsensitive = true,
         AllowTrailingCommas = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
     /// <inheritdoc />
