@@ -45,7 +45,7 @@ public class MediaModelParserTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("2751658996558931055", result.Id);
+        Assert.Equal(2751658996558931055, result.Id);
         Assert.Equal(0.000000m, result.StartTime);
         Assert.Equal(128.128000m, result.EndTime);
         Assert.NotNull(result.Tags);
@@ -504,6 +504,249 @@ public class MediaModelParserTests
         // Act & Assert
         // JsonDocument.Parse throws JsonReaderException, which is a subclass of JsonException
         Assert.ThrowsAny<JsonException>(() => _parser.ParseFile(path, json));
+    }
+
+    #endregion
+
+    #region ParseDuration Tests
+
+    [Fact]
+    public void ParseDuration_WithFullNanosecondPrecision_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "00:43:29.481875000";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(43, result.Minutes);
+        Assert.Equal(29, result.Seconds);
+        // 481875000 nanoseconds / 100 = 4818750 ticks = 481.875 milliseconds
+        Assert.Equal(481, result.Milliseconds);
+        Assert.Equal(4818750, result.Ticks % TimeSpan.TicksPerSecond);
+    }
+
+    [Fact]
+    public void ParseDuration_WithSevenDigitNanoseconds_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "01:30:45.1234567";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(1, result.Hours);
+        Assert.Equal(30, result.Minutes);
+        Assert.Equal(45, result.Seconds);
+        // 1234567 nanoseconds / 100 = 12345 ticks = 1.2345 milliseconds, so 1 millisecond
+        Assert.Equal(1, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithOneDigitNanoseconds_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "00:00:01.5";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(1, result.Seconds);
+        Assert.Equal(50, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithNoFractionalSeconds_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "02:15:30";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(2, result.Hours);
+        Assert.Equal(15, result.Minutes);
+        Assert.Equal(30, result.Seconds);
+        Assert.Equal(0, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithZeroTime_ReturnsZeroTimeSpan()
+    {
+        // Arrange
+        var durationStr = "00:00:00.000000000";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(TimeSpan.Zero, result);
+    }
+
+    [Fact]
+    public void ParseDuration_WithLargeHours_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "23:59:59.999999999";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(23, result.Hours);
+        Assert.Equal(59, result.Minutes);
+        Assert.Equal(59, result.Seconds);
+        // 999999999 nanoseconds / 100 = 9999999 ticks = 999.9999 milliseconds, so 999 milliseconds
+        Assert.Equal(999, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithMoreThanNineNanosecondDigits_TruncatesToNineDigits()
+    {
+        // Arrange
+        var durationStr = "00:00:01.1234567890123";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        // Should parse first 9 digits: 123456789, then divide by 100 = 1234567 ticks
+        Assert.Equal(1, result.Seconds);
+        Assert.True(result.Ticks > TimeSpan.TicksPerSecond);
+    }
+
+    [Fact]
+    public void ParseDuration_WithNullString_ThrowsArgumentException()
+    {
+        // Arrange
+        string? durationStr = null;
+
+        // Act & Assert
+        Assert.ThrowsAny<ArgumentException>(() => MediaModelParser.ParseDuration(durationStr!));
+    }
+
+    [Fact]
+    public void ParseDuration_WithEmptyString_ThrowsArgumentException()
+    {
+        // Arrange
+        var durationStr = string.Empty;
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => MediaModelParser.ParseDuration(durationStr));
+    }
+
+    [Fact]
+    public void ParseDuration_WithWhitespaceString_ThrowsArgumentException()
+    {
+        // Arrange
+        var durationStr = "   ";
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => MediaModelParser.ParseDuration(durationStr));
+    }
+
+    [Fact]
+    public void ParseDuration_WithMultipleDecimalPoints_ThrowsFormatException()
+    {
+        // Arrange
+        var durationStr = "00:43:29.481.875";
+
+        // Act & Assert
+        var exception = Assert.Throws<FormatException>(() => MediaModelParser.ParseDuration(durationStr));
+        Assert.Contains("Invalid duration format", exception.Message);
+    }
+
+    [Fact]
+    public void ParseDuration_WithInvalidTimeFormat_ThrowsFormatException()
+    {
+        // Arrange
+        var durationStr = "invalid.123456789";
+
+        // Act & Assert
+        var exception = Assert.Throws<FormatException>(() => MediaModelParser.ParseDuration(durationStr));
+        Assert.Contains("Invalid time format", exception.Message);
+    }
+
+    [Fact]
+    public void ParseDuration_WithInvalidNanoseconds_ReturnsTimePartOnly()
+    {
+        // Arrange
+        var durationStr = "01:02:03.invalid";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        // Should parse time part successfully, but skip invalid nanoseconds
+        Assert.Equal(1, result.Hours);
+        Assert.Equal(2, result.Minutes);
+        Assert.Equal(3, result.Seconds);
+        Assert.Equal(0, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithMinutesAndSecondsOnly_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "05:30";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(5, result.Minutes);
+        Assert.Equal(30, result.Seconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithMinutesSecondsAndNanoseconds_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "05:30.123456789";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(5, result.Minutes);
+        Assert.Equal(30, result.Seconds);
+        Assert.True(result.Milliseconds > 0);
+    }
+
+    [Fact]
+    public void ParseDuration_WithExactNineNanosecondDigits_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "00:00:00.999999999";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        // 999999999 nanoseconds / 100 = 9999999 ticks = 999.9999 milliseconds, so 999 milliseconds
+        Assert.Equal(0, result.Hours);
+        Assert.Equal(0, result.Minutes);
+        Assert.Equal(0, result.Seconds);
+        Assert.Equal(999, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_WithExactSevenNanosecondDigits_ReturnsCorrectTimeSpan()
+    {
+        // Arrange
+        var durationStr = "00:00:01.1234567";
+
+        // Act
+        var result = MediaModelParser.ParseDuration(durationStr);
+
+        // Assert
+        Assert.Equal(1, result.Seconds);
+        // 1234567 nanoseconds / 100 = 12345 ticks = 1.2345 milliseconds, so 1 millisecond
+        Assert.Equal(1, result.Milliseconds);
     }
 
     #endregion

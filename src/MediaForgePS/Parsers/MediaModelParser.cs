@@ -19,6 +19,44 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
+    /// <summary>
+    /// Parses a duration string in the format "hh:mm:ss.nanoseconds" (e.g., "00:43:29.481875000")
+    /// to a TimeSpan. Handles nanosecond precision by converting to ticks.
+    /// </summary>
+    public static TimeSpan ParseDuration(string durationStr)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(durationStr);
+
+        var parts = durationStr.Split('.');
+        if (parts.Length == 1)
+        {
+            // No fractional seconds, parse as standard time
+            return TimeSpan.Parse(durationStr);
+        }
+
+        if (parts.Length != 2)
+            throw new FormatException($"Invalid duration format: {durationStr}. Expected format: hh:mm:ss.nanoseconds");
+
+        // Parse the time part (hh:mm:ss)
+        if (!TimeSpan.TryParse(parts[0], out var timePart))
+        {
+            throw new FormatException($"Invalid time format: {parts[0]}. Expected format: hh:mm:ss");
+        }
+
+        // Parse the nanoseconds part and convert to ticks
+        // TimeSpan uses 100-nanosecond ticks (1 tick = 100 nanoseconds)
+        // We take up to 9 digits of nanoseconds and convert to ticks
+        // Example: "481875000" nanoseconds = 4,818,750 ticks
+        if (parts[1].Length > 0 && long.TryParse(parts[1].PadRight(9, '0').Substring(0, Math.Min(9, parts[1].Length)), out var nanoseconds))
+        {
+            // Convert nanoseconds to ticks: divide by 100 (1 tick = 100 nanoseconds)
+            var ticks = nanoseconds / 100;
+            timePart = timePart.Add(TimeSpan.FromTicks(ticks));
+        }
+
+        return timePart;
+    }
+
     /// <inheritdoc />
     public MediaChapter ParseChapter(string json)
     {
@@ -121,7 +159,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         if (language is not null && stream.Tags.TryGetValue($"DURATION-{language}", out var durationStr))
         {
-            duration = TimeSpan.Parse(durationStr);
+            duration = ParseDuration(durationStr);
         }
 
         return stream with { Language = language, Duration = duration, Raw = json };
