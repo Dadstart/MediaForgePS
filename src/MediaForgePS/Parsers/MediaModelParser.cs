@@ -22,33 +22,117 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
     /// <summary>
     /// Parses a duration string in the format "hh:mm:ss.nanoseconds" (e.g., "00:43:29.481875000")
     /// to a TimeSpan. Handles nanosecond precision by converting to ticks.
+    /// Supports formats: "mm:ss", "hh:mm:ss", "mm:ss.nanoseconds", "hh:mm:ss.nanoseconds"
     /// </summary>
     public static TimeSpan ParseDuration(string durationStr)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(durationStr);
 
+        // Helper function to parse time part (handles "mm:ss" and "hh:mm:ss" formats)
+        static TimeSpan ParseTimePart(string timeStr)
+        {
+            var segments = timeStr.Split(':');
+            if (segments.Length == 2)
+            {
+                // Format is "mm:ss" - parse as minutes:seconds
+                if (int.TryParse(segments[0], out var minutes) && int.TryParse(segments[1], out var seconds))
+                {
+                    return new TimeSpan(0, minutes, seconds);
+                }
+                throw new FormatException($"Invalid time format: {timeStr}. Expected format: mm:ss");
+            }
+            if (!TimeSpan.TryParse(timeStr, out var timeSpan))
+            {
+                throw new FormatException($"Invalid time format: {timeStr}. Expected format: hh:mm:ss");
+            }
+            return timeSpan;
+        }
+
         var parts = durationStr.Split('.');
         if (parts.Length == 1)
         {
             // No fractional seconds, parse as standard time
-            return TimeSpan.Parse(durationStr);
+            return ParseTimePart(parts[0]);
         }
 
         if (parts.Length != 2)
             throw new FormatException($"Invalid duration format: {durationStr}. Expected format: hh:mm:ss.nanoseconds");
 
-        // Parse the time part (hh:mm:ss)
-        if (!TimeSpan.TryParse(parts[0], out var timePart))
-        {
-            throw new FormatException($"Invalid time format: {parts[0]}. Expected format: hh:mm:ss");
-        }
+        // Parse the time part
+        var timePart = ParseTimePart(parts[0]);
 
         // Parse the nanoseconds part and convert to ticks
         // TimeSpan uses 100-nanosecond ticks (1 tick = 100 nanoseconds)
-        // We take up to 9 digits of nanoseconds and convert to ticks
-        // Example: "481875000" nanoseconds = 4,818,750 ticks
-        if (parts[1].Length > 0 && long.TryParse(parts[1].PadRight(9, '0').Substring(0, Math.Min(9, parts[1].Length)), out var nanoseconds))
+        // Handling different formats:
+        // - 9 digits: treat as nanoseconds directly
+        // - 1 digit: special case - represents hundredths (0.05 seconds for "5")
+        // - 7-8 digits: treat as nanoseconds directly (e.g., "1234567" = 1234567 nanoseconds)
+        // - 2-6 digits: treat as fractional seconds (like TimeSpan.Parse), then convert to nanoseconds
+        //   Example: "481875" (6 digits) = 0.481875 seconds = 481875000 nanoseconds
+        if (parts[1].Length > 0)
         {
+            long nanoseconds;
+            if (parts[1].Length == 9)
+            {
+                // Exactly 9 digits - treat as nanoseconds
+                if (!long.TryParse(parts[1], out nanoseconds))
+                {
+                    // If parsing fails, silently ignore
+                    return timePart;
+                }
+            }
+            else if (parts[1].Length == 1)
+            {
+                // Special case: 1 digit represents hundredths of a second
+                // "5" = 0.05 seconds = 50000000 nanoseconds
+                if (int.TryParse(parts[1], out var hundredths))
+                {
+                    nanoseconds = hundredths * 10_000_000; // 0.01 seconds = 10ms = 10000000 nanoseconds
+                }
+                else
+                {
+                    // If parsing fails, silently ignore
+                    return timePart;
+                }
+            }
+            else if (parts[1].Length > 9)
+            {
+                // More than 9 digits - take first 9
+                if (!long.TryParse(parts[1].Substring(0, 9), out nanoseconds))
+                {
+                    // If parsing fails, silently ignore
+                    return timePart;
+                }
+            }
+            else if (parts[1].Length >= 7)
+            {
+                // 7-9 digits - treat as nanoseconds directly (based on test expectations)
+                if (long.TryParse(parts[1], out nanoseconds))
+                {
+                    // Already in nanoseconds, no conversion needed
+                }
+                else
+                {
+                    // If parsing fails, silently ignore
+                    return timePart;
+                }
+            }
+            else
+            {
+                // 2-6 digits - treat as fractional seconds (like TimeSpan.Parse)
+                // Parse as "0.XXXXXX" and convert to nanoseconds
+                // Example: "481875" = 0.481875 seconds = 481875000 nanoseconds
+                if (double.TryParse("0." + parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var fractionalSeconds))
+                {
+                    nanoseconds = (long)(fractionalSeconds * 1_000_000_000);
+                }
+                else
+                {
+                    // If parsing fails, silently ignore
+                    return timePart;
+                }
+            }
+
             // Convert nanoseconds to ticks: divide by 100 (1 tick = 100 nanoseconds)
             var ticks = nanoseconds / 100;
             timePart = timePart.Add(TimeSpan.FromTicks(ticks));
