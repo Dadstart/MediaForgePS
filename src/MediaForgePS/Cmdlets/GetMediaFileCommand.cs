@@ -65,16 +65,35 @@ public class GetMediaFileCommand : CmdletBase
             }
             resolvedPath = providerPaths[0];
             Logger.LogDebug("Resolved path: {ResolvedPath}", resolvedPath);
+
+            // If the resolved path is the same as the input path and the file doesn't exist,
+            // it means the path couldn't be resolved (file not found)
+            if (resolvedPath.Equals(Path, StringComparison.OrdinalIgnoreCase) && !File.Exists(resolvedPath))
+            {
+                Logger.LogWarning("Path could not be resolved and file does not exist: {Path}", Path);
+                var errorRecord = new ErrorRecord(
+                    new FileNotFoundException($"Media file not found: {Path}"),
+                    "FileNotFound",
+                    ErrorCategory.ObjectNotFound,
+                    Path);
+                WriteError(errorRecord);
+                return;
+            }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to resolve path: {Path}", Path);
-            var errorRecord = new ErrorRecord(
-                ex,
-                "PathResolutionFailed",
-                ErrorCategory.InvalidArgument,
+
+            // Always create a new FileNotFoundException with ObjectNotFound category
+            // Don't reference the original exception to ensure PowerShell uses our category
+            var fileNotFoundException = new FileNotFoundException($"Media file not found: {Path}");
+            var errorRecordToWrite = new ErrorRecord(
+                fileNotFoundException,
+                "FileNotFound",
+                ErrorCategory.ObjectNotFound,
                 Path);
-            WriteError(errorRecord);
+
+            ThrowTerminatingError(errorRecordToWrite);
             return;
         }
 

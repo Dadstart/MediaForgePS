@@ -1,7 +1,7 @@
 BeforeAll {
     # Import the module for testing
     $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net9.0\MediaForgePS.dll'
-    
+
     # Build the module if it doesn't exist
     if (-not (Test-Path $modulePath)) {
         Push-Location (Split-Path $PSScriptRoot -Parent -Parent)
@@ -15,7 +15,7 @@ BeforeAll {
             Pop-Location
         }
     }
-    
+
     Import-Module $modulePath -Force
 }
 
@@ -64,7 +64,7 @@ Describe 'Get-MediaFile' {
             catch {
                 $errorRecord = $_
             }
-            
+
             $errorRecord | Should -Not -BeNullOrEmpty
             $errorRecord.CategoryInfo.Category | Should -Be 'ObjectNotFound'
         }
@@ -104,10 +104,10 @@ Describe 'Get-MediaFile' {
     Context 'Pipeline Support' {
         It 'Should process multiple paths from pipeline' {
             $paths = @(
-                Join-Path $TestDrive 'File1.mp4',
-                Join-Path $TestDrive 'File2.mkv'
+                (Join-Path $TestDrive 'File1.mp4'),
+                (Join-Path $TestDrive 'File2.mkv')
             )
-            
+
             $errors = @()
             $paths | Get-MediaFile -ErrorAction SilentlyContinue -ErrorVariable +errors
             $errors.Count | Should -BeGreaterThan 0
@@ -118,7 +118,7 @@ Describe 'Get-MediaFile' {
                 [PSCustomObject]@{ Path = Join-Path $TestDrive 'File1.mp4' },
                 [PSCustomObject]@{ Path = Join-Path $TestDrive 'File2.mkv' }
             )
-            
+
             $errors = @()
             $objects | Get-MediaFile -ErrorAction SilentlyContinue -ErrorVariable +errors
             $errors.Count | Should -BeGreaterThan 0
