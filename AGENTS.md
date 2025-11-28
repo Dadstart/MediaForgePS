@@ -40,9 +40,10 @@
 - Use `GetAwaiter().GetResult()` to synchronously wait for the async operation in PowerShell code
 
 #### Naming Conventions
+- Public members: PascalCase
 - Constants: PascalCase
 - Private instance fields: Prefix with underscore then camelCase
-- Static readonly fields: PascalCase
+- Private static fields: Prefix with underscore then camelCase
 - Enums: Use PascalCase for members
 
 #### Documentation Comments
