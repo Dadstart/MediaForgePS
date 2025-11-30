@@ -1,5 +1,8 @@
 namespace Dadstart.Labs.MediaForge.Models;
 
+/// <summary>
+/// Audio track mapping that encodes an audio stream with specified codec, bitrate, and channel configuration.
+/// </summary>
 public record EncodeAudioTrackMapping(
     string? Title,
     int SourceStream,
@@ -10,11 +13,22 @@ public record EncodeAudioTrackMapping(
     int DestinationChannels)
     : AudioTrackMapping(Title, SourceStream, SourceIndex, DestinationIndex)
 {
+    private const int DefaultBitrateMono = 80;
+    private const int DefaultBitrateStereo = 160;
+    private const int DefaultBitrate5_1 = 384;
+    private const int DefaultBitrate7_1 = 512;
+
+    /// <summary>
+    /// Converts the audio track mapping to a list of Ffmpeg arguments.
+    /// </summary>
+    /// <returns>A list of Ffmpeg arguments.</returns>
     public override IList<string> ToFfmpegArgs()
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(DestinationCodec);
+
         List<string> args = new();
         AddSourceMapArgs(args);
-        AddDestinationMapArgs(args, DestinationCodec);
+        AddDestinationCodecArgs(args, DestinationCodec);
         AddBitrateArgs(args);
         AddChannelsArgs(args);
         AddTitleMetadata(args);
@@ -41,11 +55,11 @@ public record EncodeAudioTrackMapping(
         {
             bps = DestinationChannels switch
             {
-                1 => 80,
-                2 => 160,
-                6 => 384,
-                8 => 512,
-                _ => throw new InvalidOperationException($"No default bitrate found for {DestinationChannels} channels")
+                1 => DefaultBitrateMono,
+                2 => DefaultBitrateStereo,
+                6 => DefaultBitrate5_1,
+                8 => DefaultBitrate7_1,
+                _ => throw new ArgumentOutOfRangeException(nameof(DestinationChannels), DestinationChannels, $"No default bitrate found for {DestinationChannels} channels")
             };
         }
 
@@ -53,6 +67,8 @@ public record EncodeAudioTrackMapping(
         args.Add($"{bps}k");
     }
 
+    /// <summary>
+    /// Returns a string representation of the audio track mapping.
+    /// </summary>
     public override string ToString() => $"Audio stream {SourceIndex} → {DestinationCodec}@{DestinationBitrate}k (→ index {DestinationIndex})";
 }
-

@@ -1,29 +1,39 @@
-using System.Management.Automation;
-using Microsoft.PowerShell.Commands;
-
 namespace Dadstart.Labs.MediaForge.Models;
 
+/// <summary>
+/// Video encoding settings for variable bitrate encoding using two-pass encoding.
+/// </summary>
 public record VariableRateVideoEncodingSettings(
     string Codec,
     string Preset,
     string CodecProfile,
     string Tune,
-    decimal Bitrate,
+    int Bitrate,
     IList<string> AdditionalArgs)
     : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune, AdditionalArgs)
 {
+    /// <summary>
+    /// Returns a string representation of the encoding settings.
+    /// </summary>
     public override string ToString() => $"{Codec} {Bitrate}k, Preset {Preset}";
 
+    /// <summary>
+    /// Indicates that variable rate encoding uses two-pass encoding.
+    /// </summary>
     public override bool IsSinglePass => false;
 
+    /// <summary>
+    /// Converts the encoding settings to a list of Ffmpeg arguments for the specified pass.
+    /// </summary>
+    /// <param name="pass">The encoding pass number (must be 1 or 2).</param>
+    /// <returns>A list of Ffmpeg arguments.</returns>
     public override IList<string> ToFfmpegArgs(int? pass)
     {
+        if (pass != 1 && pass != 2)
+            throw new ArgumentOutOfRangeException(nameof(pass), pass, "Pass must be 1 or 2 for variable rate encoding");
+
         List<string> args = new();
 
-        if (pass != 1 && pass != 2)
-            throw new InvalidOperationException($"Invalid pass value {pass}");
-
-        // Construct ffmpeg command
         if (pass == 2)
         {
             args.Add("-map");
@@ -35,7 +45,7 @@ public record VariableRateVideoEncodingSettings(
         args.Add("-preset");
         args.Add(Preset);
         args.Add("-b:v");
-        args.Add(Bitrate.ToString());
+        args.Add($"{Bitrate}k");
 
         if (pass == 2)
         {
@@ -47,7 +57,9 @@ public record VariableRateVideoEncodingSettings(
             args.Add("+faststart");
         }
 
-        args.AddRange(AdditionalArgs);
+        if (AdditionalArgs != null)
+            args.AddRange(AdditionalArgs);
+
         return args;
     }
 }
