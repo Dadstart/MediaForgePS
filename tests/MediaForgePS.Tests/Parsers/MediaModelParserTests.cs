@@ -334,6 +334,30 @@ public class MediaModelParserTests
     }
 
     [Fact]
+    public void ParseStream_WithDurationTagButNoLanguage_ReturnsZeroDuration()
+    {
+        // Arrange
+        var json = """
+            {
+                "index": 0,
+                "codec_name": "h264",
+                "codec_type": "video",
+                "tags": {
+                    "DURATION": "00:43:29.481875000"
+                }
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseStream(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.Language);
+        Assert.Equal(TimeSpan.Zero, result.Duration);
+    }
+
+    [Fact]
     public void ParseStream_WithNullJson_ThrowsArgumentException()
     {
         // Arrange
@@ -504,6 +528,184 @@ public class MediaModelParserTests
         // Act & Assert
         // JsonDocument.Parse throws JsonReaderException, which is a subclass of JsonException
         Assert.ThrowsAny<JsonException>(() => _parser.ParseFile(path, json));
+    }
+
+    [Fact]
+    public void ParseFile_WithMissingChapters_ReturnsEmptyChaptersArray()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "format": {
+                    "filename": "test.mkv",
+                    "nb_streams": 1,
+                    "format_name": "matroska",
+                    "format_long_name": "Matroska",
+                    "start_time": 0.000000,
+                    "duration": 100.000000,
+                    "size": 1000,
+                    "bit_rate": 100,
+                    "tags": {}
+                },
+                "streams": [
+                    {
+                        "index": 0,
+                        "codec_name": "h264",
+                        "codec_type": "video",
+                        "tags": {}
+                    }
+                ]
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseFile(path, json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Empty(result.Chapters);
+    }
+
+    [Fact]
+    public void ParseFile_WithChaptersAsNonArray_ReturnsEmptyChaptersArray()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "format": {
+                    "filename": "test.mkv",
+                    "nb_streams": 1,
+                    "format_name": "matroska",
+                    "format_long_name": "Matroska",
+                    "start_time": 0.000000,
+                    "duration": 100.000000,
+                    "size": 1000,
+                    "bit_rate": 100,
+                    "tags": {}
+                },
+                "chapters": "not an array",
+                "streams": [
+                    {
+                        "index": 0,
+                        "codec_name": "h264",
+                        "codec_type": "video",
+                        "tags": {}
+                    }
+                ]
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseFile(path, json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Empty(result.Chapters);
+    }
+
+    [Fact]
+    public void ParseFile_WithMissingFormat_ThrowsJsonException()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "streams": [
+                    {
+                        "index": 0,
+                        "codec_name": "h264",
+                        "codec_type": "video",
+                        "tags": {}
+                    }
+                ]
+            }
+            """;
+
+        // Act & Assert
+        Assert.Throws<JsonException>(() => _parser.ParseFile(path, json));
+    }
+
+    [Fact]
+    public void ParseFile_WithMissingStreams_ThrowsJsonException()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "format": {
+                    "filename": "test.mkv",
+                    "nb_streams": 1,
+                    "format_name": "matroska",
+                    "format_long_name": "Matroska",
+                    "start_time": 0.000000,
+                    "duration": 100.000000,
+                    "size": 1000,
+                    "bit_rate": 100,
+                    "tags": {}
+                }
+            }
+            """;
+
+        // Act & Assert
+        Assert.Throws<JsonException>(() => _parser.ParseFile(path, json));
+    }
+
+    [Fact]
+    public void ParseFile_WithStreamsAsNonArray_ThrowsJsonException()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "format": {
+                    "filename": "test.mkv",
+                    "nb_streams": 1,
+                    "format_name": "matroska",
+                    "format_long_name": "Matroska",
+                    "start_time": 0.000000,
+                    "duration": 100.000000,
+                    "size": 1000,
+                    "bit_rate": 100,
+                    "tags": {}
+                },
+                "streams": "not an array"
+            }
+            """;
+
+        // Act & Assert
+        Assert.Throws<JsonException>(() => _parser.ParseFile(path, json));
+    }
+
+    [Fact]
+    public void ParseFile_WithEmptyStreams_ReturnsEmptyStreamsArray()
+    {
+        // Arrange
+        var path = "test.mkv";
+        var json = """
+            {
+                "format": {
+                    "filename": "test.mkv",
+                    "nb_streams": 0,
+                    "format_name": "matroska",
+                    "format_long_name": "Matroska",
+                    "start_time": 0.000000,
+                    "duration": 100.000000,
+                    "size": 1000,
+                    "bit_rate": 100,
+                    "tags": {}
+                },
+                "streams": []
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseFile(path, json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Empty(result.Streams);
     }
 
     #endregion
