@@ -100,9 +100,7 @@ public class ConvertMediaFileCommand : CmdletBase
 
         // Add additional arguments if provided
         if (AdditionalArguments != null)
-        {
             args.AddRange(AdditionalArguments);
-        }
 
         return args;
     }
