@@ -115,7 +115,7 @@ public class PathResolver : IPathResolver
     /// <param name="path">The path to resolve.</param>
     /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
     /// <returns>True if the path was successfully resolved, false otherwise.</returns>
-    private static bool TryResolveProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
+    public static bool TryResolveProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
     {
         resolvedPath = null;
         try

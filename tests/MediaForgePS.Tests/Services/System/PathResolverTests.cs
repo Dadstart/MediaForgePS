@@ -1,10 +1,12 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Moq.Protected;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Services.System;
@@ -82,8 +84,9 @@ public class PathResolverTests : IDisposable
     {
         // Arrange
         var mockCmdlet = new Mock<PSCmdlet>();
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
-            .Returns(new System.Collections.ObjectModel.Collection<string>());
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Returns(new Collection<string>());
         CmdletContext.Current = mockCmdlet.Object;
 
         var path = Path.Combine(_tempDirectory, "newfile.txt");
@@ -104,8 +107,9 @@ public class PathResolverTests : IDisposable
         var newDirectory = Path.Combine(_tempDirectory, "subdir");
         var newFile = Path.Combine(newDirectory, "output.txt");
 
-        var resolvedPaths = new System.Collections.ObjectModel.Collection<string> { newFile };
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        var resolvedPaths = new Collection<string> { newFile };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Returns(resolvedPaths);
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -127,8 +131,9 @@ public class PathResolverTests : IDisposable
         var existingFile = Path.Combine(existingDirectory, "output.txt");
 
         var mockCmdlet = new Mock<PSCmdlet>();
-        var resolvedPaths = new System.Collections.ObjectModel.Collection<string> { existingFile };
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        var resolvedPaths = new Collection<string> { existingFile };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Returns(resolvedPaths);
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -149,8 +154,9 @@ public class PathResolverTests : IDisposable
         File.WriteAllText(testFile, "test content");
 
         var mockCmdlet = new Mock<PSCmdlet>();
-        var resolvedPaths = new System.Collections.ObjectModel.Collection<string> { testFile };
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        var resolvedPaths = new Collection<string> { testFile };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Returns(resolvedPaths);
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -169,8 +175,9 @@ public class PathResolverTests : IDisposable
         var nonExistentFile = Path.Combine(_tempDirectory, "nonexistent.txt");
 
         var mockCmdlet = new Mock<PSCmdlet>();
-        var resolvedPaths = new System.Collections.ObjectModel.Collection<string> { nonExistentFile };
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        var resolvedPaths = new Collection<string> { nonExistentFile };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Returns(resolvedPaths);
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -188,8 +195,9 @@ public class PathResolverTests : IDisposable
         // Arrange
         var path = "test.txt";
         var mockCmdlet = new Mock<PSCmdlet>();
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
-            .Returns(new System.Collections.ObjectModel.Collection<string>());
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Returns(new Collection<string>());
         CmdletContext.Current = mockCmdlet.Object;
 
         // Act
@@ -206,7 +214,8 @@ public class PathResolverTests : IDisposable
         // Arrange
         var path = "test.txt";
         var mockCmdlet = new Mock<PSCmdlet>();
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Throws(new InvalidOperationException("Path resolution failed"));
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -232,7 +241,8 @@ public class PathResolverTests : IDisposable
         // Arrange
         var path = "output.txt";
         var mockCmdlet = new Mock<PSCmdlet>();
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Throws(new InvalidOperationException("Path resolution failed"));
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -258,8 +268,9 @@ public class PathResolverTests : IDisposable
         // Arrange
         var path = Path.Combine(_tempDirectory, "nonexistent.txt");
         var mockCmdlet = new Mock<PSCmdlet>();
-        var resolvedPaths = new System.Collections.ObjectModel.Collection<string> { path };
-        mockCmdlet.Setup(c => c.GetResolvedProviderPathFromPSPath(It.IsAny<string>(), out It.Ref<ProviderInfo>.IsAny))
+        var resolvedPaths = new Collection<string> { path };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
             .Returns(resolvedPaths);
         CmdletContext.Current = mockCmdlet.Object;
 
@@ -269,6 +280,101 @@ public class PathResolverTests : IDisposable
         // Assert
         Assert.False(result);
         Assert.Equal(path, resolvedPath);
+    }
+
+    [Fact]
+    public void TryResolveProviderPath_WhenGetResolvedProviderPathFromPSPathReturnsPaths_ReturnsTrueAndSetsResolvedPath()
+    {
+        // Arrange
+        var path = "test.txt";
+        var expectedResolvedPath = Path.Combine(_tempDirectory, "test.txt");
+        var mockCmdlet = new Mock<PSCmdlet>();
+        var resolvedPaths = new Collection<string> { expectedResolvedPath };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Returns(resolvedPaths);
+
+        // Act
+        var result = PathResolver.TryResolveProviderPath(mockCmdlet.Object, path, out var resolvedPath);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(expectedResolvedPath, resolvedPath);
+    }
+
+    [Fact]
+    public void TryResolveProviderPath_WhenGetResolvedProviderPathFromPSPathReturnsEmptyCollection_ReturnsFalseAndSetsResolvedPathToNull()
+    {
+        // Arrange
+        var path = "nonexistent.txt";
+        var mockCmdlet = new Mock<PSCmdlet>();
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Returns(new Collection<string>());
+
+        // Act
+        var result = PathResolver.TryResolveProviderPath(mockCmdlet.Object, path, out var resolvedPath);
+
+        // Assert
+        Assert.False(result);
+        Assert.Null(resolvedPath);
+    }
+
+    [Fact]
+    public void TryResolveProviderPath_WhenGetResolvedProviderPathFromPSPathThrowsException_ReturnsFalseAndSetsResolvedPathToNull()
+    {
+        // Arrange
+        var path = "test.txt";
+        var mockCmdlet = new Mock<PSCmdlet>();
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Throws(new InvalidOperationException("Path resolution failed"));
+
+        // Act
+        var result = PathResolver.TryResolveProviderPath(mockCmdlet.Object, path, out var resolvedPath);
+
+        // Assert
+        Assert.False(result);
+        Assert.Null(resolvedPath);
+    }
+
+    [Fact]
+    public void TryResolveProviderPath_WhenGetResolvedProviderPathFromPSPathReturnsMultiplePaths_ReturnsFirstPath()
+    {
+        // Arrange
+        var path = "test.txt";
+        var firstPath = Path.Combine(_tempDirectory, "test1.txt");
+        var secondPath = Path.Combine(_tempDirectory, "test2.txt");
+        var mockCmdlet = new Mock<PSCmdlet>();
+        var resolvedPaths = new Collection<string> { firstPath, secondPath };
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Returns(resolvedPaths);
+
+        // Act
+        var result = PathResolver.TryResolveProviderPath(mockCmdlet.Object, path, out var resolvedPath);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(firstPath, resolvedPath);
+    }
+
+    [Fact]
+    public void TryResolveProviderPath_WhenPathIsNull_HandlesGracefully()
+    {
+        // Arrange
+        string? path = null;
+        var mockCmdlet = new Mock<PSCmdlet>();
+        mockCmdlet.Protected()
+            .Setup<Collection<string>>("GetResolvedProviderPathFromPSPath", ItExpr.IsAny<string>(), ItExpr.Ref<ProviderInfo>.IsAny)
+            .Throws(new ArgumentNullException(nameof(path)));
+
+        // Act
+        var result = PathResolver.TryResolveProviderPath(mockCmdlet.Object, path!, out var resolvedPath);
+
+        // Assert
+        Assert.False(result);
+        Assert.Null(resolvedPath);
     }
 }
 
