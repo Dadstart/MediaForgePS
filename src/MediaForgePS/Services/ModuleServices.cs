@@ -82,8 +82,25 @@ public static class ModuleServices
 
             if (_provider is IDisposable d)
             {
-                try { d.Dispose(); }
-                catch { /* Exceptions during module unload are ignored to prevent cascading failures */ }
+                try
+                {
+                    d.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    // Exceptions during module unload are logged but not rethrown to prevent cascading failures
+                    // Attempt to log if logger is still available, otherwise use debug output
+                    try
+                    {
+                        var logger = _provider?.GetService<ILogger<ModuleServices>>();
+                        logger?.LogWarning(ex, "Exception occurred during module service provider disposal");
+                    }
+                    catch
+                    {
+                        // If logging fails, use debug output as fallback
+                        System.Diagnostics.Debug.WriteLine($"Exception during module disposal: {ex.Message}");
+                    }
+                }
             }
 
             _provider = null;
