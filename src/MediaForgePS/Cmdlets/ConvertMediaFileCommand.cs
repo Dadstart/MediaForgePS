@@ -4,6 +4,7 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -68,11 +69,17 @@ public class ConvertMediaFileCommand : CmdletBase
     public string[]? AdditionalArguments { get; set; }
 
     private IFfmpegService? _ffmpegService;
+    private IPathResolver? _pathResolver;
 
     /// <summary>
     /// Ffmpeg service instance for performing media file conversion.
     /// </summary>
     private IFfmpegService FfmpegService => _ffmpegService ??= ModuleServices.GetRequiredService<IFfmpegService>();
+
+    /// <summary>
+    /// Path resolver service instance for resolving and validating file paths.
+    /// </summary>
+    private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
     /// Builds the Ffmpeg arguments from video encoding settings, audio track mappings, and additional arguments.
@@ -97,31 +104,6 @@ public class ConvertMediaFileCommand : CmdletBase
         }
 
         return args;
-    }
-
-    /// <summary>
-    /// Attempts to resolve a PowerShell path using the provider path resolution.
-    /// </summary>
-    /// <param name="path">The path to resolve.</param>
-    /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
-    /// <returns>True if the path was successfully resolved, false otherwise.</returns>
-    private bool TryResolveProviderPath(string path, out string? resolvedPath)
-    {
-        resolvedPath = null;
-        try
-        {
-            var providerPaths = GetResolvedProviderPathFromPSPath(path, out var provider);
-            if (providerPaths.Count > 0)
-            {
-                resolvedPath = providerPaths[0];
-                return true;
-            }
-            return false;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     /// <summary>
@@ -167,93 +149,6 @@ public class ConvertMediaFileCommand : CmdletBase
     }
 
     /// <summary>
-    /// Resolves the input path and validates that the file exists.
-    /// </summary>
-    /// <param name="path">The input path to resolve.</param>
-    /// <param name="resolvedPath">The resolved input path.</param>
-    /// <returns>True if the path was resolved and validated successfully, false otherwise.</returns>
-    private bool TryResolveInputPath(string path, out string resolvedPath)
-    {
-        resolvedPath = string.Empty;
-        try
-        {
-            Logger.LogDebug("Resolving PowerShell input path: {InputPath}", path);
-            if (!TryResolveProviderPath(path, out var providerResolvedPath))
-            {
-                Logger.LogWarning("Input path resolution returned no results for: {InputPath}", path);
-                WriteFileNotFoundErrorRecord(path, $"Input media file not found: {path}");
-                return false;
-            }
-
-            resolvedPath = providerResolvedPath!;
-            Logger.LogDebug("Resolved input path: {ResolvedInputPath}", resolvedPath);
-
-            // If the resolved path is the same as the input path and the file doesn't exist,
-            // it means the path couldn't be resolved (file not found)
-            if (resolvedPath.Equals(path, StringComparison.OrdinalIgnoreCase) && !File.Exists(resolvedPath))
-            {
-                Logger.LogWarning("Input path could not be resolved and file does not exist: {InputPath}", path);
-                WriteFileNotFoundErrorRecord(path, $"Input media file not found: {path}");
-                return false;
-            }
-
-            // Final validation that the file exists
-            if (!File.Exists(resolvedPath))
-            {
-                Logger.LogWarning("Input file does not exist: {ResolvedInputPath}", resolvedPath);
-                WriteFileNotFoundErrorRecord(resolvedPath, $"Input media file not found: {resolvedPath}");
-                return false;
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to resolve input path: {InputPath}", path);
-            ThrowTerminatingError(CreateFileNotFoundErrorRecord(path, $"Input media file not found: {path}"));
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Resolves the output path and ensures the output directory exists.
-    /// </summary>
-    /// <param name="path">The output path to resolve.</param>
-    /// <param name="resolvedPath">The resolved output path.</param>
-    /// <returns>True if the path was resolved successfully, false otherwise.</returns>
-    private bool TryResolveOutputPath(string path, out string resolvedPath)
-    {
-        resolvedPath = string.Empty;
-        try
-        {
-            Logger.LogDebug("Resolving PowerShell output path: {OutputPath}", path);
-            if (TryResolveProviderPath(path, out var providerResolvedPath))
-                resolvedPath = providerResolvedPath!;
-            else
-                // If path resolution fails, try to use the path as-is (might be a new file)
-                resolvedPath = path;
-
-            Logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedPath);
-
-            // Ensure the output directory exists
-            var outputDirectory = Path.GetDirectoryName(resolvedPath);
-            if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
-            {
-                Logger.LogInformation("Creating output directory: {OutputDirectory}", outputDirectory);
-                Directory.CreateDirectory(outputDirectory);
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to resolve output path: {OutputPath}", path);
-            ThrowTerminatingError(CreatePathErrorRecord(ex, "OutputPathInvalid", ErrorCategory.InvalidArgument, path));
-            return false;
-        }
-    }
-
-    /// <summary>
     /// Processes the media file conversion request.
     /// </summary>
     protected override void Process()
@@ -261,12 +156,18 @@ public class ConvertMediaFileCommand : CmdletBase
         Logger.LogInformation("Processing Convert-MediaFile request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
 
         string resolvedInputPath;
-        if (!TryResolveInputPath(InputPath, out resolvedInputPath))
+        if (!PathResolver.TryResolveInputPath(InputPath, out resolvedInputPath))
+        {
+            WriteFileNotFoundErrorRecord(InputPath, $"Input media file not found: {InputPath}");
             return;
+        }
 
         string resolvedOutputPath;
-        if (!TryResolveOutputPath(OutputPath, out resolvedOutputPath))
+        if (!PathResolver.TryResolveOutputPath(OutputPath, out resolvedOutputPath))
+        {
+            WritePathErrorRecord(OutputPath, $"Failed to resolve output path: {OutputPath}");
             return;
+        }
 
         try
         {
@@ -275,7 +176,7 @@ public class ConvertMediaFileCommand : CmdletBase
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-bool success;
+            bool success;
             if (VideoEncodingSettings.IsSinglePass)
             {
                 success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(null)).ConfigureAwait(false).GetAwaiter().GetResult();

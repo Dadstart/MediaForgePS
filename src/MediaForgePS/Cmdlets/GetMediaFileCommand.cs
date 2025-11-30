@@ -3,6 +3,7 @@ using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -33,11 +34,17 @@ public class GetMediaFileCommand : CmdletBase
     public string Path { get; set; } = string.Empty;
 
     private IMediaReaderService? _mediaReaderService;
+    private IPathResolver? _pathResolver;
 
     /// <summary>
     /// Media reader service instance for retrieving media file information.
     /// </summary>
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
+
+    /// <summary>
+    /// Path resolver service instance for resolving and validating file paths.
+    /// </summary>
+    private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
     /// Processes the media file path, resolves it, validates existence, and retrieves media information.
@@ -47,71 +54,19 @@ public class GetMediaFileCommand : CmdletBase
         Logger.LogInformation("Processing Get-MediaFile request for path: {Path}", Path);
 
         string resolvedPath;
-        try
+        if (!PathResolver.TryResolveInputPath(Path, out resolvedPath))
         {
-            // Resolve PowerShell path (handles wildcards, provider paths, relative paths, etc.)
-            Logger.LogDebug("Resolving PowerShell path: {Path}", Path);
-            var providerPaths = GetResolvedProviderPathFromPSPath(Path, out var provider);
-            if (providerPaths.Count == 0)
-            {
-                Logger.LogWarning("Path resolution returned no results for: {Path}", Path);
-                var errorRecord = new ErrorRecord(
-                    new FileNotFoundException($"Media file not found: {Path}"),
-                    "FileNotFound",
-                    ErrorCategory.ObjectNotFound,
-                    Path);
-                WriteError(errorRecord);
-                return;
-            }
-            resolvedPath = providerPaths[0];
-            Logger.LogDebug("Resolved path: {ResolvedPath}", resolvedPath);
-
-            // If the resolved path is the same as the input path and the file doesn't exist,
-            // it means the path couldn't be resolved (file not found)
-            if (resolvedPath.Equals(Path, StringComparison.OrdinalIgnoreCase) && !File.Exists(resolvedPath))
-            {
-                Logger.LogWarning("Path could not be resolved and file does not exist: {Path}", Path);
-                var errorRecord = new ErrorRecord(
-                    new FileNotFoundException($"Media file not found: {Path}"),
-                    "FileNotFound",
-                    ErrorCategory.ObjectNotFound,
-                    Path);
-                WriteError(errorRecord);
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to resolve path: {Path}", Path);
-
-            // Always create a new FileNotFoundException with ObjectNotFound category
-            // Don't reference the original exception to ensure PowerShell uses our category
-            var fileNotFoundException = new FileNotFoundException($"Media file not found: {Path}");
-            var errorRecordToWrite = new ErrorRecord(
-                fileNotFoundException,
+            var errorRecord = new ErrorRecord(
+                new FileNotFoundException($"Media file not found: {Path}"),
                 "FileNotFound",
                 ErrorCategory.ObjectNotFound,
                 Path);
-
-            ThrowTerminatingError(errorRecordToWrite);
+            WriteError(errorRecord);
             return;
         }
 
         try
         {
-            // Verify the file exists before attempting to read it
-            Logger.LogDebug("Checking if file exists: {ResolvedPath}", resolvedPath);
-            if (!File.Exists(resolvedPath))
-            {
-                Logger.LogWarning("File does not exist: {ResolvedPath}", resolvedPath);
-                var errorRecord = new ErrorRecord(
-                    new FileNotFoundException($"Media file not found: {resolvedPath}"),
-                    "FileNotFound",
-                    ErrorCategory.ObjectNotFound,
-                    resolvedPath);
-                WriteError(errorRecord);
-                return;
-            }
 
             // Read media file information using the media reader service
             // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
