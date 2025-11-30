@@ -1,3 +1,4 @@
+using System.Linq;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
