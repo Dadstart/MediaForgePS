@@ -19,14 +19,25 @@ public record CopyAudioTrackMapping(
     {
         List<string> args = new();
         AddSourceMapArgs(args);
-        AddDestinationCodecArgs(args, "copy");
+        AddDestinationCodecArgs(args, GetDestinationCodec());
         AddTitleMetadata(args);
         return args;
+    }
+
+    private string GetDestinationCodec()
+    {
+        return string.IsNullOrWhiteSpace(DestinationCodec)
+            ? "copy"
+            : DestinationCodec!;
     }
 
     /// <summary>
     /// Returns a string representation of the audio track mapping.
     /// </summary>
-    public override string ToString() => $"Audio stream {SourceIndex} → copy (→ index {DestinationIndex}) [Copy]";
+    public override string ToString()
+    {
+        var codec = GetDestinationCodec();
+        return $"Audio stream {SourceIndex} → {codec} (→ index {DestinationIndex}) [Copy]";
+    }
 }
 
