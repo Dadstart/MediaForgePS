@@ -184,7 +184,7 @@ public class ConvertMediaFileCommand : CmdletBase
             else
             {
                 success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(1)).ConfigureAwait(false).GetAwaiter().GetResult();
-                success &= FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(2)).ConfigureAwait(false).GetAwaiter().GetResult();
+                    && FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(2)).ConfigureAwait(false).GetAwaiter().GetResult();
             }
 
             if (success)
