@@ -30,7 +30,6 @@ public abstract class CmdletBase : PSCmdlet
     {
         ModuleServices.EnsureInitialized();
         CmdletContext.Current = this;
-
     }
 
     /// <summary>
