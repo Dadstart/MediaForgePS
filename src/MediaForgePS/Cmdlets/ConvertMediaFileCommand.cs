@@ -84,12 +84,13 @@ public class ConvertMediaFileCommand : CmdletBase
     /// <summary>
     /// Builds the Ffmpeg arguments from video encoding settings, audio track mappings, and additional arguments.
     /// </summary>
+    /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
     private IEnumerable<string> BuildFfmpegArguments(int? pass)
     {
         var args = new List<string>();
 
-        // Add video encoding arguments (single-pass encoding)
-        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(null));
+        // Add video encoding arguments
+        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(pass));
 
         // Add audio track mapping arguments
         foreach (var audioMapping in AudioTrackMappings)
