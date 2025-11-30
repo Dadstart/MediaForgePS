@@ -88,8 +88,7 @@ public class ConvertMediaFileCommand : CmdletBase
     {
         var args = new List<string>();
 
-        // Add video encoding arguments (single-pass encoding)
-        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(null));
+        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(pass));
 
         // Add audio track mapping arguments
         foreach (var audioMapping in AudioTrackMappings)
