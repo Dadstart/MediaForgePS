@@ -19,6 +19,13 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
+    // Constants for duration parsing
+    private const int NanosecondsDigits = 9;
+    private const int MinimumNanosecondsDigits = 7;
+    private const long NanosecondsPerSecond = 1_000_000_000;
+    private const long NanosecondsPerHundredthSecond = 10_000_000;
+    private const int NanosecondsPerTick = 100;
+
     /// <summary>
     /// Parses a duration string in the format "hh:mm:ss.nanoseconds" (e.g., "00:43:29.481875000")
     /// to a TimeSpan. Handles nanosecond precision by converting to ticks.
@@ -72,7 +79,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         if (parts[1].Length > 0)
         {
             long nanoseconds;
-            if (parts[1].Length == 9)
+            if (parts[1].Length == NanosecondsDigits)
             {
                 // Exactly 9 digits - treat as nanoseconds
                 if (!long.TryParse(parts[1], out nanoseconds))
@@ -87,7 +94,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
                 // "5" = 0.05 seconds = 50000000 nanoseconds
                 if (int.TryParse(parts[1], out var hundredths))
                 {
-                    nanoseconds = hundredths * 10_000_000; // 0.01 seconds = 10ms = 10000000 nanoseconds
+                    nanoseconds = hundredths * NanosecondsPerHundredthSecond;
                 }
                 else
                 {
@@ -95,16 +102,16 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
                     return timePart;
                 }
             }
-            else if (parts[1].Length > 9)
+            else if (parts[1].Length > NanosecondsDigits)
             {
                 // More than 9 digits - take first 9
-                if (!long.TryParse(parts[1].Substring(0, 9), out nanoseconds))
+                if (!long.TryParse(parts[1].Substring(0, NanosecondsDigits), out nanoseconds))
                 {
                     // If parsing fails, silently ignore
                     return timePart;
                 }
             }
-            else if (parts[1].Length >= 7)
+            else if (parts[1].Length >= MinimumNanosecondsDigits)
             {
                 // 7-9 digits - treat as nanoseconds directly (based on test expectations)
                 if (long.TryParse(parts[1], out nanoseconds))
@@ -124,7 +131,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
                 // Example: "481875" = 0.481875 seconds = 481875000 nanoseconds
                 if (double.TryParse("0." + parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var fractionalSeconds))
                 {
-                    nanoseconds = (long)(fractionalSeconds * 1_000_000_000);
+                    nanoseconds = (long)(fractionalSeconds * NanosecondsPerSecond);
                 }
                 else
                 {
@@ -134,7 +141,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
             }
 
             // Convert nanoseconds to ticks: divide by 100 (1 tick = 100 nanoseconds)
-            var ticks = nanoseconds / 100;
+            var ticks = nanoseconds / NanosecondsPerTick;
             timePart = timePart.Add(TimeSpan.FromTicks(ticks));
         }
 
