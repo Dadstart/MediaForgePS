@@ -67,7 +67,6 @@ public class GetMediaFileCommand : CmdletBase
 
         try
         {
-
             // Read media file information using the media reader service
             // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
             // This is acceptable in PowerShell cmdlets which must be synchronous
