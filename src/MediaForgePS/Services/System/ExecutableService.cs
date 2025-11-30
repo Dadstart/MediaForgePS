@@ -60,17 +60,13 @@ public class ExecutableService : IExecutableService
                 stderr?.Length ?? 0);
 
             if (process.ExitCode != 0)
-            {
                 _logger.LogWarning(
                     "Process exited with non-zero code. Exit code: {ExitCode}, StdErr: {StdErr}",
                     process.ExitCode,
                     stderr);
-            }
 
             if (!string.IsNullOrEmpty(stderr))
-            {
                 _logger.LogTrace("Process stderr output: {StdErr}", stderr);
-            }
 
             return new ExecutableResult(stdout, stderr, process.ExitCode);
 
