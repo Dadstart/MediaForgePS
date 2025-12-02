@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -10,46 +13,40 @@ public abstract record AudioTrackMapping(
     int DestinationIndex)
 {
     /// <summary>
-    /// Adds title metadata arguments to the Ffmpeg argument list if a title is specified.
+    /// Adds title metadata arguments to the Ffmpeg argument builder if a title is specified.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddTitleMetadata(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddTitleMetadata(FfmpegArgumentBuilder builder)
     {
         if (!string.IsNullOrWhiteSpace(Title))
-        {
-            args.Add($"-metadata:s:a:{DestinationIndex}");
-            args.Add($"title=\"{Title}\"");
-        }
+            builder.AddOption($"-metadata:s:a:{DestinationIndex}", $"title=\"{Title}\"");
     }
 
     /// <summary>
-    /// Adds source stream mapping arguments to the Ffmpeg argument list.
+    /// Adds source stream mapping arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddSourceMapArgs(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddSourceMapArgs(FfmpegArgumentBuilder builder)
     {
-        args.Add("-map");
-        args.Add($"{SourceStream}:a:{SourceIndex}");
+        builder.AddOption("-map", $"{SourceStream}:a:{SourceIndex}");
     }
 
     /// <summary>
-    /// Adds destination stream mapping and codec arguments to the Ffmpeg argument list.
+    /// Adds destination stream mapping and codec arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
     /// <param name="codec">The codec to use for the destination stream (e.g., "copy" or "aac").</param>
-    protected void AddDestinationCodecArgs(IList<string> args, string codec)
+    protected void AddDestinationCodecArgs(FfmpegArgumentBuilder builder, string codec)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(codec);
-
-        args.Add("-c:a");
-        args.Add(codec);
+        builder.AddOption("-c:a", codec);
     }
 
     /// <summary>
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public abstract IList<string> ToFfmpegArgs();
+    public abstract IList<string> ToFfmpegArgs(IPlatformService platformService);
 
     /// <summary>
     /// Returns a string representation of the audio track mapping.

@@ -6,4 +6,9 @@ public class PlatformService : IPlatformService
     {
         return OperatingSystem.IsWindows();
     }
+
+    public string QuoteArgument(string argument)
+    {
+        return ProcessArgumentExtensions.QuoteArgument(argument, this);
+    }
 }

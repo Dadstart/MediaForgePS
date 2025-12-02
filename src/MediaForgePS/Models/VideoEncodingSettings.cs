@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -24,7 +27,7 @@ public abstract record VideoEncodingSettings(
     /// </summary>
     /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public abstract IList<string> ToFfmpegArgs(int? pass);
+    public abstract IList<string> ToFfmpegArgs(IPlatformService platformService, int? pass);
 
     /// <summary>
     /// Converts the codec name to the Ffmpeg codec name (e.g., "x264" to "libx264").
@@ -33,46 +36,40 @@ public abstract record VideoEncodingSettings(
     protected string GetFfmpegCodecName() => Codec == "x264" ? "libx264" : Codec;
 
     /// <summary>
-    /// Adds video stream mapping arguments to the Ffmpeg argument list.
+    /// Adds video stream mapping arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddVideoStreamMap(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddVideoStreamMap(FfmpegArgumentBuilder builder)
     {
-        args.Add("-map");
-        args.Add("0:v:0");
+        builder.AddOption("-map", "0:v:0");
     }
 
     /// <summary>
-    /// Adds video codec arguments to the Ffmpeg argument list.
+    /// Adds video codec arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddVideoCodec(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddVideoCodec(FfmpegArgumentBuilder builder)
     {
-        args.Add("-c:v");
-        args.Add(GetFfmpegCodecName());
+        builder.AddOption("-c:v", GetFfmpegCodecName());
     }
 
     /// <summary>
-    /// Adds preset arguments to the Ffmpeg argument list.
+    /// Adds preset arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddPreset(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddPreset(FfmpegArgumentBuilder builder)
     {
-        args.Add("-preset");
-        args.Add(Preset);
+        builder.AddOption("-preset", Preset);
     }
 
     /// <summary>
-    /// Adds metadata, chapters, and movflags arguments to the Ffmpeg argument list.
+    /// Adds metadata, chapters, and movflags arguments to the Ffmpeg argument builder.
     /// </summary>
-    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
-    protected void AddMetadataChaptersAndMovflags(IList<string> args)
+    /// <param name="builder">The Ffmpeg argument builder to append to.</param>
+    protected void AddMetadataChaptersAndMovflags(FfmpegArgumentBuilder builder)
     {
-        args.Add("-map_metadata");
-        args.Add("0");
-        args.Add("-map_chapters");
-        args.Add("0");
-        args.Add("-movflags");
-        args.Add("+faststart");
+        builder.AddOption("-map_metadata", "0");
+        builder.AddOption("-map_chapters", "0");
+        builder.AddOption("-movflags", "+faststart");
     }
 }

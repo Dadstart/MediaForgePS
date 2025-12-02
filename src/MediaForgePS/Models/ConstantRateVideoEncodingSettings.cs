@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -26,22 +29,18 @@ public record ConstantRateVideoEncodingSettings(
     /// </summary>
     /// <param name="pass">Ignored for constant rate encoding (always single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs(int? pass)
+    public override IList<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
     {
-        List<string> args = new();
+        ArgumentNullException.ThrowIfNull(platformService);
+        var builder = new FfmpegArgumentBuilder(platformService);
 
-        AddVideoStreamMap(args);
-        AddVideoCodec(args);
-        AddPreset(args);
+        AddVideoStreamMap(builder);
+        AddVideoCodec(builder);
+        AddPreset(builder);
+        builder.AddOption("-crf", CRF.ToString());
+        builder.AddOption("-pix_fmt", "yuv420p");
+        AddMetadataChaptersAndMovflags(builder);
 
-        args.Add("-crf");
-        args.Add(CRF.ToString());
-
-        args.Add("-pix_fmt");
-        args.Add("yuv420p");
-
-        AddMetadataChaptersAndMovflags(args);
-
-        return args;
+        return builder.ToArguments().ToList(); // REVIEW output type
     }
 }

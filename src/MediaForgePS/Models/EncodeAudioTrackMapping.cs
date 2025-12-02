@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -22,29 +25,26 @@ public record EncodeAudioTrackMapping(
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs()
+    public override IList<string> ToFfmpegArgs(IPlatformService platformService)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(DestinationCodec);
+        ArgumentNullException.ThrowIfNull(platformService);
 
-        List<string> args = new();
-        AddSourceMapArgs(args);
-        AddDestinationCodecArgs(args, DestinationCodec);
-        AddBitrateArgs(args);
-        AddChannelsArgs(args);
-        AddTitleMetadata(args);
-        return args;
+        var builder = new FfmpegArgumentBuilder(platformService);
+        AddSourceMapArgs(builder);
+        AddDestinationCodecArgs(builder, DestinationCodec);
+        AddBitrateArgs(builder);
+        AddChannelsArgs(builder);
+        AddTitleMetadata(builder);
+        return builder.ToArguments().ToList(); // REVIEW output type
     }
 
-    private void AddChannelsArgs(IList<string> args)
+    private void AddChannelsArgs(FfmpegArgumentBuilder builder)
     {
         if (DestinationChannels > 0)
-        {
-            args.Add($"-ac:a:{DestinationIndex}");
-            args.Add(DestinationChannels.ToString());
-        }
+            builder.AddOption($"-ac:a:{DestinationIndex}", DestinationChannels.ToString());
     }
 
-    private void AddBitrateArgs(IList<string> args)
+    private void AddBitrateArgs(FfmpegArgumentBuilder builder)
     {
         int bps;
         if (DestinationBitrate != 0)
@@ -63,8 +63,7 @@ public record EncodeAudioTrackMapping(
             };
         }
 
-        args.Add($"-b:a:{DestinationIndex}");
-        args.Add($"{bps}k");
+        builder.AddOption($"-b:a:{DestinationIndex}", $"{bps}k");
     }
 
     /// <summary>

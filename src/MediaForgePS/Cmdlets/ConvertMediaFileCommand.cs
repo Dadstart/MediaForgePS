@@ -70,6 +70,7 @@ public class ConvertMediaFileCommand : CmdletBase
 
     private IFfmpegService? _ffmpegService;
     private IPathResolver? _pathResolver;
+    private IPlatformService? _platformService;
 
     /// <summary>
     /// Ffmpeg service instance for performing media file conversion.
@@ -82,19 +83,24 @@ public class ConvertMediaFileCommand : CmdletBase
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
+    /// Platform service instance for platform-specific operations.
+    /// </summary>
+    private IPlatformService PlatformService => _platformService ??= ModuleServices.GetRequiredService<IPlatformService>();
+
+    /// <summary>
     /// Builds the Ffmpeg arguments from video encoding settings, audio track mappings, and additional arguments.
     /// </summary>
     private IEnumerable<string> BuildFfmpegArguments(int? pass)
     {
         var args = new List<string>();
 
-        // Add video encoding arguments (single-pass encoding)
-        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(null));
+        // Add video encoding arguments
+        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(PlatformService, pass));
 
         // Add audio track mapping arguments
         foreach (var audioMapping in AudioTrackMappings)
         {
-            args.AddRange(audioMapping.ToFfmpegArgs());
+            args.AddRange(audioMapping.ToFfmpegArgs(PlatformService));
         }
 
         // Add additional arguments if provided

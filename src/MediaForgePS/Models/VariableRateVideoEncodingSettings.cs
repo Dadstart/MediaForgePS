@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -26,28 +29,24 @@ public record VariableRateVideoEncodingSettings(
     /// </summary>
     /// <param name="pass">The encoding pass number (must be 1 or 2).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs(int? pass)
+    public override IList<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
     {
+        ArgumentNullException.ThrowIfNull(platformService);
         if (pass != 1 && pass != 2)
             throw new ArgumentOutOfRangeException(nameof(pass), pass, "Pass must be 1 or 2 for variable rate encoding");
 
-        List<string> args = new();
+        var builder = new FfmpegArgumentBuilder(platformService);
 
         if (pass == 2)
-        {
-            AddVideoStreamMap(args);
-        }
+            AddVideoStreamMap(builder);
 
-        AddVideoCodec(args);
-        AddPreset(args);
-        args.Add("-b:v");
-        args.Add($"{Bitrate}k");
+        AddVideoCodec(builder);
+        AddPreset(builder);
+        builder.AddOption("-b:v", $"{Bitrate}k");
 
         if (pass == 2)
-        {
-            AddMetadataChaptersAndMovflags(args);
-        }
+            AddMetadataChaptersAndMovflags(builder);
 
-        return args;
+        return builder.ToArguments().ToList(); // REVIEW output type
     }
 }

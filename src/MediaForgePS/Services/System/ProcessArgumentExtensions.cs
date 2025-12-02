@@ -39,6 +39,10 @@ public static class ProcessArgumentExtensions
         if (string.IsNullOrEmpty(argument))
             return "\"\"";
 
+        // Check if argument is already quoted (starts and ends with double quote)
+        if (argument.Length >= 2 && argument[0] == '"' && argument[^1] == '"')
+            return argument;
+
         // Check if argument needs quoting
         bool needsQuoting = argument.Contains(' ') || argument.Contains('"') || argument.Contains('\t') || argument.Contains('\\');
 
@@ -92,6 +96,10 @@ public static class ProcessArgumentExtensions
     {
         if (string.IsNullOrEmpty(argument))
             return "''";
+
+        // Check if argument is already quoted (starts and ends with single quote)
+        if (argument.Length >= 2 && argument[0] == '\'' && argument[^1] == '\'')
+            return argument;
 
         // Characters that require quoting on Unix-like systems
         if (argument.IndexOfAny(_unixSpecialCharacters) == -1)

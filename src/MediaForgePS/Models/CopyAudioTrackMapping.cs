@@ -1,3 +1,6 @@
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Models;
 
 /// <summary>
@@ -14,13 +17,14 @@ public record CopyAudioTrackMapping(
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs()
+    public override IList<string> ToFfmpegArgs(IPlatformService platformService)
     {
-        List<string> args = new();
-        AddSourceMapArgs(args);
-        AddDestinationCodecArgs(args, "copy");
-        AddTitleMetadata(args);
-        return args;
+        ArgumentNullException.ThrowIfNull(platformService);
+        var builder = new FfmpegArgumentBuilder(platformService);
+        AddSourceMapArgs(builder);
+        AddDestinationCodecArgs(builder, "copy");
+        AddTitleMetadata(builder);
+        return builder.ToArguments().ToList(); // REVIEW output type
     }
 
     /// <summary>
