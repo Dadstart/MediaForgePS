@@ -25,7 +25,6 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
         public const string Preset = "The encoding preset that balances speed vs. compression efficiency (e.g., 'ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow')";
         public const string CodecProfile = "The codec profile to use (e.g., 'high', 'main', 'baseline' for H.264)";
         public const string Tune = "The tuning option for the codec (e.g., 'film', 'animation', 'grain', 'stillimage', 'fastdecode', 'zerolatency')";
-        public const string AdditionalArgs = "Additional Ffmpeg arguments as a hashtable";
     }
     private const string CrfParameterSet = "CRF";
     private const string VbrParameterSet = "VBR";
