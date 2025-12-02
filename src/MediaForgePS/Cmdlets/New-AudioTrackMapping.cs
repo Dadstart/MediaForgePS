@@ -16,6 +16,18 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(AudioTrackMapping))]
 public class NewAudioTrackMappingCommand : CmdletBase
 {
+    private static class HelpMessages
+    {
+        public const string Title = "Title metadata for the audio track";
+        public const string SourceStream = "Source stream index (typically 0 for the input file)";
+        public const string SourceIndex = "Source audio stream index within the source stream";
+        public const string DestinationIndex = "Destination audio stream index in the output file";
+        public const string Copy = "Creates a copy mapping that copies the audio stream without re-encoding";
+        public const string Encode = "Creates an encode mapping that encodes the audio stream with specified settings";
+        public const string Codec = "Destination codec for encoding (e.g., 'aac', 'mp3', 'opus')";
+        public const string Bitrate = "Destination bitrate in kbps. If not specified, defaults are used based on channel count";
+        public const string Channels = "Number of audio channels for the encoded output (e.g., 1 for mono, 2 for stereo, 6 for 5.1, 8 for 7.1)";
+    }
     private const string CopyParameterSet = "Copy";
     private const string EncodeParameterSet = "Encode";
     /// <summary>
@@ -23,7 +35,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     /// </summary>
     [Parameter(
         Mandatory = false,
-        HelpMessage = "Title metadata for the audio track")]
+        HelpMessage = HelpMessages.Title)]
     public string? Title { get; set; }
 
     /// <summary>
@@ -32,7 +44,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         Mandatory = true,
         Position = 0,
-        HelpMessage = "Source stream index (typically 0 for the input file)")]
+        HelpMessage = HelpMessages.SourceStream)]
     [ValidateRange(0, int.MaxValue)]
     public int SourceStream { get; set; }
 
@@ -42,7 +54,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         Mandatory = true,
         Position = 1,
-        HelpMessage = "Source audio stream index within the source stream")]
+        HelpMessage = HelpMessages.SourceIndex)]
     [ValidateRange(0, int.MaxValue)]
     public int SourceIndex { get; set; }
 
@@ -52,7 +64,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         Mandatory = true,
         Position = 2,
-        HelpMessage = "Destination audio stream index in the output file")]
+        HelpMessage = HelpMessages.DestinationIndex)]
     [ValidateRange(0, int.MaxValue)]
     public int DestinationIndex { get; set; }
 
@@ -62,7 +74,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         ParameterSetName = CopyParameterSet,
         Mandatory = true,
-        HelpMessage = "Creates a copy mapping that copies the audio stream without re-encoding")]
+        HelpMessage = HelpMessages.Copy)]
     public SwitchParameter Copy { get; set; }
 
     /// <summary>
@@ -71,7 +83,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         ParameterSetName = EncodeParameterSet,
         Mandatory = true,
-        HelpMessage = "Creates an encode mapping that encodes the audio stream with specified settings")]
+        HelpMessage = HelpMessages.Encode)]
     public SwitchParameter Encode { get; set; }
 
     /// <summary>
@@ -80,7 +92,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         ParameterSetName = EncodeParameterSet,
         Mandatory = true,
-        HelpMessage = "Destination codec for encoding (e.g., 'aac', 'mp3', 'opus')")]
+        HelpMessage = HelpMessages.Codec)]
     [ValidateNotNullOrEmpty]
     public string Codec { get; set; } = string.Empty;
 
@@ -90,7 +102,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         ParameterSetName = EncodeParameterSet,
         Mandatory = false,
-        HelpMessage = "Destination bitrate in kbps. If not specified, defaults are used based on channel count")]
+        HelpMessage = HelpMessages.Bitrate)]
     [ValidateRange(0, int.MaxValue)]
     public int Bitrate { get; set; }
 
@@ -100,7 +112,7 @@ public class NewAudioTrackMappingCommand : CmdletBase
     [Parameter(
         ParameterSetName = EncodeParameterSet,
         Mandatory = true,
-        HelpMessage = "Number of audio channels for the encoded output (e.g., 1 for mono, 2 for stereo, 6 for 5.1, 8 for 7.1)")]
+        HelpMessage = HelpMessages.Channels)]
     [ValidateRange(1, int.MaxValue)]
     public int Channels { get; set; }
 
