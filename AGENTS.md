@@ -29,7 +29,7 @@
 - Do not use `this.` when unneeded
 - Prefer using statements over fully qualified type names
 - Omit braces for single-line C# statement bodies
-- Do not surround single-line statement blocks with curly braces (e.g., `if (condition) statement;` not `if (condition) { statement; }`)
+- Do not surround single-line statement blocks with curly braces (e.g., `if (condition) statement;` not `if (condition) { statement; }`), except when there is a multi-line `else` block, in which case curly braces are required for the `if` block
 - Put return statements on separate lines
 - Prefer records when the type is primarily data and immutability and value-equality semantics are desirable
 - Use classes/structs when mutable behavior, identity semantics, or complex lifecycle/behavior is primary.
