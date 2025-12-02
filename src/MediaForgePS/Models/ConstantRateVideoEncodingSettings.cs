@@ -30,13 +30,9 @@ public record ConstantRateVideoEncodingSettings(
     {
         List<string> args = new();
 
-        args.Add("-map");
-        args.Add("0:v:0");
-
-        args.Add("-c:v");
-        args.Add(Codec == "x264" ? "libx264" : Codec);
-        args.Add("-preset");
-        args.Add(Preset);
+        AddVideoStreamMap(args);
+        AddVideoCodec(args);
+        AddPreset(args);
 
         args.Add("-crf");
         args.Add(CRF.ToString());
@@ -44,12 +40,7 @@ public record ConstantRateVideoEncodingSettings(
         args.Add("-pix_fmt");
         args.Add("yuv420p");
 
-        args.Add("-map_metadata");
-        args.Add("0");
-        args.Add("-map_chapters");
-        args.Add("0");
-        args.Add("-movflags");
-        args.Add("+faststart");
+        AddMetadataChaptersAndMovflags(args);
 
         return args;
     }

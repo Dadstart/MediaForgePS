@@ -25,4 +25,54 @@ public abstract record VideoEncodingSettings(
     /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
     public abstract IList<string> ToFfmpegArgs(int? pass);
+
+    /// <summary>
+    /// Converts the codec name to the Ffmpeg codec name (e.g., "x264" to "libx264").
+    /// </summary>
+    /// <returns>The Ffmpeg codec name.</returns>
+    protected string GetFfmpegCodecName() => Codec == "x264" ? "libx264" : Codec;
+
+    /// <summary>
+    /// Adds video stream mapping arguments to the Ffmpeg argument list.
+    /// </summary>
+    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
+    protected void AddVideoStreamMap(IList<string> args)
+    {
+        args.Add("-map");
+        args.Add("0:v:0");
+    }
+
+    /// <summary>
+    /// Adds video codec arguments to the Ffmpeg argument list.
+    /// </summary>
+    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
+    protected void AddVideoCodec(IList<string> args)
+    {
+        args.Add("-c:v");
+        args.Add(GetFfmpegCodecName());
+    }
+
+    /// <summary>
+    /// Adds preset arguments to the Ffmpeg argument list.
+    /// </summary>
+    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
+    protected void AddPreset(IList<string> args)
+    {
+        args.Add("-preset");
+        args.Add(Preset);
+    }
+
+    /// <summary>
+    /// Adds metadata, chapters, and movflags arguments to the Ffmpeg argument list.
+    /// </summary>
+    /// <param name="args">The list of Ffmpeg arguments to append to.</param>
+    protected void AddMetadataChaptersAndMovflags(IList<string> args)
+    {
+        args.Add("-map_metadata");
+        args.Add("0");
+        args.Add("-map_chapters");
+        args.Add("0");
+        args.Add("-movflags");
+        args.Add("+faststart");
+    }
 }

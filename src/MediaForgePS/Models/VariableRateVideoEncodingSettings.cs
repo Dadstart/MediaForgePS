@@ -35,29 +35,18 @@ public record VariableRateVideoEncodingSettings(
 
         if (pass == 2)
         {
-            args.Add("-map");
-            args.Add("0:v:0");
+            AddVideoStreamMap(args);
         }
 
-        args.Add("-c:v");
-        args.Add(Codec == "x264" ? "libx264" : Codec);
-        args.Add("-preset");
-        args.Add(Preset);
+        AddVideoCodec(args);
+        AddPreset(args);
         args.Add("-b:v");
         args.Add($"{Bitrate}k");
 
         if (pass == 2)
         {
-            args.Add("-map_metadata");
-            args.Add("0");
-            args.Add("-map_chapters");
-            args.Add("0");
-            args.Add("-movflags");
-            args.Add("+faststart");
+            AddMetadataChaptersAndMovflags(args);
         }
-
-        if (AdditionalArgs != null)
-            args.AddRange(AdditionalArgs);
 
         return args;
     }

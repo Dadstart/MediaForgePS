@@ -7,6 +7,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
 /// Creates a new VideoEncodingSettings object with specified encoding parameters.
+///
+/// TODO: should there be a separate cmdlet for x264 vs. x265 for better parameter validation?
 /// </summary>
 /// <remarks>
 /// This cmdlet creates a VideoEncodingSettings object that encapsulates video encoding parameters
