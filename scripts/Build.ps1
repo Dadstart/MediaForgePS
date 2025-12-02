@@ -221,6 +221,82 @@ function Test-BuildOutput {
 
 #
 # --------------------------------------------------------------------------------
+# Global progress tracking
+# --------------------------------------------------------------------------------
+#
+<#
+.SYNOPSIS
+    Manages global progress tracking for the build pipeline.
+
+.DESCRIPTION
+    Tracks progress across all build steps, calculating percentages dynamically
+    based on which steps are enabled. Provides methods to update progress
+    before each command execution.
+
+.PROPERTY TotalSteps
+    The total number of steps that will be executed.
+
+.PROPERTY CurrentStep
+    The current step number (1-based).
+
+.PROPERTY StepNames
+    Array of step names for progress display.
+
+.EXAMPLE
+    $progress = Initialize-ProgressTracker -Clean $true -Build $true -Lint 'Fix' -Test $true
+    $progress.UpdateProgress("Building solution")
+    Updates progress to the next step with the specified status message.
+#>
+class ProgressTracker {
+    [int]$TotalSteps
+    [int]$CurrentStep
+    [string[]]$StepNames
+
+    ProgressTracker([int]$totalSteps, [string[]]$stepNames) {
+        $this.TotalSteps = $totalSteps
+        $this.CurrentStep = 0
+        $this.StepNames = $stepNames
+    }
+
+    [void] UpdateProgress([string]$status) {
+        $this.CurrentStep++
+        $percentComplete = [math]::Round(($this.CurrentStep / $this.TotalSteps) * 100)
+        $currentStepName = if ($this.CurrentStep -le $this.StepNames.Count) {
+            $this.StepNames[$this.CurrentStep - 1]
+        } else {
+            "Step $($this.CurrentStep)"
+        }
+        Write-Progress -Activity 'MediaForgePS build pipeline' -Status $status -PercentComplete $percentComplete -CurrentOperation "($this.CurrentStep/$($this.TotalSteps)) $currentStepName"
+    }
+
+    [void] Complete() {
+        Write-Progress -Activity 'MediaForgePS build pipeline' -Completed
+    }
+}
+
+function Initialize-ProgressTracker {
+    [CmdletBinding()]
+    param(
+        [bool]$Clean,
+        [bool]$Build,
+        [string]$Lint,
+        [bool]$Test,
+        [bool]$Publish
+    )
+
+    $steps = @()
+    if ($Clean) { $steps += 'Clean' }
+    if ($Build) { $steps += 'Build' }
+    if ($Lint -eq 'View') { $steps += 'Lint View' }
+    if ($Lint -eq 'Fix') { $steps += 'Lint Fix' }
+    if ($Test) { $steps += 'Test' }
+    if ($Publish) { $steps += 'Publish' }
+
+    return [ProgressTracker]::new($steps.Count, $steps)
+}
+
+#
+# --------------------------------------------------------------------------------
 #
 
 # Check if any operations were requested
@@ -248,6 +324,9 @@ if ($Full) {
     $Publish = $true
 }
 
+# Initialize progress tracker
+$progressTracker = Initialize-ProgressTracker -Clean $Clean -Build $Build -Lint $Lint -Test $Test -Publish $Publish
+
 
 # Step 1: Clean (optional, enabled by -Clean)
 if ($Clean) {
@@ -255,7 +334,7 @@ if ($Clean) {
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
 
-    Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Cleaning solution ($Configuration)" -PercentComplete 10
+    $progressTracker.UpdateProgress("Cleaning solution ($Configuration)")
 
     dotnet clean $slnPath --configuration $Configuration --verbosity $Verbosity
 
@@ -274,7 +353,7 @@ if ($Build) {
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
     Write-Host ""
 
-    Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Building solution ($Configuration)" -PercentComplete 30
+    $progressTracker.UpdateProgress("Building solution ($Configuration)")
 
     $buildArgs = @(
         'build',
@@ -299,7 +378,7 @@ if ($Lint -eq 'View') {
     Write-Host "Checking for linting issues..." -ForegroundColor Cyan
     Write-Host ""
 
-    Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Checking linting issues (View)' -PercentComplete 50
+    $progressTracker.UpdateProgress('Checking linting issues (View)')
 
     dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
 
@@ -317,7 +396,7 @@ elseif ($Lint -eq 'Fix') {
         Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
 
-        Write-Progress -Activity 'MediaForgePS build pipeline' -Status 'Auto-fixing linting issues (Fix)' -PercentComplete 60
+        $progressTracker.UpdateProgress('Auto-fixing linting issues (Fix)')
 
         dotnet format $slnPath --verbosity $Verbosity
 
@@ -339,7 +418,7 @@ if ($Test) {
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
         Write-Host ""
 
-        Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Running tests ($Configuration)" -PercentComplete 80
+        $progressTracker.UpdateProgress("Running tests ($Configuration)")
 
         $testArgs = @(
             'test',
@@ -381,7 +460,7 @@ if ($Publish) {
         Write-Host "Output: $outputDir" -ForegroundColor Gray
         Write-Host ""
 
-        Write-Progress -Activity 'MediaForgePS build pipeline' -Status "Publishing MediaForgePS module ($Configuration)" -PercentComplete 95
+        $progressTracker.UpdateProgress("Publishing MediaForgePS module ($Configuration)")
 
         dotnet publish $csprojPath --configuration $Configuration --verbosity $Verbosity --output $outputDir
 
@@ -394,5 +473,5 @@ if ($Publish) {
     }
 }
 
-Write-Progress -Activity 'MediaForgePS build pipeline' -Completed
+$progressTracker.Complete()
 Write-Host "All requested operations completed." -ForegroundColor Green
