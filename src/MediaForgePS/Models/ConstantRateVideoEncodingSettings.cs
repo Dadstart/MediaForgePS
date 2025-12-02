@@ -8,9 +8,8 @@ public record ConstantRateVideoEncodingSettings(
     string Preset,
     string CodecProfile,
     string Tune,
-    int CRF,
-    IList<string> AdditionalArgs)
-    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune, AdditionalArgs)
+    int CRF)
+    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune)
 {
     /// <summary>
     /// Returns a string representation of the encoding settings.
@@ -51,9 +50,6 @@ public record ConstantRateVideoEncodingSettings(
         args.Add("0");
         args.Add("-movflags");
         args.Add("+faststart");
-
-        if (AdditionalArgs != null)
-            args.AddRange(AdditionalArgs);
 
         return args;
     }

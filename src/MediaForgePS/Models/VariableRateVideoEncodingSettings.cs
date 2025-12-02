@@ -8,9 +8,8 @@ public record VariableRateVideoEncodingSettings(
     string Preset,
     string CodecProfile,
     string Tune,
-    int Bitrate,
-    IList<string> AdditionalArgs)
-    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune, AdditionalArgs)
+    int Bitrate)
+    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune)
 {
     /// <summary>
     /// Returns a string representation of the encoding settings.

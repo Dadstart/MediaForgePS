@@ -7,8 +7,7 @@ public abstract record VideoEncodingSettings(
     string Codec,
     string Preset,
     string CodecProfile,
-    string Tune,
-    IList<string> AdditionalArgs)
+    string Tune)
 {
     /// <summary>
     /// Indicates whether the encoding uses a single pass (true) or two-pass encoding (false).
