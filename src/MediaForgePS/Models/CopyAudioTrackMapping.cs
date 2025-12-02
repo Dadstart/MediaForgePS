@@ -7,8 +7,7 @@ public record CopyAudioTrackMapping(
     string? Title,
     int SourceStream,
     int SourceIndex,
-    int DestinationIndex,
-    string? DestinationCodec)
+    int DestinationIndex)
     : AudioTrackMapping(Title, SourceStream, SourceIndex, DestinationIndex)
 {
     /// <summary>
