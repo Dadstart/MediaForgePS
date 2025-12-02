@@ -6,112 +6,93 @@ namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 /// Builder for constructing Ffmpeg command-line arguments.
 /// Supports flags, key-value pairs, and multiple occurrences of the same key.
 /// </summary>
-public class FfmpegArgumentBuilder
+public class FfmpegArgumentBuilder(IPlatformService platformService, IArgumentBuilder argumentBuilder)
 {
-    private readonly List<FfmpegArgument> _arguments = new();
-    private readonly IPlatformService _platformService;
+    private readonly IPlatformService _platformService = platformService;
+    private readonly IArgumentBuilder _argumentBuilder = argumentBuilder;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="FfmpegArgumentBuilder"/> class.
-    /// </summary>
-    /// <param name="platformService">The platform service to use for argument quoting.</param>
-    public FfmpegArgumentBuilder(IPlatformService platformService)
+    public FfmpegArgumentBuilder AddSourceMap(int sourceStream, char streamType, int sourceIndex)
     {
-        ArgumentNullException.ThrowIfNull(platformService);
-        _platformService = platformService;
-    }
-
-    /// <summary>
-    /// Adds a flag argument (e.g., "-y").
-    /// </summary>
-    /// <param name="flag">The flag to add (e.g., "-y").</param>
-    /// <returns>The builder instance for method chaining.</returns>
-    public FfmpegArgumentBuilder AddFlag(string flag)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(flag);
-        _arguments.Add(new FfmpegArgument(flag, null));
+        _argumentBuilder.AddOption("-map", $"{sourceStream}:{streamType}:{sourceIndex}");
         return this;
     }
 
-    /// <summary>
-    /// Adds a key-value pair argument (e.g., "-c:v", "libx264").
-    /// </summary>
-    /// <param name="key">The argument key (e.g., "-c:v").</param>
-    /// <param name="value">The argument value (e.g., "libx264").</param>
-    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddDestinationCodec(char streamType, string codec)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(codec);
+        _argumentBuilder.AddOption($"-c:{streamType}", codec);
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddBitrate(char streamType, int destinationIndex, int bitrate)
+    {
+        _argumentBuilder.AddOption($"-b:{streamType}:{destinationIndex}", $"{bitrate}k");
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddAudioChannels(int destinationIndex, int channels)
+    {
+        if (channels > 0)
+        {
+            _argumentBuilder.AddOption($"-ac:a:{destinationIndex}", channels.ToString());
+        }
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddTitleMetadata(char streamType, int destinationIndex, string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return this;
+
+        var quotedTitle = _platformService.QuoteArgument(title);
+        _argumentBuilder.AddOption($"-metadata:s:{streamType}:{destinationIndex}", $"title={quotedTitle}");
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddPreset(string preset)
+    {
+        _argumentBuilder.AddOption("-preset", preset);
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddCrf(int crf)
+    {
+        _argumentBuilder.AddOption("-crf", crf.ToString());
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddPixelFormat(string pixelFormat = "yuv420p")
+    {
+        _argumentBuilder.AddOption("-pix_fmt", pixelFormat);
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddMapMetadata(int sourceStream)
+    {
+        _argumentBuilder.AddOption("-map_metadata", sourceStream.ToString());
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddMapChapters(int sourceStream)
+    {
+        _argumentBuilder.AddOption("-map_chapters", sourceStream.ToString());
+        return this;
+    }
+
+    public FfmpegArgumentBuilder AddMovFlags()
+    {
+        _argumentBuilder.AddOption("-movflags", "+faststart");
+        return this;
+    }
+
     public FfmpegArgumentBuilder AddOption(string key, string value)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
-        _arguments.Add(new FfmpegArgument(key, value));
+        _argumentBuilder.AddOption(key, value);
         return this;
     }
 
-    /// <summary>
-    /// Adds a key-value pair argument with optional value (e.g., "-metadata:s:a:0", "title=\"Track 1\"").
-    /// If value is null or whitespace, the argument is not added.
-    /// </summary>
-    /// <param name="key">The argument key.</param>
-    /// <param name="value">The argument value, or null/whitespace to skip.</param>
-    /// <returns>The builder instance for method chaining.</returns>
-    public FfmpegArgumentBuilder AddOptionIfNotNull(string key, string? value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        if (!string.IsNullOrWhiteSpace(value))
-            _arguments.Add(new FfmpegArgument(key, value));
-        return this;
-    }
-
-    /// <summary>
-    /// Converts the builder's arguments to an enumerable of strings suitable for Ffmpeg command-line execution.
-    /// </summary>
-    /// <returns>An enumerable of argument strings.</returns>
     public IEnumerable<string> ToArguments()
     {
-        foreach (var arg in _arguments)
-        {
-            yield return arg.Key;
-            if (arg.Value != null)
-                yield return QuoteArgumentValue(arg.Value);
-        }
+        return _argumentBuilder.ToArguments();
     }
-
-    /// <summary>
-    /// Quotes and escapes an argument value according to platform-specific rules.
-    /// </summary>
-    /// <param name="value">The argument value to quote.</param>
-    /// <returns>A properly quoted and escaped argument value.</returns>
-    private string QuoteArgumentValue(string value)
-    {
-        return _platformService.QuoteArgument(value);
-    }
-
-    /// <summary>
-    /// Converts the builder's arguments to a dictionary representation.
-    /// Flags are represented with empty string values.
-    /// Multiple occurrences of the same key will only keep the last value.
-    /// </summary>
-    /// <returns>A dictionary of argument keys to values.</returns>
-    public IDictionary<string, string> ToDictionary()
-    {
-        var dict = new Dictionary<string, string>();
-        foreach (var arg in _arguments)
-        {
-            dict[arg.Key] = arg.Value ?? string.Empty;
-        }
-        return dict;
-    }
-
-    /// <summary>
-    /// Clears all arguments from the builder.
-    /// </summary>
-    /// <returns>The builder instance for method chaining.</returns>
-    public FfmpegArgumentBuilder Clear()
-    {
-        _arguments.Clear();
-        return this;
-    }
-
-    private sealed record FfmpegArgument(string Key, string? Value);
 }
-

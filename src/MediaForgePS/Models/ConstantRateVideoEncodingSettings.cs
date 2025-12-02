@@ -29,18 +29,20 @@ public record ConstantRateVideoEncodingSettings(
     /// </summary>
     /// <param name="pass">Ignored for constant rate encoding (always single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
+    public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
     {
         ArgumentNullException.ThrowIfNull(platformService);
-        var builder = new FfmpegArgumentBuilder(platformService);
+        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        builder
+            .AddSourceMap(0, StreamType, 0)
+            .AddDestinationCodec(StreamType, FfmpegCodecName)
+            .AddPreset(Preset)
+            .AddCrf(CRF)
+            .AddPixelFormat()
+            .AddMapMetadata(0)
+            .AddMapChapters(0)
+            .AddMovFlags();
 
-        AddVideoStreamMap(builder);
-        AddVideoCodec(builder);
-        AddPreset(builder);
-        builder.AddOption("-crf", CRF.ToString());
-        builder.AddOption("-pix_fmt", "yuv420p");
-        AddMetadataChaptersAndMovflags(builder);
-
-        return builder.ToArguments().ToList(); // REVIEW output type
+        return builder.ToArguments();
     }
 }

@@ -17,14 +17,16 @@ public record CopyAudioTrackMapping(
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs(IPlatformService platformService)
+    public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService)
     {
         ArgumentNullException.ThrowIfNull(platformService);
-        var builder = new FfmpegArgumentBuilder(platformService);
-        AddSourceMapArgs(builder);
-        AddDestinationCodecArgs(builder, "copy");
-        AddTitleMetadata(builder);
-        return builder.ToArguments().ToList(); // REVIEW output type
+
+        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        return builder
+            .AddSourceMap(SourceStream, StreamType, SourceIndex)
+            .AddDestinationCodec(StreamType, "copy")
+            .AddTitleMetadata(StreamType, DestinationIndex, Title)
+            .ToArguments();
     }
 
     /// <summary>

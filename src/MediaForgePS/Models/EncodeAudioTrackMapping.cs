@@ -1,5 +1,6 @@
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
+using Markdig.Syntax;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -25,35 +26,33 @@ public record EncodeAudioTrackMapping(
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IList<string> ToFfmpegArgs(IPlatformService platformService)
+    public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService)
     {
         ArgumentNullException.ThrowIfNull(platformService);
 
-        var builder = new FfmpegArgumentBuilder(platformService);
-        AddSourceMapArgs(builder);
-        AddDestinationCodecArgs(builder, DestinationCodec);
-        AddBitrateArgs(builder);
-        AddChannelsArgs(builder);
-        AddTitleMetadata(builder);
-        return builder.ToArguments().ToList(); // REVIEW output type
+        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        return builder
+            .AddSourceMap(SourceStream, StreamType, SourceIndex)
+            .AddDestinationCodec(StreamType, DestinationCodec)
+            .AddBitrate(StreamType, DestinationIndex, Bitrate)
+            .AddAudioChannels(DestinationIndex, DestinationChannels)
+            .AddTitleMetadata(StreamType, DestinationIndex, Title)
+            .ToArguments();
     }
 
-    private void AddChannelsArgs(FfmpegArgumentBuilder builder)
+    /// <summary>
+    /// Effective bitrate to use for encoding, either the specified value or a default based on channel count.
+    /// </summary>
+    private int Bitrate
     {
-        if (DestinationChannels > 0)
-            builder.AddOption($"-ac:a:{DestinationIndex}", DestinationChannels.ToString());
-    }
+        get
+        {
+            // always use specified value
+            if (DestinationBitrate != 0)
+                return DestinationBitrate;
 
-    private void AddBitrateArgs(FfmpegArgumentBuilder builder)
-    {
-        int bps;
-        if (DestinationBitrate != 0)
-        {
-            bps = DestinationBitrate;
-        }
-        else
-        {
-            bps = DestinationChannels switch
+            // set based on channel count
+            return DestinationChannels switch
             {
                 1 => DefaultBitrateMono,
                 2 => DefaultBitrateStereo,
@@ -62,9 +61,8 @@ public record EncodeAudioTrackMapping(
                 _ => throw new ArgumentOutOfRangeException(nameof(DestinationChannels), DestinationChannels, $"No default bitrate found for {DestinationChannels} channels")
             };
         }
-
-        builder.AddOption($"-b:a:{DestinationIndex}", $"{bps}k");
     }
+
 
     /// <summary>
     /// Returns a string representation of the audio track mapping.
