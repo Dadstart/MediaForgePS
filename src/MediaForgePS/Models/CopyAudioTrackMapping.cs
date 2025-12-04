@@ -21,7 +21,7 @@ public record CopyAudioTrackMapping(
     {
         ArgumentNullException.ThrowIfNull(platformService);
 
-        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        var builder = new FfmpegArgumentBuilder(platformService);
         return builder
             .AddSourceMap(SourceStream, StreamType, SourceIndex)
             .AddDestinationCodec(StreamType, "copy")

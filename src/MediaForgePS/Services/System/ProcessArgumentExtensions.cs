@@ -15,6 +15,9 @@ public static class ProcessArgumentExtensions
     /// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
     public static string ToQuotedArgumentString(this IEnumerable<string> arguments, IPlatformService platformService)
     {
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(platformService);
+
         return string.Join(" ", arguments.Select(arg => QuoteArgument(arg, platformService)));
     }
 
@@ -26,6 +29,9 @@ public static class ProcessArgumentExtensions
     /// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
     public static string QuoteArgument(string argument, IPlatformService platformService)
     {
+        ArgumentNullException.ThrowIfNull(argument);
+        ArgumentNullException.ThrowIfNull(platformService);
+
         return platformService.IsWindows() ? QuoteWindowsArgument(argument) : QuoteUnixArgument(argument);
     }
 

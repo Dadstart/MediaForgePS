@@ -22,19 +22,29 @@ public class FfprobeService : IFfprobeService
     }
 
     /// <inheritdoc />
-    public async Task<FfprobeResult> Execute(string path, IEnumerable<string> arguments)
+    public async Task<FfprobeResult> ExecuteAsync(string path, IEnumerable<string> arguments, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(arguments);
+
         _logger.LogInformation("Executing ffprobe for media file: {Path}", path);
 
-        // Note: ffprobe availability is validated by ExecutableService when execution fails.
-        // Future enhancement: Add explicit validation before execution for better error messages.
         string[] additionalArguments = ["-v", "error", "-of", "json"];
         var pathArgument = new[] { "-i", path };
-        var allArguments = additionalArguments.Concat(arguments ?? Enumerable.Empty<string>()).Concat(pathArgument);
+        var allArguments = additionalArguments.Concat(arguments).Concat(pathArgument);
 
         _logger.LogDebug("FFprobe arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await _executableService.Execute(FFPROBE_EXECUTABLE, allArguments).ConfigureAwait(false);
+        var result = await _executableService.ExecuteAsync(FFPROBE_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
+
+        if (result.Exception is not null)
+        {
+            _logger.LogError(
+                result.Exception,
+                "Exception occurred during FFprobe execution for: {Path}",
+                path);
+            return new FfprobeResult(false, string.Empty);
+        }
 
         if (result.ExitCode == 0)
         {

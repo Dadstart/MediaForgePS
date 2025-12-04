@@ -90,6 +90,8 @@ public class ConvertMediaFileCommand : CmdletBase
     /// <summary>
     /// Builds the Ffmpeg arguments from video encoding settings, audio track mappings, and additional arguments.
     /// </summary>
+    /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
+    /// <returns>A list of Ffmpeg arguments.</returns>
     private IEnumerable<string> BuildFfmpegArguments(int? pass)
     {
         var args = new List<string>();
@@ -185,12 +187,12 @@ public class ConvertMediaFileCommand : CmdletBase
             bool success;
             if (VideoEncodingSettings.IsSinglePass)
             {
-                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(null)).ConfigureAwait(false).GetAwaiter().GetResult();
+                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(null), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             else
             {
-                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(1)).ConfigureAwait(false).GetAwaiter().GetResult()
-                    && FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(2)).ConfigureAwait(false).GetAwaiter().GetResult();
+                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(1), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult()
+                    && FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(2), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
             }
 
             if (success)

@@ -1,6 +1,5 @@
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
-using Markdig.Syntax;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -30,7 +29,7 @@ public record EncodeAudioTrackMapping(
     {
         ArgumentNullException.ThrowIfNull(platformService);
 
-        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        var builder = new FfmpegArgumentBuilder(platformService);
         return builder
             .AddSourceMap(SourceStream, StreamType, SourceIndex)
             .AddDestinationCodec(StreamType, DestinationCodec)

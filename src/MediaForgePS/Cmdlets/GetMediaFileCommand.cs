@@ -72,7 +72,7 @@ public class GetMediaFileCommand : CmdletBase
             // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Reading media file information: {ResolvedPath}", resolvedPath);
-            var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedPath).ConfigureAwait(false).GetAwaiter().GetResult();
+            var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedPath, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
             if (mediaFile is null)
             {
                 Logger.LogWarning("Media file information is null for: {ResolvedPath}", resolvedPath);

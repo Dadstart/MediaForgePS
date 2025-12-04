@@ -7,7 +7,7 @@ namespace Dadstart.Labs.MediaForge.Services.System;
 public class ArgumentBuilder(IPlatformService platformService) : IArgumentBuilder
 {
     private readonly List<Argument> _arguments = new();
-    private readonly IPlatformService _platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
+    private readonly IPlatformService _platformService = platformService;
 
     /// <summary>
     /// Adds a flag argument (e.g., "-y").

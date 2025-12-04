@@ -19,14 +19,17 @@ public class FfmpegService : IFfmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments = null)
+    public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+
         _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
         // Build ffmpeg arguments: -i input, optional custom arguments, output
         var allArguments = new List<string> { "-i", inputPath };
 
-        if (arguments != null)
+        if (arguments is not null)
         {
             allArguments.AddRange(arguments);
         }
@@ -36,7 +39,17 @@ public class FfmpegService : IFfmpegService
 
         _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await _executableService.Execute(FFMPEG_EXECUTABLE, allArguments).ConfigureAwait(false);
+        var result = await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
+
+        if (result.Exception is not null)
+        {
+            _logger.LogError(
+                result.Exception,
+                "Exception occurred during FFmpeg conversion: {InputPath} -> {OutputPath}",
+                inputPath,
+                outputPath);
+            return false;
+        }
 
         if (result.ExitCode == 0)
         {

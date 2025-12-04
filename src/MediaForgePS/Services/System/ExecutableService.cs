@@ -16,8 +16,13 @@ public class ExecutableService : IExecutableService
     }
 
     /// <inheritdoc />
-    public async Task<ExecutableResult> Execute(string command, IEnumerable<string> arguments)
+    public async Task<ExecutableResult> ExecuteAsync(string command, IEnumerable<string> arguments, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        ArgumentNullException.ThrowIfNull(arguments);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
         var argumentsString = arguments.ToQuotedArgumentString(_platformService);
         _logger.LogDebug("Executing command: {Command} with arguments: {Arguments}", command, argumentsString);
 
@@ -37,18 +42,20 @@ public class ExecutableService : IExecutableService
 
             if (!process.Start())
             {
-                var errorMessage = $"Failed to start process {command} with arguments {argumentsString}";
+                var errorMessage = $"Failed to start process '{command}' with arguments: {argumentsString}";
                 _logger.LogError(errorMessage);
                 throw new InvalidOperationException(errorMessage);
             }
 
             _logger.LogTrace("Process started successfully. Process ID: {ProcessId}", process.Id);
 
-            // read both streams asynchronously to prevent deadlocks
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await process.WaitForExitAsync().ConfigureAwait(false);
+            // read both streams asynchronously to prevent deadlocks
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
             var stdout = await stdoutTask.ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
@@ -74,6 +81,11 @@ public class ExecutableService : IExecutableService
 
             return new ExecutableResult(stdout, stderr, process.ExitCode);
 
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Command execution was cancelled: {Command}", command);
+            throw;
         }
         catch (Exception ex)
         {

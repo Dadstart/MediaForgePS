@@ -32,7 +32,7 @@ public record ConstantRateVideoEncodingSettings(
     public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
     {
         ArgumentNullException.ThrowIfNull(platformService);
-        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        var builder = new FfmpegArgumentBuilder(platformService);
         builder
             .AddSourceMap(0, StreamType, 0)
             .AddDestinationCodec(StreamType, FfmpegCodecName)

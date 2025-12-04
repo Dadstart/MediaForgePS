@@ -20,14 +20,16 @@ public class MediaReaderService : IMediaReaderService
         _logger = logger;
     }
 
-    public async Task<MediaFile?> GetMediaFileAsync(string path)
+    public async Task<MediaFile?> GetMediaFileAsync(string path, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
         _logger.LogInformation("Reading media file: {Path}", path);
 
         var ffprobeArguments = new[] { "-show_format", "-show_chapters", "-show_streams" };
         _logger.LogDebug("Using ffprobe arguments: {Arguments}", string.Join(", ", ffprobeArguments));
 
-        var result = await _ffprobeService.Execute(path, ffprobeArguments).ConfigureAwait(false);
+        var result = await _ffprobeService.ExecuteAsync(path, ffprobeArguments, cancellationToken).ConfigureAwait(false);
         if (!result.Success)
         {
             _logger.LogWarning("Failed to retrieve media file information for: {Path}", path);
@@ -37,19 +39,12 @@ public class MediaReaderService : IMediaReaderService
         _logger.LogDebug("Parsing media file information for: {Path}", path);
         var mediaFile = _mediaModelParser.ParseFile(path, result.Json);
 
-        if (mediaFile is not null)
-        {
-            _logger.LogInformation(
-                "Successfully read media file: {Path}. Format: {Format}, Streams: {StreamCount}, Chapters: {ChapterCount}",
-                path,
-                mediaFile.Format?.Format,
-                mediaFile.Streams?.Length ?? 0,
-                mediaFile.Chapters?.Length ?? 0);
-        }
-        else
-        {
-            _logger.LogWarning("Media file parsing returned null for: {Path}", path);
-        }
+        _logger.LogInformation(
+            "Successfully read media file: {Path}. Format: {Format}, Streams: {StreamCount}, Chapters: {ChapterCount}",
+            path,
+            mediaFile.Format?.Format,
+            mediaFile.Streams?.Length ?? 0,
+            mediaFile.Chapters?.Length ?? 0);
 
         return mediaFile;
     }

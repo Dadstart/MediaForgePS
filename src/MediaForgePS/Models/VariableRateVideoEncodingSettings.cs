@@ -36,7 +36,7 @@ public record VariableRateVideoEncodingSettings(
         if (pass != 1 && pass != 2)
             throw new ArgumentOutOfRangeException(nameof(pass), pass, "Pass must be 1 or 2 for variable rate encoding");
 
-        var builder = new FfmpegArgumentBuilder(platformService, new ArgumentBuilder(platformService));
+        var builder = new FfmpegArgumentBuilder(platformService);
 
         if (pass == 2)
         {
