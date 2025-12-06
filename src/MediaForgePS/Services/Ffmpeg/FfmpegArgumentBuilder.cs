@@ -59,7 +59,7 @@ public class FfmpegArgumentBuilder(IPlatformService platformService)
     public FfmpegArgumentBuilder AddAudioChannels(int destinationIndex, int channels)
     {
         if (channels > 0)
-            _argumentBuilder.AddOption($"-ac:a:{destinationIndex}", channels.ToString());
+            _argumentBuilder.AddOption($"-ac:{destinationIndex}", channels.ToString());
         return this;
     }
 
