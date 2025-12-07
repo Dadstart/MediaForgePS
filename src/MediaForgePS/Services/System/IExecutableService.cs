@@ -7,6 +7,7 @@ public interface IExecutableService
     /// </summary>
     /// <param name="command">The command to execute.</param>
     /// <param name="arguments">The arguments to pass to the command.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
     /// <returns>The result of the command execution.</returns>
-    Task<ExecutableResult> Execute(string command, IEnumerable<string> arguments);
+    Task<ExecutableResult> ExecuteAsync(string command, IEnumerable<string> arguments, CancellationToken cancellationToken = default);
 }

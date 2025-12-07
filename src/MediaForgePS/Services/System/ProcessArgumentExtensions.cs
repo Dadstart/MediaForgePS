@@ -15,6 +15,9 @@ public static class ProcessArgumentExtensions
     /// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
     public static string ToQuotedArgumentString(this IEnumerable<string> arguments, IPlatformService platformService)
     {
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(platformService);
+
         return string.Join(" ", arguments.Select(arg => QuoteArgument(arg, platformService)));
     }
 
@@ -26,6 +29,9 @@ public static class ProcessArgumentExtensions
     /// <returns>A properly quoted argument string suitable for ProcessStartInfo.Arguments.</returns>
     public static string QuoteArgument(string argument, IPlatformService platformService)
     {
+        ArgumentNullException.ThrowIfNull(argument);
+        ArgumentNullException.ThrowIfNull(platformService);
+
         return platformService.IsWindows() ? QuoteWindowsArgument(argument) : QuoteUnixArgument(argument);
     }
 
@@ -38,6 +44,10 @@ public static class ProcessArgumentExtensions
     {
         if (string.IsNullOrEmpty(argument))
             return "\"\"";
+
+        // Check if argument is already quoted (starts and ends with double quote)
+        if (argument.Length >= 2 && argument[0] == '"' && argument[^1] == '"')
+            return argument;
 
         // Check if argument needs quoting
         bool needsQuoting = argument.Contains(' ') || argument.Contains('"') || argument.Contains('\t') || argument.Contains('\\');
@@ -92,6 +102,10 @@ public static class ProcessArgumentExtensions
     {
         if (string.IsNullOrEmpty(argument))
             return "''";
+
+        // Check if argument is already quoted (starts and ends with single quote)
+        if (argument.Length >= 2 && argument[0] == '\'' && argument[^1] == '\'')
+            return argument;
 
         // Characters that require quoting on Unix-like systems
         if (argument.IndexOfAny(_unixSpecialCharacters) == -1)

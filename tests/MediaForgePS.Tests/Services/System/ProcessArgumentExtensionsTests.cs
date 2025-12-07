@@ -363,5 +363,60 @@ public class ProcessArgumentExtensionsTests
         // Assert
         Assert.Equal("'/home/user/my files/file.txt'", result);
     }
+
+    [Fact]
+    public void QuoteWindowsArgument_WithAlreadyQuotedArgument_ReturnsAsIs()
+    {
+        // Act
+        var result = ProcessArgumentExtensions.QuoteWindowsArgument("\"already quoted\"");
+
+        // Assert
+        Assert.Equal("\"already quoted\"", result);
+    }
+
+    [Fact]
+    public void QuoteWindowsArgument_WithAlreadyQuotedArgumentContainingSpaces_ReturnsAsIs()
+    {
+        // Act
+        var result = ProcessArgumentExtensions.QuoteWindowsArgument("\"arg with spaces\"");
+
+        // Assert
+        Assert.Equal("\"arg with spaces\"", result);
+    }
+
+    [Fact]
+    public void QuoteUnixArgument_WithAlreadyQuotedArgument_ReturnsAsIs()
+    {
+        // Act
+        var result = ProcessArgumentExtensions.QuoteUnixArgument("'already quoted'");
+
+        // Assert
+        Assert.Equal("'already quoted'", result);
+    }
+
+    [Fact]
+    public void QuoteUnixArgument_WithAlreadyQuotedArgumentContainingSpaces_ReturnsAsIs()
+    {
+        // Act
+        var result = ProcessArgumentExtensions.QuoteUnixArgument("'arg with spaces'");
+
+        // Assert
+        Assert.Equal("'arg with spaces'", result);
+    }
+
+    [Fact]
+    public void ToQuotedArgumentString_WithAlreadyQuotedArguments_DoesNotDoubleQuote()
+    {
+        // Arrange
+        var platformService = new Mock<IPlatformService>();
+        platformService.Setup(p => p.IsWindows()).Returns(true);
+        var arguments = new[] { "\"already quoted\"", "simple" };
+
+        // Act
+        var result = arguments.ToQuotedArgumentString(platformService.Object);
+
+        // Assert
+        Assert.Equal("\"already quoted\" simple", result);
+    }
 }
 

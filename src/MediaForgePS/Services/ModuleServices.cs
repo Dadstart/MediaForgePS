@@ -46,6 +46,7 @@ public static class ModuleServices
             services.AddSingleton<IPlatformService, PlatformService>();
             services.AddSingleton<IDebuggerService, DebuggerService>();
             services.AddSingleton<IExecutableService, ExecutableService>();
+            services.AddSingleton<IPathResolver, PathResolver>();
             services.AddSingleton<IFfprobeService, FfprobeService>();
             services.AddSingleton<IFfmpegService, FfmpegService>();
             services.AddSingleton<IMediaModelParser, MediaModelParser>();
