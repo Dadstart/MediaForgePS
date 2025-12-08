@@ -126,27 +126,5 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
         Logger.LogInformation("Successfully created video encoding settings");
         WriteObject(settings);
     }
-
-    private static IList<string> ConvertHashtableToArgs(Hashtable? hashtable)
-    {
-        if (hashtable == null || hashtable.Count == 0)
-            return Array.Empty<string>();
-
-        List<string> args = new();
-        foreach (DictionaryEntry entry in hashtable)
-        {
-            string key = entry.Key?.ToString() ?? string.Empty;
-            string value = entry.Value?.ToString() ?? string.Empty;
-
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                args.Add($"-{key}");
-                if (!string.IsNullOrWhiteSpace(value))
-                    args.Add(value);
-            }
-        }
-
-        return args;
-    }
 }
 
