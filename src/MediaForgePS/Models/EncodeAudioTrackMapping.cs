@@ -16,9 +16,28 @@ public record EncodeAudioTrackMapping(
     int DestinationChannels)
     : AudioTrackMapping(Title, SourceStream, SourceIndex, DestinationIndex)
 {
+    /// <summary>
+    /// Default bitrate for mono audio tracks (80 kbps).
+    /// Based on common AAC codec recommendations for mono audio encoding.
+    /// </summary>
     private const int DefaultBitrateMono = 80;
+
+    /// <summary>
+    /// Default bitrate for stereo audio tracks (160 kbps).
+    /// Based on common AAC codec recommendations for stereo audio encoding.
+    /// </summary>
     private const int DefaultBitrateStereo = 160;
+
+    /// <summary>
+    /// Default bitrate for 5.1 surround sound audio tracks (384 kbps).
+    /// Based on common AAC codec recommendations for 5.1 channel audio encoding.
+    /// </summary>
     private const int DefaultBitrate5_1 = 384;
+
+    /// <summary>
+    /// Default bitrate for 7.1 surround sound audio tracks (512 kbps).
+    /// Based on common AAC codec recommendations for 7.1 channel audio encoding.
+    /// </summary>
     private const int DefaultBitrate7_1 = 512;
 
     /// <summary>
