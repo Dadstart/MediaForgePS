@@ -27,8 +27,8 @@ $ErrorActionPreference = 'Stop'
 $targetFramework = 'net9.0' # matches csproj
 $moduleBaseName = 'MediaForgePS'
 
-# Determine repository root using git
-$repoRoot = git rev-parse --show-toplevel
+# Determine repository root using git (relative to this script's location)
+$repoRoot = git -C $PSScriptRoot rev-parse --show-toplevel
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to determine repository root. Make sure you're in a git repository."
     }
