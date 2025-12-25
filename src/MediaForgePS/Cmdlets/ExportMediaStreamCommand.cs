@@ -18,9 +18,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// This cmdlet uses ffmpeg to extract a specific stream (video, audio, subtitle, or data) from a media file
 /// and save it to a separate output file. The stream is copied without re-encoding to preserve quality.
 /// </remarks>
-[Cmdlet(VerbsData.Export, "Stream", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Export, "MediaStream", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(bool))]
-public class ExportStreamCommand : CmdletBase
+public class ExportMediaStreamCommand : CmdletBase
 {
     /// <summary>
     /// Media file object from which to export the stream. Can be provided via pipeline.
