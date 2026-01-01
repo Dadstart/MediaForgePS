@@ -21,66 +21,43 @@ public class FfmpegService : IFfmpegService
     /// <inheritdoc />
     public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
-
-        _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
-
-        // Build ffmpeg arguments: -i input, optional custom arguments, output
-        var allArguments = new List<string> { "-i", inputPath };
-
-        if (arguments is not null)
-        {
-            allArguments.AddRange(arguments);
-        }
-
-        allArguments.Add("-y"); // Overwrite output file if it exists
-        allArguments.Add(outputPath);
-
-        _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
-
-        var result = await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
-
-        if (result.Exception is not null)
-        {
-            _logger.LogError(
-                result.Exception,
-                "Exception occurred during FFmpeg conversion: {InputPath} -> {OutputPath}",
-                inputPath,
-                outputPath);
-            return false;
-        }
-
-        if (result.ExitCode == 0)
-        {
-            _logger.LogInformation("FFmpeg conversion successful: {InputPath} -> {OutputPath}", inputPath, outputPath);
-            return true;
-        }
-        else
-        {
-            _logger.LogError(
-                "FFmpeg conversion failed: {InputPath} -> {OutputPath}. Exit code: {ExitCode}, Error: {Error}",
-                inputPath,
-                outputPath,
-                result.ExitCode,
-                result.ErrorOutput);
-            return false;
-        }
+        return await ConvertAsyncInternal(inputPath, outputPath, arguments, null, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments, Action<FfmpegProgress> progressCallback, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(progressCallback);
+        return await ConvertAsyncInternal(inputPath, outputPath, arguments, progressCallback, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> ConvertAsyncInternal(string inputPath, string outputPath, IEnumerable<string>? arguments, Action<FfmpegProgress>? progressCallback, CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
-        ArgumentNullException.ThrowIfNull(progressCallback);
 
-        _logger.LogInformation("Converting media file from {InputPath} to {OutputPath} with progress tracking", inputPath, outputPath);
+        var logMessage = progressCallback != null
+            ? "Converting media file from {InputPath} to {OutputPath} with progress tracking"
+            : "Converting media file from {InputPath} to {OutputPath}";
+        _logger.LogInformation(logMessage, inputPath, outputPath);
 
-        // Build ffmpeg arguments: -i input, -progress pipe:1, optional custom arguments, output
+        var allArguments = BuildArguments(inputPath, outputPath, arguments, progressCallback != null);
+        _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
+
+        var result = await ExecuteFfmpegAsync(allArguments, progressCallback, cancellationToken).ConfigureAwait(false);
+
+        return HandleResult(result, inputPath, outputPath);
+    }
+
+    private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments, bool includeProgress)
+    {
         var allArguments = new List<string> { "-i", inputPath };
-        allArguments.Add("-progress");
-        allArguments.Add("pipe:1");
+
+        if (includeProgress)
+        {
+            allArguments.Add("-progress");
+            allArguments.Add("pipe:1");
+        }
 
         if (arguments is not null)
         {
@@ -90,31 +67,44 @@ public class FfmpegService : IFfmpegService
         allArguments.Add("-y"); // Overwrite output file if it exists
         allArguments.Add(outputPath);
 
-        _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
+        return allArguments;
+    }
 
-        var currentProgress = new FfmpegProgress(null, null, null, null, null, null, null, null, null, null);
+    private async Task<ExecutableResult> ExecuteFfmpegAsync(List<string> arguments, Action<FfmpegProgress>? progressCallback, CancellationToken cancellationToken)
+    {
+        if (progressCallback != null)
+        {
+            var currentProgress = new FfmpegProgress(null, null, null, null, null, null, null, null, null, null);
 
-        var result = await _executableService.ExecuteAsync(
-            FFMPEG_EXECUTABLE,
-            allArguments,
-            line =>
-            {
-                var updatedProgress = FfmpegProgressParser.ParseLine(line, currentProgress);
-                if (updatedProgress is not null && updatedProgress != currentProgress)
+            return await _executableService.ExecuteAsync(
+                FFMPEG_EXECUTABLE,
+                arguments,
+                line =>
                 {
-                    currentProgress = updatedProgress;
-                    try
+                    var updatedProgress = FfmpegProgressParser.ParseLine(line, currentProgress);
+                    if (updatedProgress is not null && updatedProgress != currentProgress)
                     {
-                        progressCallback(currentProgress);
+                        currentProgress = updatedProgress;
+                        try
+                        {
+                            progressCallback(currentProgress);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Exception in progress callback during FFmpeg conversion");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Exception in progress callback during FFmpeg conversion");
-                    }
-                }
-            },
-            cancellationToken).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, arguments, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
+    private bool HandleResult(ExecutableResult result, string inputPath, string outputPath)
+    {
         if (result.Exception is not null)
         {
             _logger.LogError(
