@@ -51,6 +51,7 @@ public static class ModuleServices
             services.AddSingleton<IFfmpegService, FfmpegService>();
             services.AddSingleton<IMediaModelParser, MediaModelParser>();
             services.AddSingleton<IMediaReaderService, MediaReaderService>();
+            services.AddSingleton<IAudioTrackMappingService, AudioTrackMappingService>();
 
             _provider = services.BuildServiceProvider(validateScopes: true);
             _initialized = true;
