@@ -51,13 +51,20 @@ public class FfmpegService : IFfmpegService
 
     private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments, bool includeProgress)
     {
-        var allArguments = new List<string> { "-i", inputPath };
+        var allArguments = new List<string>();
 
         if (includeProgress)
         {
+            // Suppress normal output when using progress tracking so only progress goes to stdout
+            allArguments.Add("-loglevel");
+            allArguments.Add("error");
+            allArguments.Add("-hide_banner");
             allArguments.Add("-progress");
             allArguments.Add("pipe:1");
         }
+
+        allArguments.Add("-i");
+        allArguments.Add(inputPath);
 
         if (arguments is not null)
         {
