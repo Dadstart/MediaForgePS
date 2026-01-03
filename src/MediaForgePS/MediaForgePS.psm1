@@ -4,10 +4,16 @@ if (-not (Test-Path $dllPath)) {
 }
 
 # Import the binary module directly (no .psd1 manifest needed)
-Import-Module $dllPath
+$importedModule = Import-Module $dllPath -PassThru
 
 # Initialize dependency injection container
 [Dadstart.Labs.MediaForge.Module.ModuleInitializer]::Initialize() | Out-Null
+
+# Export all cmdlets from the imported binary module
+$cmdlets = $importedModule.ExportedCmdlets.Values.Name
+if ($cmdlets) {
+    Export-ModuleMember -Cmdlet $cmdlets
+}
 
 $ExecutionContext.SessionState.Module.OnRemove = {
     [Dadstart.Labs.MediaForge.Module.ModuleInitializer]::Cleanup()
