@@ -52,6 +52,9 @@
 - Do not include `<exception>` tags in XML documentation comments
 
 
+#### Error Handling
+- For custom `Exception` implementations, don't add obsolete serialization constructor or `GetObjectData`
+
 ### PowerShell
 
 - Use PowerShell 7.5
