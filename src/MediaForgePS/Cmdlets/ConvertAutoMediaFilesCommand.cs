@@ -285,9 +285,9 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
 
             AudioTrackMapping mapping;
             var codecLower = stream.Codec.ToLowerInvariant();
-            if (codecLower == "dts" || codecLower == "truehd")
+            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && stream.Profile.ToLower() != "dts")
             {
-                // DTS or TrueHD: copy without re-encoding
+                // DTS-HD MA or TrueHD: copy without re-encoding
                 mapping = new CopyAudioTrackMapping(
                     title,
                     0,
@@ -313,33 +313,27 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
 
         // Apply swap logic: if first is DTS/TrueHD (copy) and second is multi-channel (6+ channels), swap destination indices
         if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping &&
+            mappings[0] is CopyAudioTrackMapping copyMapping &&
             mappings[1] is EncodeAudioTrackMapping encodeMapping &&
             string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6)
+            encodeMapping.DestinationChannels >= 6 && copyMapping.SourceIndex < encodeMapping.SourceIndex)
         {
-            Logger.LogDebug("Applying swap logic: swapping destination indices for DTS/TrueHD and 6+ channel AAC");
-            var firstDestIndex = mappings[0].DestinationIndex;
-            var secondDestIndex = mappings[1].DestinationIndex;
-
             // Swap by creating new instances with swapped destination indices
-            if (mappings[0] is CopyAudioTrackMapping copyMapping)
-            {
-                mappings[0] = new CopyAudioTrackMapping(
-                    copyMapping.Title,
-                    copyMapping.SourceStream,
-                    copyMapping.SourceIndex,
-                    secondDestIndex);
-            }
-
-            mappings[1] = new EncodeAudioTrackMapping(
+            Logger.LogDebug("Applying swap logic: swapping destination indices for DTS/TrueHD and 6+ channel AAC");
+            mappings[0] = new EncodeAudioTrackMapping(
                 encodeMapping.Title,
                 encodeMapping.SourceStream,
                 encodeMapping.SourceIndex,
-                firstDestIndex,
+                copyMapping.DestinationIndex,
                 encodeMapping.DestinationCodec,
                 encodeMapping.DestinationBitrate,
                 encodeMapping.DestinationChannels);
+
+            mappings[1] = new CopyAudioTrackMapping(
+                copyMapping.Title,
+                copyMapping.SourceStream,
+                copyMapping.SourceIndex,
+                encodeMapping.DestinationIndex);
         }
 
         return mappings.ToArray();
