@@ -52,6 +52,6 @@ public abstract record VideoEncodingSettings(
     public static string GetDefaultPixelFormat(string codec)
     {
         var ffmpegCodec = ConvertToFfmpegCodec(codec);
-        return ffmpegCodec == "libx265" || ffmpegCodec == "x265" ? "yuv420p10le" : "yuv420p";
+        return ffmpegCodec.Contains("265") ? "yuv420p10le" : "yuv420p";
     }
 }

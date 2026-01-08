@@ -290,8 +290,8 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
                 // DTS or TrueHD: copy without re-encoding
                 mapping = new CopyAudioTrackMapping(
                     title,
-                    stream.Index,
-                    stream.Index,
+                    0,
+                    stream.Index - 1,
                     destinationIndex);
             }
             else
@@ -299,8 +299,8 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
                 // Other streams: encode as AAC, preserving channel count
                 mapping = new EncodeAudioTrackMapping(
                     title,
-                    stream.Index,
-                    stream.Index,
+                    0,
+                    stream.Index - 1,
                     destinationIndex,
                     "aac",
                     0, // Bitrate 0 means use default based on channel count
@@ -412,7 +412,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
             "high",
             "film",
             22,
-            VideoEncodingSettings.GetDefaultPixelFormat("h265"));
+            VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
     }
 
     /// <summary>
