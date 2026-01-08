@@ -407,7 +407,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     private ConstantRateVideoEncodingSettings CreateDefaultVideoEncodingSettings()
     {
         return new ConstantRateVideoEncodingSettings(
-            "h265",
+            "libx265",
             "fast",
             "high",
             "film",

@@ -21,7 +21,7 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
 {
     private static class HelpMessages
     {
-        public const string Codec = "The video codec to use for encoding (e.g., 'h264', 'h265', 'vp9')";
+        public const string Codec = "The video codec to use for encoding (e.g., 'libx264', 'libx265', 'vp9')";
         public const string CRF = "The Constant Rate Factor value for quality control. Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265";
         public const string Bitrate = "The bitrate for variable bitrate encoding in kbps";
         public const string Preset = "The encoding preset that balances speed vs. compression efficiency (e.g., 'ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow')";
@@ -33,7 +33,7 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
     private const string VbrParameterSet = "VBR";
 
     /// <summary>
-    /// The video codec to use for encoding (e.g., 'h264', 'h265', 'vp9').
+    /// The video codec to use for encoding (e.g., 'libx264', 'libx265', 'vp9').
     /// </summary>
     [Parameter(
         Mandatory = true,
