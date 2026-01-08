@@ -29,6 +29,7 @@ bld/
 
 # Visual Studio Code
 .vscode/
+!.vscode/launch.json
 
 # JetBrains Rider
 .idea/
