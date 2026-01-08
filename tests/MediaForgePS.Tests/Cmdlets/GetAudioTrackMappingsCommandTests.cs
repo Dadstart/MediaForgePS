@@ -33,7 +33,8 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
         _loggerMock = new Mock<ILogger<GetAudioTrackMappingsCommand>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
 
-        _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<Type>()))
+        // Mock CreateLogger(string) instead of CreateLogger(Type) extension method
+        _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
 
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
@@ -50,7 +51,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
         var moduleServicesType = typeof(ModuleServices);
         _providerField = moduleServicesType.GetField("_provider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         _initializedField = moduleServicesType.GetField("_initialized", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        
+
         if (_providerField != null)
             _providerField.SetValue(null, _serviceProvider);
         if (_initializedField != null)
@@ -77,7 +78,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
 
         // Act
         var command = new GetAudioTrackMappingsCommand { InputPath = inputPath };
-        
+
         // We can't easily test WriteError without a full PowerShell runspace
         // So we'll verify the path resolver was called
         _pathResolverMock.Verify(p => p.TryResolveInputPath(inputPath, out resolvedPath), Times.Never);
@@ -97,7 +98,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
 
         // Act
         var command = new GetAudioTrackMappingsCommand { InputPath = inputPath };
-        
+
         // We can't easily test WriteError without a full PowerShell runspace
         // So we'll verify the services were called
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()), Times.Never);
@@ -131,7 +132,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
 
         // Act
         var command = new GetAudioTrackMappingsCommand { InputPath = inputPath };
-        
+
         // We can't easily test WriteObject without a full PowerShell runspace
         // So we'll verify the services were called correctly
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()), Times.Never);
