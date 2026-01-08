@@ -31,7 +31,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Array of input file paths to convert. Can be passed via pipeline.
+    /// Array of input file paths to convert. Can be passed via pipeline as strings or FileSystemInfo objects.
     /// </summary>
     [Parameter(
         Mandatory = true,
@@ -40,7 +40,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         ValueFromPipelineByPropertyName = true,
         HelpMessage = HelpMessages.InputPath)]
     [ValidateNotNullOrEmpty]
-    public string[] InputPath { get; set; } = Array.Empty<string>();
+    public object[] InputPath { get; set; } = Array.Empty<object>();
 
     /// <summary>
     /// Directory where output files will be written. Files keep original name with .mkv extension.
@@ -100,7 +100,18 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         if (InputPath == null || InputPath.Length == 0)
             return;
 
-        _allInputPaths.AddRange(InputPath);
+        foreach (var item in InputPath)
+        {
+            string path = item switch
+            {
+                string str => str,
+                FileSystemInfo fsi => fsi.FullName,
+                PSObject pso when pso.BaseObject is FileSystemInfo fsi => fsi.FullName,
+                PSObject pso when pso.BaseObject is string str => str,
+                _ => item.ToString() ?? throw new ArgumentException($"Cannot convert object of type {item.GetType()} to a file path", nameof(InputPath))
+            };
+            _allInputPaths.Add(path);
+        }
     }
 
     /// <summary>
@@ -175,8 +186,8 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         }
 
         // Resolve output path
-        var fileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mkv";
-        var outputPath = Path.Combine(OutputDirectory, fileName);
+        var outputFileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mp4";
+        var outputPath = Path.Combine(OutputDirectory, outputFileName);
         if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
         {
             var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
