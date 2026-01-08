@@ -234,10 +234,10 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         // If no English streams but other audio streams exist, track as error
         if (englishAudioStreams.Count == 0)
         {
-            Logger.LogWarning("No English audio streams found in: {InputPath}", resolvedInputPath);
+            Logger.LogInformation("No English audio streams found in: {InputPath}", resolvedInputPath);
             var result = new ConversionResult(inputPath, false, "No English audio streams found");
             _conversionResults.Add(result);
-            WriteWarning($"No English audio streams found in: {inputPath}. Skipping file.");
+            WriteInformation(new InformationRecord($"No English audio streams found in: {inputPath}. Skipping file.", "NoEnglishAudioStreams"));
             return;
         }
 
