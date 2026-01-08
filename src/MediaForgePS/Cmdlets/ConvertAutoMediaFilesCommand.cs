@@ -352,7 +352,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-            bool success = MediaConversionService.ExecuteConversion(
+            MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 videoSettings,
