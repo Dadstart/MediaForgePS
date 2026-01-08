@@ -65,6 +65,8 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     private IPlatformService? _platformService;
     private IMediaReaderService? _mediaReaderService;
     private readonly List<ConversionResult> _conversionResults = new();
+    private readonly List<string> _allInputPaths = new();
+    private int _currentFileIndex = 0;
 
     /// <summary>
     /// Ffmpeg service instance for performing media file conversion.
@@ -87,32 +89,48 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
 
     /// <summary>
-    /// Initializes error tracking list.
+    /// Initializes error tracking list and collects all input paths.
     /// </summary>
     protected override void Begin()
     {
         _conversionResults.Clear();
+        _allInputPaths.Clear();
+        _currentFileIndex = 0;
     }
 
     /// <summary>
-    /// Processes each input file.
+    /// Collects input paths from pipeline.
     /// </summary>
     protected override void Process()
     {
         if (InputPath == null || InputPath.Length == 0)
             return;
 
-        foreach (var inputPath in InputPath)
-        {
-            ProcessFile(inputPath);
-        }
+        _allInputPaths.AddRange(InputPath);
     }
 
     /// <summary>
-    /// Outputs summary table of all conversion results.
+    /// Processes all collected files and outputs summary table.
     /// </summary>
     protected override void End()
     {
+        // Process all collected files
+        if (_allInputPaths.Count > 0)
+        {
+            var totalFiles = _allInputPaths.Count;
+            _currentFileIndex = 0;
+
+            foreach (var inputPath in _allInputPaths)
+            {
+                _currentFileIndex++;
+                UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
+                ProcessFile(inputPath);
+            }
+
+            // Complete overall progress
+            WriteProgress(new ProgressRecord(1, "Batch Conversion", "Completed") { RecordType = ProgressRecordType.Completed });
+        }
+
         if (_conversionResults.Count == 0)
             return;
 
@@ -126,6 +144,23 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
 
         // Output all results as objects for further processing
         WriteObject(_conversionResults, false);
+    }
+
+    /// <summary>
+    /// Updates the overall progress for batch conversion.
+    /// </summary>
+    /// <param name="currentFile">Current file number (1-based).</param>
+    /// <param name="totalFiles">Total number of files to process.</param>
+    /// <param name="currentFilePath">Path of the current file being processed.</param>
+    private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
+    {
+        var progressRecord = new ProgressRecord(1, "Batch Conversion", $"Processing file {currentFile} of {totalFiles}")
+        {
+            PercentComplete = (int)((currentFile * 100.0) / totalFiles),
+            CurrentOperation = Path.GetFileName(currentFilePath)
+        };
+
+        WriteProgress(progressRecord);
     }
 
     private void ProcessFile(string inputPath)
