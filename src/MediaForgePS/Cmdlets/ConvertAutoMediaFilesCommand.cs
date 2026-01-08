@@ -64,7 +64,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
     private readonly List<ConversionResult> _conversionResults = new();
-    private readonly List<string> _allInputPaths = new();
+    private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
     private int _currentFileIndex = 0;
 
     /// <summary>
@@ -88,7 +88,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     protected override void Begin()
     {
         _conversionResults.Clear();
-        _allInputPaths.Clear();
+        _uniqueInputPaths.Clear();
         _currentFileIndex = 0;
     }
 
@@ -110,7 +110,9 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
                 PSObject pso when pso.BaseObject is string str => str,
                 _ => item.ToString() ?? throw new ArgumentException($"Cannot convert object of type {item.GetType()} to a file path", nameof(InputPath))
             };
-            _allInputPaths.Add(path);
+
+            // Add path (HashSet automatically prevents duplicates with case-insensitive comparison)
+            _uniqueInputPaths.Add(path);
         }
     }
 
@@ -120,12 +122,12 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     protected override void End()
     {
         // Process all collected files
-        if (_allInputPaths.Count > 0)
+        if (_uniqueInputPaths.Count > 0)
         {
-            var totalFiles = _allInputPaths.Count;
+            var totalFiles = _uniqueInputPaths.Count;
             _currentFileIndex = 0;
 
-            foreach (var inputPath in _allInputPaths)
+            foreach (var inputPath in _uniqueInputPaths)
             {
                 _currentFileIndex++;
                 UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
