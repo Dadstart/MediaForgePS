@@ -60,18 +60,12 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         HelpMessage = HelpMessages.VideoEncodingSettings)]
     public VideoEncodingSettings? VideoEncodingSettings { get; set; }
 
-    private IFfmpegService? _ffmpegService;
     private IPathResolver? _pathResolver;
-    private IPlatformService? _platformService;
+    private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
     private readonly List<ConversionResult> _conversionResults = new();
     private readonly List<string> _allInputPaths = new();
     private int _currentFileIndex = 0;
-
-    /// <summary>
-    /// Ffmpeg service instance for performing media file conversion.
-    /// </summary>
-    private IFfmpegService FfmpegService => _ffmpegService ??= ModuleServices.GetRequiredService<IFfmpegService>();
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -79,9 +73,9 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
-    /// Platform service instance for platform-specific operations.
+    /// Media conversion service instance for performing conversions.
     /// </summary>
-    private IPlatformService PlatformService => _platformService ??= ModuleServices.GetRequiredService<IPlatformService>();
+    private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
 
     /// <summary>
     /// Media reader service instance for retrieving media file information.
@@ -345,47 +339,14 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
             // Get or create video encoding settings
             var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
 
-            // Get input file duration for progress percentage calculation
-            var inputFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
-            long? totalDurationMs = inputFile?.Format?.Duration != null ? (long)(inputFile.Format.Duration * 1000) : null;
-
-            // Build Ffmpeg arguments
-            var ffmpegArgs = BuildFfmpegArguments(videoSettings, audioMappings);
-
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-            bool success;
-            if (videoSettings.IsSinglePass)
-            {
-                success = FfmpegService.ConvertAsync(
-                    resolvedInputPath,
-                    resolvedOutputPath,
-                    ffmpegArgs,
-                    progress => ReportProgress(progress, totalDurationMs, "Converting"),
-                    CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
-            else
-            {
-                // First pass
-                success = FfmpegService.ConvertAsync(
-                    resolvedInputPath,
-                    resolvedOutputPath,
-                    BuildFfmpegArguments(videoSettings, audioMappings, 1),
-                    progress => ReportProgress(progress, totalDurationMs, "Pass 1 of 2"),
-                    CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-
-                if (success)
-                {
-                    // Second pass
-                    success = FfmpegService.ConvertAsync(
-                        resolvedInputPath,
-                        resolvedOutputPath,
-                        BuildFfmpegArguments(videoSettings, audioMappings, 2),
-                        progress => ReportProgress(progress, totalDurationMs, "Pass 2 of 2"),
-                        CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-                }
-            }
+            bool success = MediaConversionService.ExecuteConversion(
+                resolvedInputPath,
+                resolvedOutputPath,
+                videoSettings,
+                audioMappings,
+                (progress, totalDurationMs, status) => ReportProgress(progress, totalDurationMs, status));
 
             // Complete progress reporting
             WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
@@ -417,21 +378,6 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
         }
     }
 
-    private IEnumerable<string> BuildFfmpegArguments(VideoEncodingSettings videoSettings, AudioTrackMapping[] audioMappings, int? pass = null)
-    {
-        var args = new List<string>();
-
-        // Add video encoding arguments
-        args.AddRange(videoSettings.ToFfmpegArgs(PlatformService, pass));
-
-        // Add audio track mapping arguments
-        foreach (var audioMapping in audioMappings)
-        {
-            args.AddRange(audioMapping.ToFfmpegArgs(PlatformService));
-        }
-
-        return args;
-    }
 
     private ConstantRateVideoEncodingSettings CreateDefaultVideoEncodingSettings()
     {
@@ -452,40 +398,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     /// <param name="status">Status message to display.</param>
     private void ReportProgress(FfmpegProgress progress, long? totalDurationMs, string status)
     {
-        var progressRecord = new ProgressRecord(0, "Converting Media File", status);
-
-        // Calculate percentage if we have both current time and total duration
-        if (progress.OutTimeMs.HasValue && totalDurationMs.HasValue && totalDurationMs.Value > 0)
-        {
-            var percentComplete = (int)Math.Min(100, Math.Max(0, (progress.OutTimeMs.Value * 100) / totalDurationMs.Value));
-            progressRecord.PercentComplete = percentComplete;
-        }
-
-        // Build status details
-        var details = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(progress.OutTime))
-            details.Add($"Time: {progress.OutTime}");
-
-        if (progress.Fps.HasValue)
-            details.Add($"FPS: {progress.Fps:F2}");
-
-        if (progress.Speed.HasValue)
-            details.Add($"Speed: {progress.Speed:F2}x");
-
-        if (progress.Bitrate.HasValue)
-            details.Add($"Bitrate: {progress.Bitrate:F0} kbits/s");
-
-        if (progress.Frame.HasValue)
-            details.Add($"Frame: {progress.Frame:N0}");
-
-        if (details.Count > 0)
-            progressRecord.CurrentOperation = string.Join(" | ", details);
-
-        // Mark as completed if progress indicates end
-        if (progress.Progress == "end")
-            progressRecord.RecordType = ProgressRecordType.Completed;
-
+        var progressRecord = MediaConversionHelper.CreateProgressRecord(progress, totalDurationMs, status);
         WriteProgress(progressRecord);
     }
 

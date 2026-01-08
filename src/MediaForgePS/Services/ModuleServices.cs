@@ -52,6 +52,7 @@ public static class ModuleServices
             services.AddSingleton<IMediaModelParser, MediaModelParser>();
             services.AddSingleton<IMediaReaderService, MediaReaderService>();
             services.AddSingleton<IAudioTrackMappingService, AudioTrackMappingService>();
+            services.AddSingleton<IMediaConversionService, MediaConversionService>();
 
             _provider = services.BuildServiceProvider(validateScopes: true);
             _initialized = true;
