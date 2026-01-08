@@ -10,7 +10,8 @@ public abstract record VideoEncodingSettings(
     string Codec,
     string Preset,
     string CodecProfile,
-    string Tune)
+    string Tune,
+    string PixelFormat)
 {
     public const char StreamType = 'v';
 
@@ -34,5 +35,23 @@ public abstract record VideoEncodingSettings(
     /// <summary>
     /// Converts the codec name to the Ffmpeg codec name (e.g., "x264" to "libx264").
     /// </summary>
-    protected string FfmpegCodecName => Codec == "x264" ? "libx264" : Codec;
+    /// <param name="codec">The codec name.</param>
+    /// <returns>The Ffmpeg codec name.</returns>
+    private static string ConvertToFfmpegCodec(string codec) => codec == "x264" ? "libx264" : codec;
+
+    /// <summary>
+    /// Converts the codec name to the Ffmpeg codec name (e.g., "x264" to "libx264").
+    /// </summary>
+    protected string FfmpegCodecName => ConvertToFfmpegCodec(Codec);
+
+    /// <summary>
+    /// Gets the default pixel format based on the codec.
+    /// </summary>
+    /// <param name="codec">The codec name.</param>
+    /// <returns>The default pixel format for the codec.</returns>
+    public static string GetDefaultPixelFormat(string codec)
+    {
+        var ffmpegCodec = ConvertToFfmpegCodec(codec);
+        return ffmpegCodec == "libx265" || ffmpegCodec == "x265" ? "yuv420p10le" : "yuv420p";
+    }
 }

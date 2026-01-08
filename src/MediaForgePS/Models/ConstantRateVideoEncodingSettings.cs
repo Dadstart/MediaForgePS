@@ -11,8 +11,9 @@ public record ConstantRateVideoEncodingSettings(
     string Preset,
     string CodecProfile,
     string Tune,
-    int CRF)
-    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune)
+    int CRF,
+    string PixelFormat)
+    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune, PixelFormat)
 {
     /// <summary>
     /// Returns a string representation of the encoding settings.
@@ -38,7 +39,7 @@ public record ConstantRateVideoEncodingSettings(
             .AddDestinationCodec(StreamType, FfmpegCodecName)
             .AddPreset(Preset)
             .AddCrf(CRF)
-            .AddPixelFormat()
+            .AddPixelFormat(PixelFormat)
             .AddMapMetadata(0)
             .AddMapChapters(0)
             .AddMovFlags();

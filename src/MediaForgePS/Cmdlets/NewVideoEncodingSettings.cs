@@ -27,6 +27,7 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
         public const string Preset = "The encoding preset that balances speed vs. compression efficiency (e.g., 'ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow')";
         public const string CodecProfile = "The codec profile to use (e.g., 'high', 'main', 'baseline' for H.264)";
         public const string Tune = "The tuning option for the codec (e.g., 'film', 'animation', 'grain', 'stillimage', 'fastdecode', 'zerolatency')";
+        public const string PixelFormat = "The pixel format to use for encoding (e.g., 'yuv420p', 'yuv420p10le'). Defaults to 'yuv420p10le' for libx265 and 'yuv420p' for libx264";
     }
     private const string CrfParameterSet = "CRF";
     private const string VbrParameterSet = "VBR";
@@ -97,6 +98,18 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
     public string Tune { get; set; } = "film";
 
     /// <summary>
+    /// The pixel format to use for encoding (e.g., 'yuv420p', 'yuv420p10le').
+    /// Defaults to 'yuv420p10le' for libx265 and 'yuv420p' for libx264.
+    /// </summary>
+    [Parameter(
+        ParameterSetName = CrfParameterSet,
+        HelpMessage = HelpMessages.PixelFormat)]
+    [Parameter(
+        ParameterSetName = VbrParameterSet,
+        HelpMessage = HelpMessages.PixelFormat)]
+    public string? PixelFormat { get; set; }
+
+    /// <summary>
     /// Processes the video encoding settings creation request.
     /// </summary>
     protected override void Process()
@@ -104,19 +117,21 @@ public class NewVideoEncodingSettingsCommand : CmdletBase
         Logger.LogInformation("Creating video encoding settings: ParameterSet={ParameterSetName}, Codec={Codec}",
             ParameterSetName, Codec);
 
+        var pixelFormat = PixelFormat ?? VideoEncodingSettings.GetDefaultPixelFormat(Codec);
+
         VideoEncodingSettings settings;
 
         if (ParameterSetName == CrfParameterSet)
         {
-            settings = new ConstantRateVideoEncodingSettings(Codec, Preset, CodecProfile, Tune, CRF);
-            Logger.LogDebug("Created ConstantRateVideoEncodingSettings with CRF={CRF}, Preset={Preset}, CodecProfile={CodecProfile}, Tune={Tune}",
-                CRF, Preset, CodecProfile, Tune);
+            settings = new ConstantRateVideoEncodingSettings(Codec, Preset, CodecProfile, Tune, CRF, pixelFormat);
+            Logger.LogDebug("Created ConstantRateVideoEncodingSettings with CRF={CRF}, Preset={Preset}, CodecProfile={CodecProfile}, Tune={Tune}, PixelFormat={PixelFormat}",
+                CRF, Preset, CodecProfile, Tune, pixelFormat);
         }
         else if (ParameterSetName == VbrParameterSet)
         {
-            settings = new VariableRateVideoEncodingSettings(Codec, Preset, CodecProfile, Tune, Bitrate);
-            Logger.LogDebug("Created VariableRateVideoEncodingSettings with Bitrate={Bitrate}, Preset={Preset}",
-                Bitrate, Preset);
+            settings = new VariableRateVideoEncodingSettings(Codec, Preset, CodecProfile, Tune, Bitrate, pixelFormat);
+            Logger.LogDebug("Created VariableRateVideoEncodingSettings with Bitrate={Bitrate}, Preset={Preset}, PixelFormat={PixelFormat}",
+                Bitrate, Preset, pixelFormat);
         }
         else
         {
