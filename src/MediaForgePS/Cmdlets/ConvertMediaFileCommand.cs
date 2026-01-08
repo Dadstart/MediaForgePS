@@ -163,7 +163,6 @@ public class ConvertMediaFileCommand : CmdletBase
             WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            WriteObject(true);
         }
         catch (FfmpegConversionException ex)
         {
