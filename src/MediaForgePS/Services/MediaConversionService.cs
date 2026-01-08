@@ -60,7 +60,7 @@ public class MediaConversionService : IMediaConversionService
     }
 
     /// <inheritdoc />
-    public bool ExecuteConversion(
+    public void ExecuteConversion(
         string resolvedInputPath,
         string resolvedOutputPath,
         VideoEncodingSettings videoSettings,
@@ -100,7 +100,5 @@ public class MediaConversionService : IMediaConversionService
                 progress => progressCallback(progress, totalDurationMs, "Pass 2 of 2"),
                 CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         }
-
-        return true;
     }
 }
