@@ -1,0 +1,484 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+using Microsoft.Extensions.Logging;
+
+namespace Dadstart.Labs.MediaForge.Cmdlets;
+
+/// <summary>
+/// Automatically converts multiple media files with intelligent audio stream selection.
+/// </summary>
+/// <remarks>
+/// This cmdlet processes multiple video files, automatically detecting and configuring audio streams
+/// based on codec type and channel count. It applies default video encoding settings (libx265, CRF 22, preset fast)
+/// unless overridden, and provides a summary of any files that couldn't be processed.
+/// </remarks>
+[Cmdlet(VerbsData.Convert, "AutoMediaFiles")]
+[OutputType(typeof(ConversionResult))]
+public class ConvertAutoMediaFilesCommand : CmdletBase
+{
+    private static class HelpMessages
+    {
+        public const string InputPath = "Array of input file paths to convert";
+        public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
+        public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses libx265, CRF 22, preset 'fast'";
+    }
+
+    /// <summary>
+    /// Array of input file paths to convert. Can be passed via pipeline.
+    /// </summary>
+    [Parameter(
+        Mandatory = true,
+        Position = 0,
+        ValueFromPipeline = true,
+        ValueFromPipelineByPropertyName = true,
+        HelpMessage = HelpMessages.InputPath)]
+    [ValidateNotNullOrEmpty]
+    public string[] InputPath { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Directory where output files will be written. Files keep original name with .mkv extension.
+    /// </summary>
+    [Parameter(
+        Mandatory = true,
+        Position = 1,
+        HelpMessage = HelpMessages.OutputDirectory)]
+    [ValidateNotNullOrEmpty]
+    public string OutputDirectory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Override default video encoding settings. If not provided, uses libx265, CRF 22, preset "fast".
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        HelpMessage = HelpMessages.VideoEncodingSettings)]
+    public VideoEncodingSettings? VideoEncodingSettings { get; set; }
+
+    private IFfmpegService? _ffmpegService;
+    private IPathResolver? _pathResolver;
+    private IPlatformService? _platformService;
+    private IMediaReaderService? _mediaReaderService;
+    private readonly List<ConversionResult> _conversionResults = new();
+
+    /// <summary>
+    /// Ffmpeg service instance for performing media file conversion.
+    /// </summary>
+    private IFfmpegService FfmpegService => _ffmpegService ??= ModuleServices.GetRequiredService<IFfmpegService>();
+
+    /// <summary>
+    /// Path resolver service instance for resolving and validating file paths.
+    /// </summary>
+    private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
+
+    /// <summary>
+    /// Platform service instance for platform-specific operations.
+    /// </summary>
+    private IPlatformService PlatformService => _platformService ??= ModuleServices.GetRequiredService<IPlatformService>();
+
+    /// <summary>
+    /// Media reader service instance for retrieving media file information.
+    /// </summary>
+    private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
+
+    /// <summary>
+    /// Initializes error tracking list.
+    /// </summary>
+    protected override void Begin()
+    {
+        _conversionResults.Clear();
+    }
+
+    /// <summary>
+    /// Processes each input file.
+    /// </summary>
+    protected override void Process()
+    {
+        if (InputPath == null || InputPath.Length == 0)
+            return;
+
+        foreach (var inputPath in InputPath)
+        {
+            ProcessFile(inputPath);
+        }
+    }
+
+    /// <summary>
+    /// Outputs summary table of all conversion results.
+    /// </summary>
+    protected override void End()
+    {
+        if (_conversionResults.Count == 0)
+            return;
+
+        // Output summary table
+        var failedFiles = _conversionResults.Where(r => !r.Success).ToList();
+        if (failedFiles.Count > 0)
+        {
+            WriteWarning($"{failedFiles.Count} file(s) could not be converted or had issues:");
+            WriteObject(failedFiles, true);
+        }
+
+        // Output all results as objects for further processing
+        WriteObject(_conversionResults, false);
+    }
+
+    private void ProcessFile(string inputPath)
+    {
+        Logger.LogInformation("Processing file: {InputPath}", inputPath);
+
+        // Resolve input path
+        if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
+        {
+            var result = new ConversionResult(inputPath, false, "File not found");
+            _conversionResults.Add(result);
+            WriteError(new ErrorRecord(
+                new FileNotFoundException($"Input media file not found: {inputPath}"),
+                "FileNotFound",
+                ErrorCategory.ObjectNotFound,
+                inputPath));
+            return;
+        }
+
+        // Resolve output path
+        var fileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mkv";
+        var outputPath = Path.Combine(OutputDirectory, fileName);
+        if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
+        {
+            var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
+            _conversionResults.Add(result);
+            WriteError(new ErrorRecord(
+                new Exception($"Failed to resolve output path: {outputPath}"),
+                "PathError",
+                ErrorCategory.InvalidArgument,
+                outputPath));
+            return;
+        }
+
+        // Get media file info
+        MediaFile? mediaFile;
+        try
+        {
+            mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to read media file: {InputPath}", resolvedInputPath);
+            var result = new ConversionResult(inputPath, false, $"Failed to read media file: {ex.Message}");
+            _conversionResults.Add(result);
+            WriteError(new ErrorRecord(ex, "MediaReadFailed", ErrorCategory.ReadError, resolvedInputPath));
+            return;
+        }
+
+        if (mediaFile == null)
+        {
+            var result = new ConversionResult(inputPath, false, "Failed to read media file information");
+            _conversionResults.Add(result);
+            WriteWarning($"Could not read media file information for: {inputPath}");
+            return;
+        }
+
+        // Check for audio streams
+        var audioStreams = mediaFile.Streams
+            .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // If no audio streams at all, process with empty mappings (video-only)
+        if (audioStreams.Count == 0)
+        {
+            Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
+            ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath);
+            return;
+        }
+
+        // Filter for English streams only
+        var englishAudioStreams = audioStreams
+            .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // If no English streams but other audio streams exist, track as error
+        if (englishAudioStreams.Count == 0)
+        {
+            Logger.LogWarning("No English audio streams found in: {InputPath}", resolvedInputPath);
+            var result = new ConversionResult(inputPath, false, "No English audio streams found");
+            _conversionResults.Add(result);
+            WriteWarning($"No English audio streams found in: {inputPath}. Skipping file.");
+            return;
+        }
+
+        // Determine audio track mappings
+        AudioTrackMapping[] audioMappings;
+        try
+        {
+            audioMappings = CreateAudioTrackMappings(englishAudioStreams);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
+            var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
+            _conversionResults.Add(result);
+            WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
+            return;
+        }
+
+        // Perform conversion
+        ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath);
+    }
+
+    private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
+    {
+        var mappings = new List<AudioTrackMapping>();
+        int destinationIndex = 0;
+
+        foreach (var stream in englishAudioStreams)
+        {
+            int channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
+            stream.Tags.TryGetValue("title", out var title);
+
+            AudioTrackMapping mapping;
+            var codecLower = stream.Codec.ToLowerInvariant();
+            if (codecLower == "dts" || codecLower == "truehd")
+            {
+                // DTS or TrueHD: copy without re-encoding
+                mapping = new CopyAudioTrackMapping(
+                    title,
+                    stream.Index,
+                    stream.Index,
+                    destinationIndex);
+            }
+            else
+            {
+                // Other streams: encode as AAC, preserving channel count
+                mapping = new EncodeAudioTrackMapping(
+                    title,
+                    stream.Index,
+                    stream.Index,
+                    destinationIndex,
+                    "aac",
+                    0, // Bitrate 0 means use default based on channel count
+                    channels);
+            }
+
+            mappings.Add(mapping);
+            destinationIndex++;
+        }
+
+        // Apply swap logic: if first is DTS/TrueHD (copy) and second is multi-channel (6+ channels), swap destination indices
+        if (mappings.Count >= 2 &&
+            mappings[0] is CopyAudioTrackMapping &&
+            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
+            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
+            encodeMapping.DestinationChannels >= 6)
+        {
+            Logger.LogDebug("Applying swap logic: swapping destination indices for DTS/TrueHD and 6+ channel AAC");
+            var firstDestIndex = mappings[0].DestinationIndex;
+            var secondDestIndex = mappings[1].DestinationIndex;
+
+            // Swap by creating new instances with swapped destination indices
+            if (mappings[0] is CopyAudioTrackMapping copyMapping)
+            {
+                mappings[0] = new CopyAudioTrackMapping(
+                    copyMapping.Title,
+                    copyMapping.SourceStream,
+                    copyMapping.SourceIndex,
+                    secondDestIndex);
+            }
+
+            mappings[1] = new EncodeAudioTrackMapping(
+                encodeMapping.Title,
+                encodeMapping.SourceStream,
+                encodeMapping.SourceIndex,
+                firstDestIndex,
+                encodeMapping.DestinationCodec,
+                encodeMapping.DestinationBitrate,
+                encodeMapping.DestinationChannels);
+        }
+
+        return mappings.ToArray();
+    }
+
+    private void ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
+    {
+        try
+        {
+            // Get or create video encoding settings
+            var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
+
+            // Get input file duration for progress percentage calculation
+            var inputFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+            long? totalDurationMs = inputFile?.Format?.Duration != null ? (long)(inputFile.Format.Duration * 1000) : null;
+
+            // Build Ffmpeg arguments
+            var ffmpegArgs = BuildFfmpegArguments(videoSettings, audioMappings);
+
+            Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+
+            bool success;
+            if (videoSettings.IsSinglePass)
+            {
+                success = FfmpegService.ConvertAsync(
+                    resolvedInputPath,
+                    resolvedOutputPath,
+                    ffmpegArgs,
+                    progress => ReportProgress(progress, totalDurationMs, "Converting"),
+                    CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            else
+            {
+                // First pass
+                success = FfmpegService.ConvertAsync(
+                    resolvedInputPath,
+                    resolvedOutputPath,
+                    BuildFfmpegArguments(videoSettings, audioMappings, 1),
+                    progress => ReportProgress(progress, totalDurationMs, "Pass 1 of 2"),
+                    CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+
+                if (success)
+                {
+                    // Second pass
+                    success = FfmpegService.ConvertAsync(
+                        resolvedInputPath,
+                        resolvedOutputPath,
+                        BuildFfmpegArguments(videoSettings, audioMappings, 2),
+                        progress => ReportProgress(progress, totalDurationMs, "Pass 2 of 2"),
+                        CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                }
+            }
+
+            // Complete progress reporting
+            WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
+
+            if (success)
+            {
+                Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+                var result = new ConversionResult(originalInputPath, true, "Success");
+                _conversionResults.Add(result);
+            }
+            else
+            {
+                Logger.LogError("Media file conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+                var result = new ConversionResult(originalInputPath, false, "Conversion failed");
+                _conversionResults.Add(result);
+                WriteError(new ErrorRecord(
+                    new Exception($"Failed to convert media file: {resolvedInputPath}"),
+                    "ConversionFailed",
+                    ErrorCategory.OperationStopped,
+                    resolvedInputPath));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var result = new ConversionResult(originalInputPath, false, $"Conversion failed: {ex.Message}");
+            _conversionResults.Add(result);
+            WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+        }
+    }
+
+    private IEnumerable<string> BuildFfmpegArguments(VideoEncodingSettings videoSettings, AudioTrackMapping[] audioMappings, int? pass = null)
+    {
+        var args = new List<string>();
+
+        // Add video encoding arguments
+        args.AddRange(videoSettings.ToFfmpegArgs(PlatformService, pass));
+
+        // Add audio track mapping arguments
+        foreach (var audioMapping in audioMappings)
+        {
+            args.AddRange(audioMapping.ToFfmpegArgs(PlatformService));
+        }
+
+        return args;
+    }
+
+    private ConstantRateVideoEncodingSettings CreateDefaultVideoEncodingSettings()
+    {
+        return new ConstantRateVideoEncodingSettings(
+            "h265",
+            "fast",
+            "high",
+            "film",
+            22,
+            VideoEncodingSettings.GetDefaultPixelFormat("h265"));
+    }
+
+    /// <summary>
+    /// Reports progress using PowerShell's WriteProgress cmdlet.
+    /// </summary>
+    /// <param name="progress">The Ffmpeg progress information.</param>
+    /// <param name="totalDurationMs">Total duration of the input file in milliseconds, if available.</param>
+    /// <param name="status">Status message to display.</param>
+    private void ReportProgress(FfmpegProgress progress, long? totalDurationMs, string status)
+    {
+        var progressRecord = new ProgressRecord(0, "Converting Media File", status);
+
+        // Calculate percentage if we have both current time and total duration
+        if (progress.OutTimeMs.HasValue && totalDurationMs.HasValue && totalDurationMs.Value > 0)
+        {
+            var percentComplete = (int)Math.Min(100, Math.Max(0, (progress.OutTimeMs.Value * 100) / totalDurationMs.Value));
+            progressRecord.PercentComplete = percentComplete;
+        }
+
+        // Build status details
+        var details = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(progress.OutTime))
+            details.Add($"Time: {progress.OutTime}");
+
+        if (progress.Fps.HasValue)
+            details.Add($"FPS: {progress.Fps:F2}");
+
+        if (progress.Speed.HasValue)
+            details.Add($"Speed: {progress.Speed:F2}x");
+
+        if (progress.Bitrate.HasValue)
+            details.Add($"Bitrate: {progress.Bitrate:F0} kbits/s");
+
+        if (progress.Frame.HasValue)
+            details.Add($"Frame: {progress.Frame:N0}");
+
+        if (details.Count > 0)
+            progressRecord.CurrentOperation = string.Join(" | ", details);
+
+        // Mark as completed if progress indicates end
+        if (progress.Progress == "end")
+            progressRecord.RecordType = ProgressRecordType.Completed;
+
+        WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Represents the result of a conversion operation.
+    /// </summary>
+    public class ConversionResult
+    {
+        public ConversionResult(string filePath, bool success, string status)
+        {
+            FilePath = filePath;
+            Success = success;
+            Status = status;
+        }
+
+        /// <summary>
+        /// Path to the input file that was processed.
+        /// </summary>
+        public string FilePath { get; }
+
+        /// <summary>
+        /// Indicates whether the conversion was successful.
+        /// </summary>
+        public bool Success { get; }
+
+        /// <summary>
+        /// Status message describing the result.
+        /// </summary>
+        public string Status { get; }
+    }
+}

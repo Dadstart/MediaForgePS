@@ -136,7 +136,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
     /// </summary>
     /// <param name="rawJson">The raw JSON string from the stream.</param>
     /// <returns>The channel count, or 0 if not found.</returns>
-    private static int ParseChannelCount(string rawJson)
+    public static int ParseChannelCount(string rawJson)
     {
         if (string.IsNullOrWhiteSpace(rawJson))
             return 0;
