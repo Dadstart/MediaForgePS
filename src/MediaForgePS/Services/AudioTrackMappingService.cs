@@ -55,8 +55,8 @@ public class AudioTrackMappingService : IAudioTrackMappingService
                 // DTS: always copy
                 mapping = new CopyAudioTrackMapping(
                     title,
-                    stream.Index,
-                    stream.Index,
+                    0, // SourceStream: input file index (always 0 for single input)
+                    stream.Index, // SourceIndex: stream index within the file
                     destinationIndex);
             }
             else
@@ -84,8 +84,8 @@ public class AudioTrackMappingService : IAudioTrackMappingService
 
                 mapping = new EncodeAudioTrackMapping(
                     title,
-                    stream.Index,
-                    stream.Index,
+                    0, // SourceStream: input file index (always 0 for single input)
+                    stream.Index, // SourceIndex: stream index within the file
                     destinationIndex,
                     codec,
                     bitrate,
