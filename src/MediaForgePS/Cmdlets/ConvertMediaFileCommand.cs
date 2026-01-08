@@ -151,7 +151,7 @@ public class ConvertMediaFileCommand : CmdletBase
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-            bool success = MediaConversionService.ExecuteConversion(
+            MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 VideoEncodingSettings,
@@ -162,21 +162,14 @@ public class ConvertMediaFileCommand : CmdletBase
             // Complete progress reporting
             WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
 
-            if (success)
-            {
-                Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                WriteObject(true);
-            }
-            else
-            {
-                Logger.LogError("Media file conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                WriteError(CreatePathErrorRecord(
-                    new Exception($"Failed to convert media file: {resolvedInputPath}"),
-                    "ConversionFailed",
-                    ErrorCategory.OperationStopped,
-                    resolvedInputPath));
-                return;
-            }
+            Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            WriteObject(true);
+        }
+        catch (FfmpegConversionException ex)
+        {
+            Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            WriteError(CreatePathErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            return;
         }
         catch (Exception ex)
         {

@@ -46,7 +46,8 @@ public class FfmpegService : IFfmpegService
 
         var result = await ExecuteFfmpegAsync(allArguments, progressCallback, cancellationToken).ConfigureAwait(false);
 
-        return HandleResult(result, inputPath, outputPath);
+        HandleResult(result, inputPath, outputPath);
+        return true;
     }
 
     private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments, bool includeProgress)
@@ -119,7 +120,13 @@ public class FfmpegService : IFfmpegService
                 "Exception occurred during FFmpeg conversion: {InputPath} -> {OutputPath}",
                 inputPath,
                 outputPath);
-            return false;
+            throw new FfmpegConversionException(
+                $"Exception occurred during FFmpeg conversion: {result.Exception.Message}",
+                inputPath,
+                outputPath,
+                result.ExitCode,
+                result.ErrorOutput,
+                result.Exception);
         }
 
         if (result.ExitCode == 0)
@@ -129,13 +136,24 @@ public class FfmpegService : IFfmpegService
         }
         else
         {
+            var errorMessage = BuildErrorMessage(inputPath, outputPath, result.ExitCode, result.ErrorOutput);
             _logger.LogError(
                 "FFmpeg conversion failed: {InputPath} -> {OutputPath}. Exit code: {ExitCode}, Error: {Error}",
                 inputPath,
                 outputPath,
                 result.ExitCode,
                 result.ErrorOutput);
-            return false;
+            throw new FfmpegConversionException(errorMessage, inputPath, outputPath, result.ExitCode, result.ErrorOutput);
         }
+    }
+
+    private static string BuildErrorMessage(string inputPath, string outputPath, int? exitCode, string? errorOutput)
+    {
+        var message = $"FFmpeg conversion failed: {inputPath} -> {outputPath}";
+        if (exitCode.HasValue)
+            message += $". Exit code: {exitCode.Value}";
+        if (!string.IsNullOrWhiteSpace(errorOutput))
+            message += $". Error: {errorOutput.Trim()}";
+        return message;
     }
 }

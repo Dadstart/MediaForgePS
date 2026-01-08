@@ -362,23 +362,17 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
             // Complete progress reporting
             WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
 
-            if (success)
-            {
-                Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                var result = new ConversionResult(originalInputPath, true, "Success");
-                _conversionResults.Add(result);
-            }
-            else
-            {
-                Logger.LogError("Media file conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                var result = new ConversionResult(originalInputPath, false, "Conversion failed");
-                _conversionResults.Add(result);
-                WriteError(new ErrorRecord(
-                    new Exception($"Failed to convert media file: {resolvedInputPath}"),
-                    "ConversionFailed",
-                    ErrorCategory.OperationStopped,
-                    resolvedInputPath));
-            }
+            Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var result = new ConversionResult(originalInputPath, true, "Success");
+            _conversionResults.Add(result);
+        }
+        catch (FfmpegConversionException ex)
+        {
+            Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var statusMessage = BuildStatusMessage(ex);
+            var result = new ConversionResult(originalInputPath, false, statusMessage);
+            _conversionResults.Add(result);
+            WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
         catch (Exception ex)
         {
@@ -387,6 +381,24 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
             _conversionResults.Add(result);
             WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
+    }
+
+    private static string BuildStatusMessage(FfmpegConversionException ex)
+    {
+        var message = "Conversion failed";
+        if (ex.ExitCode.HasValue)
+            message += $" (exit code: {ex.ExitCode.Value})";
+        if (!string.IsNullOrWhiteSpace(ex.ErrorOutput))
+        {
+            var errorLines = ex.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (errorLines.Length > 0)
+            {
+                var firstErrorLine = errorLines[0].Trim();
+                if (firstErrorLine.Length > 0)
+                    message += $": {firstErrorLine}";
+            }
+        }
+        return message;
     }
 
 

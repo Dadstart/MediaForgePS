@@ -31,7 +31,8 @@ public interface IMediaConversionService
     /// <param name="audioMappings">Audio track mappings.</param>
     /// <param name="progressCallback">Callback for reporting progress.</param>
     /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
-    /// <returns>True if conversion succeeded, false otherwise.</returns>
+    /// <returns>True if conversion succeeded.</returns>
+    /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     bool ExecuteConversion(
         string resolvedInputPath,
         string resolvedOutputPath,

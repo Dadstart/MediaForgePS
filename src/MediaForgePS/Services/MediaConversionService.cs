@@ -73,10 +73,9 @@ public class MediaConversionService : IMediaConversionService
             .ConfigureAwait(false).GetAwaiter().GetResult();
         long? totalDurationMs = inputFile?.Format?.Duration != null ? (long)(inputFile.Format.Duration * 1000) : null;
 
-        bool success;
         if (videoSettings.IsSinglePass)
         {
-            success = _ffmpegService.ConvertAsync(
+            _ffmpegService.ConvertAsync(
                 resolvedInputPath,
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
@@ -86,25 +85,22 @@ public class MediaConversionService : IMediaConversionService
         else
         {
             // First pass
-            success = _ffmpegService.ConvertAsync(
+            _ffmpegService.ConvertAsync(
                 resolvedInputPath,
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 1, additionalArguments),
                 progress => progressCallback(progress, totalDurationMs, "Pass 1 of 2"),
                 CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
 
-            if (success)
-            {
-                // Second pass
-                success = _ffmpegService.ConvertAsync(
-                    resolvedInputPath,
-                    resolvedOutputPath,
-                    BuildFfmpegArguments(videoSettings, audioMappings, 2, additionalArguments),
-                    progress => progressCallback(progress, totalDurationMs, "Pass 2 of 2"),
-                    CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
+            // Second pass
+            _ffmpegService.ConvertAsync(
+                resolvedInputPath,
+                resolvedOutputPath,
+                BuildFfmpegArguments(videoSettings, audioMappings, 2, additionalArguments),
+                progress => progressCallback(progress, totalDurationMs, "Pass 2 of 2"),
+                CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        return success;
+        return true;
     }
 }

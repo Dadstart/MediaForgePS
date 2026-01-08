@@ -12,7 +12,8 @@ public interface IFfmpegService
     /// <param name="outputPath">Path to the output media file.</param>
     /// <param name="arguments">Optional additional Ffmpeg arguments.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
-    /// <returns>True if conversion succeeded, false otherwise.</returns>
+    /// <returns>True if conversion succeeded.</returns>
+    /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -23,6 +24,7 @@ public interface IFfmpegService
     /// <param name="arguments">Optional additional Ffmpeg arguments.</param>
     /// <param name="progressCallback">Callback invoked when progress information is available.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
-    /// <returns>True if conversion succeeded, false otherwise.</returns>
+    /// <returns>True if conversion succeeded.</returns>
+    /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments, Action<FfmpegProgress> progressCallback, CancellationToken cancellationToken = default);
 }
