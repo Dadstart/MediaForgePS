@@ -1,6 +1,6 @@
 # Debugging MediaForgePS PowerShell Cmdlets
 
-This guide explains how to debug PowerShell cmdlets in MediaForgePS, specifically `Convert-AutoMediaFiles` and other cmdlets.
+This guide explains how to debug PowerShell cmdlets in MediaForgePS, specifically `Convert-MediaFiles` and other cmdlets.
 
 ## Overview
 
@@ -48,10 +48,10 @@ This will:
 
 ### Step 4: Set Breakpoints and Debug
 
-1. Set breakpoints in your C# code (e.g., in `ConvertAutoMediaFilesCommand.cs`)
+1. Set breakpoints in your C# code (e.g., in `ConvertMediaFilesCommand.cs`)
 2. In the PowerShell window, run your cmdlet:
    ```powershell
-   Convert-AutoMediaFiles -InputPath "C:\path\to\video.mp4" -OutputDirectory "C:\output"
+   Convert-MediaFiles -InputPath "C:\path\to\video.mp4" -OutputDirectory "C:\output"
    ```
 3. Execution will pause at your breakpoints
 4. Use VS Code's debug controls to step through code, inspect variables, etc.
@@ -111,12 +111,12 @@ For isolated debugging of specific functionality, write component tests:
 ### Example Component Test
 
 ```csharp
-// In tests/MediaForgePS.ComponentTests/Cmdlets/ConvertAutoMediaFilesCommandComponentTests.cs
+// In tests/MediaForgePS.ComponentTests/Cmdlets/ConvertMediaFilesCommandComponentTests.cs
 [Fact]
-public void ConvertAutoMediaFilesCommand_ProcessesFile_Successfully()
+public void ConvertMediaFilesCommand_ProcessesFile_Successfully()
 {
     // Arrange
-    var cmdlet = new ConvertAutoMediaFilesCommand();
+    var cmdlet = new ConvertMediaFilesCommand();
     cmdlet.InputPath = new[] { "test-video.mp4" };
     cmdlet.OutputDirectory = "output";
     
@@ -134,7 +134,7 @@ public void ConvertAutoMediaFilesCommand_ProcessesFile_Successfully()
 Run the test with debugger attached:
 
 ```powershell
-dotnet test --filter "FullyQualifiedName~ConvertAutoMediaFilesCommandComponentTests" --logger "console;verbosity=detailed"
+dotnet test --filter "FullyQualifiedName~ConvertMediaFilesCommandComponentTests" --logger "console;verbosity=detailed"
 ```
 
 ## Debugging Tips
@@ -146,7 +146,7 @@ The cmdlet uses structured logging. Check the PowerShell console for log output:
 ```powershell
 # Enable verbose output to see debug logs
 $VerbosePreference = 'Continue'
-Convert-AutoMediaFiles -InputPath "video.mp4" -OutputDirectory "output" -Verbose
+Convert-MediaFiles -InputPath "video.mp4" -OutputDirectory "output" -Verbose
 ```
 
 ### 2. Inspect Service Dependencies
@@ -179,19 +179,19 @@ If debugging FFmpeg-related issues:
 Set breakpoints in:
 - `PathResolver.TryResolveInputPath()`
 - `PathResolver.TryResolveOutputPath()`
-- `ConvertAutoMediaFilesCommand.ProcessFile()` (line 171)
+- `ConvertMediaFilesCommand.ProcessFile()` (line 173)
 
 ### Debugging Audio Track Mapping
 
 Set breakpoints in:
-- `ConvertAutoMediaFilesCommand.CreateAudioTrackMappings()` (line 274)
+- `ConvertMediaFilesCommand.CreateAudioTrackMappings()` (line 276)
 - `AudioTrackMappingService.ParseChannelCount()`
-- `ConvertAutoMediaFilesCommand.ProcessFile()` (line 256-268)
+- `ConvertMediaFilesCommand.ProcessFile()` (line 257-269)
 
 ### Debugging Media Conversion
 
 Set breakpoints in:
-- `ConvertAutoMediaFilesCommand.ProcessConversion()` (line 346)
+- `ConvertMediaFilesCommand.ProcessConversion()` (line 342)
 - `MediaConversionService.ExecuteConversion()`
 - `FfmpegService` methods
 
@@ -216,7 +216,7 @@ Set breakpoints in:
 
 ### Run Tests with Debugger
 ```powershell
-dotnet test --filter "FullyQualifiedName~ConvertAutoMediaFilesCommand" --logger "console;verbosity=detailed"
+dotnet test --filter "FullyQualifiedName~ConvertMediaFilesCommand" --logger "console;verbosity=detailed"
 ```
 
 ### Enable DebuggerService Breakpoints

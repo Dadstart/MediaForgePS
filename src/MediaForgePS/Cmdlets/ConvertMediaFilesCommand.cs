@@ -19,9 +19,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// based on codec type and channel count. It applies default video encoding settings (libx265, CRF 22, preset fast)
 /// unless overridden, and provides a summary of any files that couldn't be processed.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "AutoMediaFiles")]
+[Cmdlet(VerbsData.Convert, "MediaFiles")]
 [OutputType(typeof(ConversionResult))]
-public class ConvertAutoMediaFilesCommand : CmdletBase
+public class ConvertMediaFilesCommand : CmdletBase
 {
     private static class HelpMessages
     {

@@ -15,9 +15,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// This cmdlet uses ffmpeg to convert media files between different formats, codecs, and containers.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFile")]
+[Cmdlet(VerbsData.Convert, "MediaFileAdvanced")]
 [OutputType(typeof(bool))]
-public class ConvertMediaFileCommand : CmdletBase
+public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     /// <summary>
     /// Path to the input media file to convert. Can be a relative or absolute path, and supports
@@ -128,7 +128,7 @@ public class ConvertMediaFileCommand : CmdletBase
     /// </summary>
     protected override void Process()
     {
-        Logger.LogInformation("Processing Convert-MediaFile request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
+        Logger.LogInformation("Processing Convert-MediaFileAdvanced request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
 
         string resolvedInputPath;
         if (!PathResolver.TryResolveInputPath(InputPath, out resolvedInputPath))
@@ -190,4 +190,3 @@ public class ConvertMediaFileCommand : CmdletBase
         WriteProgress(progressRecord);
     }
 }
-

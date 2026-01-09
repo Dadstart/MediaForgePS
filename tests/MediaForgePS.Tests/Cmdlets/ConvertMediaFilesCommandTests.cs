@@ -13,27 +13,27 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public class ConvertAutoMediaFilesCommandTests : IDisposable
+public class ConvertMediaFilesCommandTests : IDisposable
 {
     private readonly Mock<IPathResolver> _pathResolverMock;
     private readonly Mock<IMediaReaderService> _mediaReaderServiceMock;
     private readonly Mock<IFfmpegService> _ffmpegServiceMock;
     private readonly Mock<IPlatformService> _platformServiceMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
-    private readonly Mock<ILogger<ConvertAutoMediaFilesCommand>> _loggerMock;
+    private readonly Mock<ILogger<ConvertMediaFilesCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
     private readonly IServiceProvider _serviceProvider;
     private readonly System.Reflection.FieldInfo? _providerField;
     private readonly System.Reflection.FieldInfo? _initializedField;
 
-    public ConvertAutoMediaFilesCommandTests()
+    public ConvertMediaFilesCommandTests()
     {
         _pathResolverMock = new Mock<IPathResolver>();
         _mediaReaderServiceMock = new Mock<IMediaReaderService>();
         _ffmpegServiceMock = new Mock<IFfmpegService>();
         _platformServiceMock = new Mock<IPlatformService>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
-        _loggerMock = new Mock<ILogger<ConvertAutoMediaFilesCommand>>();
+        _loggerMock = new Mock<ILogger<ConvertMediaFilesCommand>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
 
         _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<string>()))
@@ -132,7 +132,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -162,7 +162,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -194,7 +194,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -226,7 +226,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -258,7 +258,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -291,7 +291,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -313,7 +313,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
 
         _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedInputPath)).Returns(false);
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output"
@@ -353,7 +353,7 @@ public class ConvertAutoMediaFilesCommandTests : IDisposable
             20,
             "yuv420p");
 
-        var cmdlet = new ConvertAutoMediaFilesCommand
+        var cmdlet = new ConvertMediaFilesCommand
         {
             InputPath = new[] { inputPath },
             OutputDirectory = "C:\\output",
