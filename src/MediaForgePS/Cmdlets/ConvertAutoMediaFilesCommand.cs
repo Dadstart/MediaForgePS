@@ -161,7 +161,7 @@ public class ConvertAutoMediaFilesCommand : CmdletBase
     /// <param name="currentFilePath">Path of the current file being processed.</param>
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
-        var progressRecord = new ProgressRecord(1, "Batch Conversion", $"Processing file {currentFile} of {totalFiles}")
+        var progressRecord = new ProgressRecord(1, "Batch Conversion", $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})")
         {
             PercentComplete = (int)((currentFile * 100.0) / totalFiles),
             CurrentOperation = Path.GetFileName(currentFilePath)
