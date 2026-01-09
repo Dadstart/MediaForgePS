@@ -86,8 +86,19 @@ public class PathResolver : IPathResolver
             if (TryResolveProviderPath(cmdlet, path, out var providerResolvedPath))
                 resolvedPath = providerResolvedPath!;
             else
-                // If path resolution fails, try to use the path as-is (might be a new file)
-                resolvedPath = path;
+            {
+                // If path resolution fails, check if it's a relative path and resolve it
+                // relative to the current working directory
+                if (!Path.IsPathRooted(path))
+                {
+                    var currentLocation = cmdlet.SessionState.Path.CurrentLocation.Path;
+                    resolvedPath = Path.GetFullPath(Path.Combine(currentLocation, path));
+                    _logger.LogDebug("Resolved relative output path using current location: {ResolvedOutputPath}", resolvedPath);
+                }
+                else
+                    // If path resolution fails and it's already absolute, try to use the path as-is
+                    resolvedPath = path;
+            }
 
             _logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedPath);
 
