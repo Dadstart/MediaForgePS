@@ -244,21 +244,23 @@ public class ConvertMediaFilesCommand : CmdletBase
             .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // If no English streams but other audio streams exist, track as error
+        // If no English streams but other audio streams exist, use all audio streams
+        List<MediaStream> streamsToUse;
         if (englishAudioStreams.Count == 0)
         {
-            Logger.LogInformation("No English audio streams found in: {InputPath}", resolvedInputPath);
-            var result = new ConversionResult(inputPath, false, "No English audio streams found");
-            _conversionResults.Add(result);
-            WriteInformation(new InformationRecord($"No English audio streams found in: {inputPath}. Skipping file.", "NoEnglishAudioStreams"));
-            return;
+            Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
+            streamsToUse = audioStreams;
+        }
+        else
+        {
+            streamsToUse = englishAudioStreams;
         }
 
         // Determine audio track mappings
         AudioTrackMapping[] audioMappings;
         try
         {
-            audioMappings = CreateAudioTrackMappings(englishAudioStreams);
+            audioMappings = CreateAudioTrackMappings(streamsToUse);
         }
         catch (Exception ex)
         {
