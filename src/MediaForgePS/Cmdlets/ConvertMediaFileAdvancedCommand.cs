@@ -5,7 +5,6 @@ using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
@@ -16,9 +15,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// This cmdlet uses ffmpeg to convert media files between different formats, codecs, and containers.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFile")]
+[Cmdlet(VerbsData.Convert, "MediaFileAdvanced")]
 [OutputType(typeof(bool))]
-public class ConvertMediaFileCommand : CmdletBase
+public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     /// <summary>
     /// Path to the input media file to convert. Can be a relative or absolute path, and supports
@@ -68,14 +67,8 @@ public class ConvertMediaFileCommand : CmdletBase
         HelpMessage = "Additional Ffmpeg arguments (e.g., codec options, quality settings)")]
     public string[]? AdditionalArguments { get; set; }
 
-    private IFfmpegService? _ffmpegService;
     private IPathResolver? _pathResolver;
-    private IPlatformService? _platformService;
-
-    /// <summary>
-    /// Ffmpeg service instance for performing media file conversion.
-    /// </summary>
-    private IFfmpegService FfmpegService => _ffmpegService ??= ModuleServices.GetRequiredService<IFfmpegService>();
+    private IMediaConversionService? _mediaConversionService;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -83,36 +76,10 @@ public class ConvertMediaFileCommand : CmdletBase
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
-    /// Platform service instance for platform-specific operations.
+    /// Media conversion service instance for performing conversions.
     /// </summary>
-    private IPlatformService PlatformService => _platformService ??= ModuleServices.GetRequiredService<IPlatformService>();
+    private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
 
-    /// <summary>
-    /// Builds the Ffmpeg arguments from video encoding settings, audio track mappings, and additional arguments.
-    /// </summary>
-    /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
-    /// <returns>A list of Ffmpeg arguments.</returns>
-    private IEnumerable<string> BuildFfmpegArguments(int? pass)
-    {
-        var args = new List<string>();
-
-        // Add video encoding arguments
-        args.AddRange(VideoEncodingSettings.ToFfmpegArgs(PlatformService, pass));
-
-        // Add audio track mapping arguments
-        foreach (var audioMapping in AudioTrackMappings)
-        {
-            args.AddRange(audioMapping.ToFfmpegArgs(PlatformService));
-        }
-
-        // Add additional arguments if provided
-        if (AdditionalArguments != null)
-        {
-            args.AddRange(AdditionalArguments);
-        }
-
-        return args;
-    }
 
     /// <summary>
     /// Creates an error record for a file not found error.
@@ -161,7 +128,7 @@ public class ConvertMediaFileCommand : CmdletBase
     /// </summary>
     protected override void Process()
     {
-        Logger.LogInformation("Processing Convert-MediaFile request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
+        Logger.LogInformation("Processing Convert-MediaFileAdvanced request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
 
         string resolvedInputPath;
         if (!PathResolver.TryResolveInputPath(InputPath, out resolvedInputPath))
@@ -184,32 +151,20 @@ public class ConvertMediaFileCommand : CmdletBase
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-            bool success;
-            if (VideoEncodingSettings.IsSinglePass)
-            {
-                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(null), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
-            else
-            {
-                success = FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(1), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult()
-                    && FfmpegService.ConvertAsync(resolvedInputPath, resolvedOutputPath, BuildFfmpegArguments(2), CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
+            MediaConversionService.ExecuteConversion(
+                resolvedInputPath,
+                resolvedOutputPath,
+                VideoEncodingSettings,
+                AudioTrackMappings,
+                AdditionalArguments);
 
-            if (success)
-            {
-                Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                WriteObject(true);
-            }
-            else
-            {
-                Logger.LogError("Media file conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-                WriteError(CreatePathErrorRecord(
-                    new Exception($"Failed to convert media file: {resolvedInputPath}"),
-                    "ConversionFailed",
-                    ErrorCategory.OperationStopped,
-                    resolvedInputPath));
-                return;
-            }
+            Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+        }
+        catch (FfmpegConversionException ex)
+        {
+            Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            WriteError(CreatePathErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            return;
         }
         catch (Exception ex)
         {
@@ -218,5 +173,5 @@ public class ConvertMediaFileCommand : CmdletBase
             return;
         }
     }
-}
 
+}

@@ -12,8 +12,9 @@ public record VariableRateVideoEncodingSettings(
     string Preset,
     string CodecProfile,
     string Tune,
-    int Bitrate)
-    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune)
+    int Bitrate,
+    string PixelFormat)
+    : VideoEncodingSettings(Codec, Preset, CodecProfile, Tune, PixelFormat)
 {
     /// <summary>
     /// Returns a string representation of the encoding settings.
@@ -49,7 +50,8 @@ public record VariableRateVideoEncodingSettings(
         builder
             .AddDestinationCodec(StreamType, FfmpegCodecName)
             .AddPreset(Preset)
-            .AddBitrate(StreamType, 0, Bitrate);
+            .AddBitrate(StreamType, 0, Bitrate)
+            .AddPixelFormat(PixelFormat);
 
         return builder.ToArguments();
     }

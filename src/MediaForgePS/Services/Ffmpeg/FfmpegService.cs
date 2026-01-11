@@ -26,8 +26,21 @@ public class FfmpegService : IFfmpegService
 
         _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
-        // Build ffmpeg arguments: -i input, optional custom arguments, output
-        var allArguments = new List<string> { "-i", inputPath };
+        var allArguments = BuildArguments(inputPath, outputPath, arguments);
+        _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
+
+        var result = await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
+
+        HandleResult(result, inputPath, outputPath);
+        return true;
+    }
+
+    private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments)
+    {
+        var allArguments = new List<string>();
+
+        allArguments.Add("-i");
+        allArguments.Add(inputPath);
 
         if (arguments is not null)
         {
@@ -37,10 +50,11 @@ public class FfmpegService : IFfmpegService
         allArguments.Add("-y"); // Overwrite output file if it exists
         allArguments.Add(outputPath);
 
-        _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
+        return allArguments;
+    }
 
-        var result = await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
-
+    private bool HandleResult(ExecutableResult result, string inputPath, string outputPath)
+    {
         if (result.Exception is not null)
         {
             _logger.LogError(
@@ -48,7 +62,13 @@ public class FfmpegService : IFfmpegService
                 "Exception occurred during FFmpeg conversion: {InputPath} -> {OutputPath}",
                 inputPath,
                 outputPath);
-            return false;
+            throw new FfmpegConversionException(
+                $"Exception occurred during FFmpeg conversion: {result.Exception.Message}",
+                inputPath,
+                outputPath,
+                result.ExitCode,
+                result.ErrorOutput,
+                result.Exception);
         }
 
         if (result.ExitCode == 0)
@@ -58,13 +78,24 @@ public class FfmpegService : IFfmpegService
         }
         else
         {
+            var errorMessage = BuildErrorMessage(inputPath, outputPath, result.ExitCode, result.ErrorOutput);
             _logger.LogError(
                 "FFmpeg conversion failed: {InputPath} -> {OutputPath}. Exit code: {ExitCode}, Error: {Error}",
                 inputPath,
                 outputPath,
                 result.ExitCode,
                 result.ErrorOutput);
-            return false;
+            throw new FfmpegConversionException(errorMessage, inputPath, outputPath, result.ExitCode, result.ErrorOutput);
         }
+    }
+
+    private static string BuildErrorMessage(string inputPath, string outputPath, int? exitCode, string? errorOutput)
+    {
+        var message = $"FFmpeg conversion failed: {inputPath} -> {outputPath}";
+        if (exitCode.HasValue)
+            message += $". Exit code: {exitCode.Value}";
+        if (!string.IsNullOrWhiteSpace(errorOutput))
+            message += $". Error: {errorOutput.Trim()}";
+        return message;
     }
 }
