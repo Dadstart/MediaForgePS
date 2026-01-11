@@ -29,7 +29,7 @@ public static class MediaConversionHelper
         int? parentActivityId = null)
     {
         var progressRecord = new ProgressRecord(activityId, activity, status);
-        
+
         if (parentActivityId.HasValue)
         {
             progressRecord.ParentActivityId = parentActivityId.Value;

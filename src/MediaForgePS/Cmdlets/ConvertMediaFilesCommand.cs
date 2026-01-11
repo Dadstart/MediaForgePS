@@ -136,9 +136,9 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                1, 
-                "Batch Conversion", 
-                "Completed", 
+                1,
+                "Batch Conversion",
+                "Completed",
                 recordType: ProgressRecordType.Completed));
         }
 
@@ -166,8 +166,8 @@ public class ConvertMediaFilesCommand : CmdletBase
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            1, 
-            "Batch Conversion", 
+            1,
+            "Batch Conversion",
             $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
         progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
@@ -357,10 +357,10 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             // Initialize nested progress record
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                10, 
-                "Converting Media File", 
-                "Starting conversion...", 
-                percentComplete: 0, 
+                10,
+                "Converting Media File",
+                "Starting conversion...",
+                percentComplete: 0,
                 parentActivityId: 1));
 
             MediaConversionService.ExecuteConversion(
@@ -372,10 +372,10 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             // Complete progress reporting
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                10, 
-                "Converting Media File", 
-                "Completed", 
-                parentActivityId: 1, 
+                10,
+                "Converting Media File",
+                "Completed",
+                parentActivityId: 1,
                 recordType: ProgressRecordType.Completed));
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
