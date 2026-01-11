@@ -1,10 +1,9 @@
 using Dadstart.Labs.MediaForge.Models;
-using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Service for performing media file conversions with progress reporting.
+/// Service for performing media file conversions.
 /// </summary>
 public interface IMediaConversionService
 {
@@ -23,13 +22,12 @@ public interface IMediaConversionService
         string[]? additionalArguments = null);
 
     /// <summary>
-    /// Executes a media file conversion with progress reporting.
+    /// Executes a media file conversion.
     /// </summary>
     /// <param name="resolvedInputPath">Resolved input file path.</param>
     /// <param name="resolvedOutputPath">Resolved output file path.</param>
     /// <param name="videoSettings">Video encoding settings.</param>
     /// <param name="audioMappings">Audio track mappings.</param>
-    /// <param name="progressCallback">Callback for reporting progress.</param>
     /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     void ExecuteConversion(
@@ -37,6 +35,5 @@ public interface IMediaConversionService
         string resolvedOutputPath,
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
-        Action<FfmpegProgress, long?, string> progressCallback,
         string[]? additionalArguments = null);
 }

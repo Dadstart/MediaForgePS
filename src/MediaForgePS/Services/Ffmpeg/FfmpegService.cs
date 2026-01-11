@@ -21,48 +21,23 @@ public class FfmpegService : IFfmpegService
     /// <inheritdoc />
     public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default)
     {
-        return await ConvertAsyncInternal(inputPath, outputPath, arguments, null, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> ConvertAsync(string inputPath, string outputPath, IEnumerable<string>? arguments, Action<FfmpegProgress> progressCallback, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(progressCallback);
-        return await ConvertAsyncInternal(inputPath, outputPath, arguments, progressCallback, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<bool> ConvertAsyncInternal(string inputPath, string outputPath, IEnumerable<string>? arguments, Action<FfmpegProgress>? progressCallback, CancellationToken cancellationToken)
-    {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        var logMessage = progressCallback != null
-            ? "Converting media file from {InputPath} to {OutputPath} with progress tracking"
-            : "Converting media file from {InputPath} to {OutputPath}";
-        _logger.LogInformation(logMessage, inputPath, outputPath);
+        _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
-        var allArguments = BuildArguments(inputPath, outputPath, arguments, progressCallback != null);
+        var allArguments = BuildArguments(inputPath, outputPath, arguments);
         _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await ExecuteFfmpegAsync(allArguments, progressCallback, cancellationToken).ConfigureAwait(false);
+        var result = await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
 
         HandleResult(result, inputPath, outputPath);
         return true;
     }
 
-    private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments, bool includeProgress)
+    private List<string> BuildArguments(string inputPath, string outputPath, IEnumerable<string>? arguments)
     {
         var allArguments = new List<string>();
-
-        if (includeProgress)
-        {
-            // Suppress normal output when using progress tracking so only progress goes to stdout
-            allArguments.Add("-loglevel");
-            allArguments.Add("error");
-            allArguments.Add("-hide_banner");
-            allArguments.Add("-progress");
-            allArguments.Add("pipe:1");
-        }
 
         allArguments.Add("-i");
         allArguments.Add(inputPath);
@@ -76,60 +51,6 @@ public class FfmpegService : IFfmpegService
         allArguments.Add(outputPath);
 
         return allArguments;
-    }
-
-    private async Task<ExecutableResult> ExecuteFfmpegAsync(List<string> arguments, Action<FfmpegProgress>? progressCallback, CancellationToken cancellationToken)
-    {
-        if (progressCallback != null)
-        {
-            var currentProgress = new FfmpegProgress(null, null, null, null, null, null, null, null, null, null);
-
-            return await _executableService.ExecuteAsync(
-                FFMPEG_EXECUTABLE,
-                arguments,
-                line =>
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                        return;
-
-                    // Check if this line looks like a progress line (contains '=' and matches known keys)
-                    if (!line.Contains('='))
-                        return;
-
-                    var parts = line.Split('=', 2);
-                    if (parts.Length != 2)
-                        return;
-
-                    var key = parts[0].Trim();
-                    // Only process known progress keys to avoid calling callback for unknown lines
-                    var isKnownProgressKey = key is "frame" or "fps" or "bitrate" or "total_size" or "out_time_ms" or "out_time"
-                        or "dup_frames" or "drop_frames" or "speed" or "progress";
-
-                    if (!isKnownProgressKey)
-                        return;
-
-                    var updatedProgress = FfmpegProgressParser.ParseLine(line, currentProgress);
-                    if (updatedProgress is not null)
-                    {
-                        // Always update and call callback when we parse a known progress field
-                        // This ensures progress is reported regularly during conversion
-                        currentProgress = updatedProgress;
-                        try
-                        {
-                            progressCallback(currentProgress);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Exception in progress callback during FFmpeg conversion");
-                        }
-                    }
-                },
-                cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, arguments, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private bool HandleResult(ExecutableResult result, string inputPath, string outputPath)

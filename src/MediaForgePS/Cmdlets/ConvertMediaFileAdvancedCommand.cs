@@ -156,11 +156,7 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 resolvedOutputPath,
                 VideoEncodingSettings,
                 AudioTrackMappings,
-                (progress, totalDurationMs, status) => ReportProgress(progress, totalDurationMs, status),
                 AdditionalArguments);
-
-            // Complete progress reporting
-            WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
         }
@@ -178,15 +174,4 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         }
     }
 
-    /// <summary>
-    /// Reports progress using PowerShell's WriteProgress cmdlet.
-    /// </summary>
-    /// <param name="progress">The Ffmpeg progress information.</param>
-    /// <param name="totalDurationMs">Total duration of the input file in milliseconds, if available.</param>
-    /// <param name="status">Status message to display.</param>
-    private void ReportProgress(FfmpegProgress progress, long? totalDurationMs, string status)
-    {
-        var progressRecord = MediaConversionHelper.CreateProgressRecord(progress, totalDurationMs, status);
-        WriteProgress(progressRecord);
-    }
 }

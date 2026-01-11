@@ -355,28 +355,11 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
-            // Initialize nested progress record
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                10,
-                "Converting Media File",
-                "Starting conversion...",
-                percentComplete: 0,
-                parentActivityId: 1));
-
             MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 videoSettings,
-                audioMappings,
-                (progress, totalDurationMs, status) => ReportProgress(progress, totalDurationMs, status));
-
-            // Complete progress reporting
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                10,
-                "Converting Media File",
-                "Completed",
-                parentActivityId: 1,
-                recordType: ProgressRecordType.Completed));
+                audioMappings);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");
@@ -429,17 +412,6 @@ public class ConvertMediaFilesCommand : CmdletBase
             VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
     }
 
-    /// <summary>
-    /// Reports progress using PowerShell's WriteProgress cmdlet.
-    /// </summary>
-    /// <param name="progress">The Ffmpeg progress information.</param>
-    /// <param name="totalDurationMs">Total duration of the input file in milliseconds, if available.</param>
-    /// <param name="status">Status message to display.</param>
-    private void ReportProgress(FfmpegProgress progress, long? totalDurationMs, string status)
-    {
-        var progressRecord = MediaConversionHelper.CreateProgressRecord(progress, totalDurationMs, status, activityId: 10, parentActivityId: 1);
-        WriteProgress(progressRecord);
-    }
 
     /// <summary>
     /// Represents the result of a conversion operation.
