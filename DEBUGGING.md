@@ -169,7 +169,6 @@ The cmdlet uses `GetAwaiter().GetResult()` for async operations. When debugging:
 
 If debugging FFmpeg-related issues:
 - Check `FfmpegService` and `FfprobeService` logs
-- Inspect `FfmpegProgress` objects during conversion
 - Review `FfmpegConversionException` details when conversions fail
 
 ## Common Debugging Scenarios
