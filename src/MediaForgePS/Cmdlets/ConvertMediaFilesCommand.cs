@@ -135,7 +135,11 @@ public class ConvertMediaFilesCommand : CmdletBase
             }
 
             // Complete overall progress
-            WriteProgress(new ProgressRecord(1, "Batch Conversion", "Completed") { RecordType = ProgressRecordType.Completed });
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                1, 
+                "Batch Conversion", 
+                "Completed", 
+                recordType: ProgressRecordType.Completed));
         }
 
         if (_conversionResults.Count == 0)
@@ -161,11 +165,12 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// <param name="currentFilePath">Path of the current file being processed.</param>
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
-        var progressRecord = new ProgressRecord(1, "Batch Conversion", $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})")
-        {
-            PercentComplete = (int)((currentFile * 100.0) / totalFiles),
-            CurrentOperation = Path.GetFileName(currentFilePath)
-        };
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            1, 
+            "Batch Conversion", 
+            $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
+            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+        progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
 
         WriteProgress(progressRecord);
     }
@@ -350,6 +355,14 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
+            // Initialize nested progress record
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                10, 
+                "Converting Media File", 
+                "Starting conversion...", 
+                percentComplete: 0, 
+                parentActivityId: 1));
+
             MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
@@ -358,7 +371,12 @@ public class ConvertMediaFilesCommand : CmdletBase
                 (progress, totalDurationMs, status) => ReportProgress(progress, totalDurationMs, status));
 
             // Complete progress reporting
-            WriteProgress(new ProgressRecord(0, "Converting Media File", "Completed") { RecordType = ProgressRecordType.Completed });
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                10, 
+                "Converting Media File", 
+                "Completed", 
+                parentActivityId: 1, 
+                recordType: ProgressRecordType.Completed));
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");
@@ -419,7 +437,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// <param name="status">Status message to display.</param>
     private void ReportProgress(FfmpegProgress progress, long? totalDurationMs, string status)
     {
-        var progressRecord = MediaConversionHelper.CreateProgressRecord(progress, totalDurationMs, status);
+        var progressRecord = MediaConversionHelper.CreateProgressRecord(progress, totalDurationMs, status, activityId: 10, parentActivityId: 1);
         WriteProgress(progressRecord);
     }
 
