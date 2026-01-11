@@ -89,9 +89,30 @@ public class FfmpegService : IFfmpegService
                 arguments,
                 line =>
                 {
+                    if (string.IsNullOrWhiteSpace(line))
+                        return;
+
+                    // Check if this line looks like a progress line (contains '=' and matches known keys)
+                    if (!line.Contains('='))
+                        return;
+
+                    var parts = line.Split('=', 2);
+                    if (parts.Length != 2)
+                        return;
+
+                    var key = parts[0].Trim();
+                    // Only process known progress keys to avoid calling callback for unknown lines
+                    var isKnownProgressKey = key is "frame" or "fps" or "bitrate" or "total_size" or "out_time_ms" or "out_time"
+                        or "dup_frames" or "drop_frames" or "speed" or "progress";
+
+                    if (!isKnownProgressKey)
+                        return;
+
                     var updatedProgress = FfmpegProgressParser.ParseLine(line, currentProgress);
-                    if (updatedProgress is not null && updatedProgress != currentProgress)
+                    if (updatedProgress is not null)
                     {
+                        // Always update and call callback when we parse a known progress field
+                        // This ensures progress is reported regularly during conversion
                         currentProgress = updatedProgress;
                         try
                         {
