@@ -131,7 +131,10 @@ public class PathResolver : IPathResolver
         resolvedPath = null;
         try
         {
-            var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(path, out _);
+            // Escape PowerShell wildcard characters to handle literal brackets and other special characters
+            // in filenames (e.g., "[Blu-ray]" should be treated as literal, not a wildcard pattern)
+            var escapedPath = WildcardPattern.Escape(path);
+            var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(escapedPath, out _);
             if (providerPaths.Count > 0)
             {
                 resolvedPath = providerPaths[0];
