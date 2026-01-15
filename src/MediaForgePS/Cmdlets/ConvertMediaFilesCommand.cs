@@ -244,7 +244,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         // Determine audio track mappings
         AudioTrackMapping[] audioMappings;
-        
+
         // If AudioTrackMappings is provided and not empty, use it for all files
         if (AudioTrackMappings != null && AudioTrackMappings.Length > 0)
         {
