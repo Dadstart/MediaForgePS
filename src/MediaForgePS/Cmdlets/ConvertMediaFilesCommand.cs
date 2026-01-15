@@ -18,6 +18,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// This cmdlet processes multiple video files, automatically detecting and configuring audio streams
 /// based on codec type and channel count. It applies default video encoding settings (libx265, CRF 22, preset fast)
 /// unless overridden, and provides a summary of any files that couldn't be processed.
+/// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
+/// automatically detected and created for each file.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles")]
 [OutputType(typeof(ConversionResult))]
@@ -28,6 +30,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         public const string InputPath = "Array of input file paths to convert";
         public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
         public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses libx265, CRF 22, preset 'fast'";
+        public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
     }
 
     /// <summary>
@@ -59,6 +62,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         Mandatory = false,
         HelpMessage = HelpMessages.VideoEncodingSettings)]
     public VideoEncodingSettings? VideoEncodingSettings { get; set; }
+
+    /// <summary>
+    /// Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        HelpMessage = HelpMessages.AudioTrackMappings)]
+    public AudioTrackMapping[] AudioTrackMappings { get; set; } = Array.Empty<AudioTrackMapping>();
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
@@ -231,49 +242,60 @@ public class ConvertMediaFilesCommand : CmdletBase
             return;
         }
 
-        // Check for audio streams
-        var audioStreams = mediaFile.Streams
-            .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // Determine audio track mappings
+        AudioTrackMapping[] audioMappings;
 
-        // If no audio streams at all, process with empty mappings (video-only)
-        if (audioStreams.Count == 0)
+        // If AudioTrackMappings is provided and not empty, use it for all files
+        if (AudioTrackMappings != null && AudioTrackMappings.Length > 0)
         {
-            Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
-            ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath);
-            return;
-        }
-
-        // Filter for English streams only
-        var englishAudioStreams = audioStreams
-            .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        // If no English streams but other audio streams exist, use all audio streams
-        List<MediaStream> streamsToUse;
-        if (englishAudioStreams.Count == 0)
-        {
-            Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
-            streamsToUse = audioStreams;
+            audioMappings = AudioTrackMappings;
+            Logger.LogInformation("Using provided audio track mappings for: {InputPath}", resolvedInputPath);
         }
         else
         {
-            streamsToUse = englishAudioStreams;
-        }
+            // Auto-detect and create mappings
+            // Check for audio streams
+            var audioStreams = mediaFile.Streams
+                .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
-        // Determine audio track mappings
-        AudioTrackMapping[] audioMappings;
-        try
-        {
-            audioMappings = CreateAudioTrackMappings(streamsToUse);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
-            var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
-            _conversionResults.Add(result);
-            WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
-            return;
+            // If no audio streams at all, process with empty mappings (video-only)
+            if (audioStreams.Count == 0)
+            {
+                Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
+                ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath);
+                return;
+            }
+
+            // Filter for English streams only
+            var englishAudioStreams = audioStreams
+                .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            // If no English streams but other audio streams exist, use all audio streams
+            List<MediaStream> streamsToUse;
+            if (englishAudioStreams.Count == 0)
+            {
+                Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
+                streamsToUse = audioStreams;
+            }
+            else
+            {
+                streamsToUse = englishAudioStreams;
+            }
+
+            try
+            {
+                audioMappings = CreateAudioTrackMappings(streamsToUse);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
+                var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
+                _conversionResults.Add(result);
+                WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
+                return;
+            }
         }
 
         // Perform conversion
