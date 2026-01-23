@@ -31,6 +31,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
         public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses libx265, CRF 22, preset 'fast'";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
+        public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
     }
 
     /// <summary>
@@ -70,6 +71,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         Mandatory = false,
         HelpMessage = HelpMessages.AudioTrackMappings)]
     public AudioTrackMapping[] AudioTrackMappings { get; set; } = Array.Empty<AudioTrackMapping>();
+
+    /// <summary>
+    /// Additional x265 params to pass through to ffmpeg.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        HelpMessage = HelpMessages.X265Params)]
+    public string? X265Params { get; set; }
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
@@ -374,6 +383,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             // Get or create video encoding settings
             var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
+            var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
 
@@ -381,7 +391,8 @@ public class ConvertMediaFilesCommand : CmdletBase
                 resolvedInputPath,
                 resolvedOutputPath,
                 videoSettings,
-                audioMappings);
+                audioMappings,
+                additionalArguments);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");

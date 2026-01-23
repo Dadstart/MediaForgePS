@@ -67,6 +67,14 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         HelpMessage = "Additional Ffmpeg arguments (e.g., codec options, quality settings)")]
     public string[]? AdditionalArguments { get; set; }
 
+    /// <summary>
+    /// Additional x265 params to pass through to ffmpeg.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        HelpMessage = "Additional x265 params (passed to ffmpeg via -x265-params)")]
+    public string? X265Params { get; set; }
+
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
 
@@ -150,13 +158,15 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             // Note: Using GetAwaiter().GetResult() to synchronously wait for the async operation
             // This is acceptable in PowerShell cmdlets which must be synchronous
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var x265Arguments = MediaConversionHelper.BuildX265Arguments(X265Params, VideoEncodingSettings.Codec);
+            var additionalArguments = MergeAdditionalArguments(AdditionalArguments, x265Arguments);
 
             MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 VideoEncodingSettings,
                 AudioTrackMappings,
-                AdditionalArguments);
+                additionalArguments);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
         }
@@ -172,6 +182,20 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             WriteError(CreatePathErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
             return;
         }
+    }
+
+    private static string[]? MergeAdditionalArguments(string[]? additionalArguments, string[]? x265Arguments)
+    {
+        if (additionalArguments is null || additionalArguments.Length == 0)
+            return x265Arguments;
+
+        if (x265Arguments is null || x265Arguments.Length == 0)
+            return additionalArguments;
+
+        var merged = new string[additionalArguments.Length + x265Arguments.Length];
+        Array.Copy(additionalArguments, merged, additionalArguments.Length);
+        Array.Copy(x265Arguments, 0, merged, additionalArguments.Length, x265Arguments.Length);
+        return merged;
     }
 
 }
