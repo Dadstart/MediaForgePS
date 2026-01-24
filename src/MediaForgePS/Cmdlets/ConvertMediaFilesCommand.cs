@@ -108,6 +108,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         HelpMessage = HelpMessages.X265Params)]
     public string? X265Params { get; set; }
 
+    /// <summary>
+    /// Suppresses audio notifications during processing.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        HelpMessage = "Suppress audio notifications during processing")]
+    public SwitchParameter Quiet { get; set; }
+
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
@@ -117,6 +125,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     private int _currentFileIndex = 0;
     private Stopwatch? _fileProcessingStopwatch;
     private TimeSpan? _currentFileEstimatedTime;
+    private bool _invokeAudioAvailable = false;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -142,6 +151,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         _uniqueInputPaths.Clear();
         _fileProcessingStats.Clear();
         _currentFileIndex = 0;
+        CheckAudioAvailability();
     }
 
     /// <summary>
@@ -192,6 +202,9 @@ public class ConvertMediaFilesCommand : CmdletBase
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
+            
+            // Play victory sound when batch is complete
+            PlayAudio("Victory");
         }
 
         if (_conversionResults.Count == 0)
@@ -357,6 +370,48 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
     }
 
+    /// <summary>
+    /// Checks if Invoke-Audio function is available in the PowerShell session.
+    /// </summary>
+    private void CheckAudioAvailability()
+    {
+        if (Quiet)
+        {
+            _invokeAudioAvailable = false;
+            return;
+        }
+
+        try
+        {
+            var invokeAudioCmd = SessionState.PSVariable.GetValue("?") as string;
+            _invokeAudioAvailable = SessionState.InvokeCommand.GetCommand("Invoke-Audio", System.Management.Automation.CommandTypes.Function) != null;
+            Logger.LogDebug("Invoke-Audio availability: {IsAvailable}", _invokeAudioAvailable);
+        }
+        catch
+        {
+            _invokeAudioAvailable = false;
+        }
+    }
+
+    /// <summary>
+    /// Safely invokes Invoke-Audio with the specified pattern if available and not in quiet mode.
+    /// </summary>
+    /// <param name="audioPattern">The audio pattern name to play.</param>
+    private void PlayAudio(string audioPattern)
+    {
+        if (!_invokeAudioAvailable || Quiet)
+            return;
+
+        try
+        {
+            SessionState.InvokeCommand.InvokeScript($"Invoke-Audio '{audioPattern}'");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to invoke audio pattern: {AudioPattern}", audioPattern);
+        }
+    }
+
     private void UpdateFileProgress(
         string status,
         string? currentOperation = null,
@@ -385,6 +440,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         var fileName = Path.GetFileName(inputPath);
         UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
+        PlayAudio("Alert");
 
         // Resolve input path
         UpdateFileProgress("Resolving input path", fileName);
@@ -393,6 +449,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "File not found");
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress("Input file not found", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(
                 new FileNotFoundException($"Input media file not found: {inputPath}"),
@@ -411,6 +468,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress("Failed to resolve output path", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(
                 new Exception($"Failed to resolve output path: {outputPath}"),
@@ -434,6 +492,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             Logger.LogError(ex, "Failed to read media file: {InputPath}", resolvedInputPath);
             var result = new ConversionResult(inputPath, false, $"Failed to read media file: {ex.Message}");
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "MediaReadFailed", ErrorCategory.ReadError, resolvedInputPath));
             return;
@@ -444,6 +503,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "Failed to read media file information");
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
             WriteWarning($"Could not read media file information for: {inputPath}");
             return;
@@ -481,6 +541,7 @@ public class ConvertMediaFilesCommand : CmdletBase
                 {
                     _fileProcessingStopwatch.Stop();
                     RecordFileProcessingStats(resolvedInputPath);
+                    PlayAudio("Doorbell");
                     UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
                 }
                 return;
@@ -514,6 +575,7 @@ public class ConvertMediaFilesCommand : CmdletBase
                 Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
                 var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
                 _conversionResults.Add(result);
+                PlayAudio("SadError");
                 UpdateFileProgress("Failed to detect audio mappings", fileName, recordType: ProgressRecordType.Completed);
                 WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
                 return;
@@ -526,6 +588,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             _fileProcessingStopwatch.Stop();
             RecordFileProcessingStats(resolvedInputPath);
+            PlayAudio("Doorbell");
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
         }
         else
@@ -644,6 +707,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             var statusMessage = BuildStatusMessage(ex);
             var result = new ConversionResult(originalInputPath, false, statusMessage);
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress(statusMessage, Path.GetFileName(resolvedInputPath), recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
@@ -652,6 +716,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, false, $"Conversion failed: {ex.Message}");
             _conversionResults.Add(result);
+            PlayAudio("SadError");
             UpdateFileProgress("Conversion failed", Path.GetFileName(resolvedInputPath), recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
