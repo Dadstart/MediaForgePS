@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -12,6 +13,29 @@ using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
+
+/// <summary>
+/// Represents statistics for a processed file used for ETA calculations.
+/// </summary>
+internal class FileProcessingStats
+{
+    /// <summary>
+    /// Size of the file in bytes.
+    /// </summary>
+    public long FileSizeBytes { get; set; }
+
+    /// <summary>
+    /// Time taken to process the file.
+    /// </summary>
+    public TimeSpan ProcessingTime { get; set; }
+
+    /// <summary>
+    /// Processing speed in bytes per second.
+    /// </summary>
+    public double BytesPerSecond => FileSizeBytes > 0 && ProcessingTime.TotalSeconds > 0
+        ? FileSizeBytes / ProcessingTime.TotalSeconds
+        : 0;
+}
 
 /// <summary>
 /// Automatically converts multiple media files with intelligent audio stream selection.
@@ -89,7 +113,10 @@ public class ConvertMediaFilesCommand : CmdletBase
     private IMediaReaderService? _mediaReaderService;
     private readonly List<ConversionResult> _conversionResults = new();
     private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<FileProcessingStats> _fileProcessingStats = new();
     private int _currentFileIndex = 0;
+    private Stopwatch? _fileProcessingStopwatch;
+    private TimeSpan? _currentFileEstimatedTime;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -113,6 +140,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     {
         _conversionResults.Clear();
         _uniqueInputPaths.Clear();
+        _fileProcessingStats.Clear();
         _currentFileIndex = 0;
     }
 
@@ -196,14 +224,145 @@ public class ConvertMediaFilesCommand : CmdletBase
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
         progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
 
+        var remainingFiles = totalFiles - currentFile;
+        if (remainingFiles > 0)
+        {
+            var batchEtaTimespan = CalculateRemainingTime(currentFilePath, remainingFiles);
+            if (batchEtaTimespan.HasValue)
+                progressRecord.StatusDescription += $" (Total ETA: {FormatTimespan(batchEtaTimespan.Value)})";
+        }
+
         WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Calculates the estimated remaining time based on file sizes and average processing speed.
+    /// </summary>
+    /// <param name="currentFilePath">Path of the current file being processed.</param>
+    /// <param name="remainingFilesCount">Number of remaining files after the current one.</param>
+    /// <returns>Estimated time remaining, or null if no estimate can be calculated.</returns>
+    private TimeSpan? CalculateRemainingTime(string currentFilePath, int remainingFilesCount)
+    {
+        if (_fileProcessingStats.Count == 0)
+            return null;
+
+        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
+        if (averageBytesPerSecond <= 0)
+            return null;
+
+        long remainingBytes = 0;
+
+        try
+        {
+            var currentFile = new FileInfo(currentFilePath);
+            if (currentFile.Exists)
+                remainingBytes = currentFile.Length;
+        }
+        catch
+        {
+            // If we can't get the file size, skip ETA calculation
+            return null;
+        }
+
+        // Add remaining files from the input paths list
+        var remainingPaths = _uniqueInputPaths.Skip(_currentFileIndex).Take(remainingFilesCount);
+        foreach (var path in remainingPaths)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(path);
+                if (fileInfo.Exists)
+                    remainingBytes += fileInfo.Length;
+            }
+            catch
+            {
+                // If we can't get the file size, continue with what we have
+            }
+        }
+
+        if (remainingBytes <= 0)
+            return null;
+
+        var remainingSeconds = remainingBytes / averageBytesPerSecond;
+        return TimeSpan.FromSeconds(remainingSeconds);
+    }
+
+    /// <summary>
+    /// Calculates the estimated time for processing a single file based on its size and average processing speed.
+    /// </summary>
+    /// <param name="filePath">Path of the file to estimate.</param>
+    /// <returns>Estimated time for the file, or null if no estimate can be calculated.</returns>
+    private TimeSpan? CalculateFileEta(string filePath)
+    {
+        if (_fileProcessingStats.Count == 0)
+            return null;
+
+        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
+        if (averageBytesPerSecond <= 0)
+            return null;
+
+        try
+        {
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
+                return null;
+
+            var estimatedSeconds = fileInfo.Length / averageBytesPerSecond;
+            return TimeSpan.FromSeconds(estimatedSeconds);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Formats a timespan into a human-readable string.
+    /// </summary>
+    private static string FormatTimespan(TimeSpan time)
+    {
+        if (time.TotalHours >= 1)
+            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
+        if (time.TotalMinutes >= 1)
+            return $"{time.Minutes}m {time.Seconds}s";
+        return $"{time.Seconds}s";
+    }
+
+    /// <summary>
+    /// Records file processing statistics for ETA calculation.
+    /// </summary>
+    private void RecordFileProcessingStats(string filePath)
+    {
+        if (_fileProcessingStopwatch == null)
+            return;
+
+        try
+        {
+            var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Exists)
+            {
+                var stats = new FileProcessingStats
+                {
+                    FileSizeBytes = fileInfo.Length,
+                    ProcessingTime = _fileProcessingStopwatch.Elapsed
+                };
+                _fileProcessingStats.Add(stats);
+                Logger.LogDebug("Recorded processing stats - Size: {FileSizeBytes} bytes, Time: {ProcessingTime}ms, Rate: {BytesPerSecond} bytes/sec",
+                    stats.FileSizeBytes, _fileProcessingStopwatch.ElapsedMilliseconds, stats.BytesPerSecond);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to record file processing statistics");
+        }
     }
 
     private void UpdateFileProgress(
         string status,
         string? currentOperation = null,
         int? percentComplete = null,
-        ProgressRecordType recordType = ProgressRecordType.Processing)
+        ProgressRecordType recordType = ProgressRecordType.Processing,
+        TimeSpan? eta = null)
     {
         var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
             FileProgressId,
@@ -214,11 +373,15 @@ public class ConvertMediaFilesCommand : CmdletBase
             percentComplete,
             recordType);
 
+        if (eta.HasValue)
+            progressRecord.StatusDescription += $" (File ETA: {FormatTimespan(eta.Value)})";
+
         WriteProgress(progressRecord);
     }
 
     private void ProcessFile(string inputPath)
     {
+        _fileProcessingStopwatch = Stopwatch.StartNew();
         var fileName = Path.GetFileName(inputPath);
         UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
@@ -227,6 +390,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         UpdateFileProgress("Resolving input path", fileName);
         if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
         {
+            _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "File not found");
             _conversionResults.Add(result);
             UpdateFileProgress("Input file not found", fileName, recordType: ProgressRecordType.Completed);
@@ -244,6 +408,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         var outputPath = Path.Combine(OutputDirectory, outputFileName);
         if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
         {
+            _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
             _conversionResults.Add(result);
             UpdateFileProgress("Failed to resolve output path", fileName, recordType: ProgressRecordType.Completed);
@@ -265,6 +430,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
         catch (Exception ex)
         {
+            _fileProcessingStopwatch.Stop();
             Logger.LogError(ex, "Failed to read media file: {InputPath}", resolvedInputPath);
             var result = new ConversionResult(inputPath, false, $"Failed to read media file: {ex.Message}");
             _conversionResults.Add(result);
@@ -275,12 +441,16 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         if (mediaFile == null)
         {
+            _fileProcessingStopwatch.Stop();
             var result = new ConversionResult(inputPath, false, "Failed to read media file information");
             _conversionResults.Add(result);
             UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
             WriteWarning($"Could not read media file information for: {inputPath}");
             return;
         }
+
+        // Calculate ETA for this file (only available if we have prior processing stats)
+        _currentFileEstimatedTime = CalculateFileEta(resolvedInputPath);
 
         // Determine audio track mappings
         AudioTrackMapping[] audioMappings;
@@ -306,9 +476,13 @@ public class ConvertMediaFilesCommand : CmdletBase
             if (audioStreams.Count == 0)
             {
                 Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
-                UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50);
+                UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
                 if (ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath))
+                {
+                    _fileProcessingStopwatch.Stop();
+                    RecordFileProcessingStats(resolvedInputPath);
                     UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
+                }
                 return;
             }
 
@@ -336,6 +510,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             }
             catch (Exception ex)
             {
+                _fileProcessingStopwatch.Stop();
                 Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
                 var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
                 _conversionResults.Add(result);
@@ -346,9 +521,17 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
 
         // Perform conversion
-        UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50);
+        UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
         if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath))
+        {
+            _fileProcessingStopwatch.Stop();
+            RecordFileProcessingStats(resolvedInputPath);
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
+        }
+        else
+        {
+            _fileProcessingStopwatch.Stop();
+        }
     }
 
     private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
