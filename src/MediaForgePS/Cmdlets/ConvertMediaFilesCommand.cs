@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -25,6 +27,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : CmdletBase
 {
+    private const int BatchProgressId = 1;
+    private const int FileProgressId = 2;
     private static class HelpMessages
     {
         public const string InputPath = "Array of input file paths to convert";
@@ -156,7 +160,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                1,
+                BatchProgressId,
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
@@ -186,7 +190,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            1,
+            BatchProgressId,
             "Batch Conversion",
             $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
@@ -195,15 +199,37 @@ public class ConvertMediaFilesCommand : CmdletBase
         WriteProgress(progressRecord);
     }
 
+    private void UpdateFileProgress(
+        string status,
+        string? currentOperation = null,
+        int? percentComplete = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
+            FileProgressId,
+            "File Conversion",
+            status,
+            BatchProgressId,
+            currentOperation,
+            percentComplete,
+            recordType);
+
+        WriteProgress(progressRecord);
+    }
+
     private void ProcessFile(string inputPath)
     {
+        var fileName = Path.GetFileName(inputPath);
+        UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
 
         // Resolve input path
+        UpdateFileProgress("Resolving input path", fileName);
         if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
         {
             var result = new ConversionResult(inputPath, false, "File not found");
             _conversionResults.Add(result);
+            UpdateFileProgress("Input file not found", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(
                 new FileNotFoundException($"Input media file not found: {inputPath}"),
                 "FileNotFound",
@@ -213,12 +239,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
 
         // Resolve output path
+        UpdateFileProgress("Resolving output path", fileName);
         var outputFileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mp4";
         var outputPath = Path.Combine(OutputDirectory, outputFileName);
         if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
         {
             var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
             _conversionResults.Add(result);
+            UpdateFileProgress("Failed to resolve output path", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(
                 new Exception($"Failed to resolve output path: {outputPath}"),
                 "PathError",
@@ -231,6 +259,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         MediaFile? mediaFile;
         try
         {
+            UpdateFileProgress("Reading media metadata", fileName);
             mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
         }
@@ -239,6 +268,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             Logger.LogError(ex, "Failed to read media file: {InputPath}", resolvedInputPath);
             var result = new ConversionResult(inputPath, false, $"Failed to read media file: {ex.Message}");
             _conversionResults.Add(result);
+            UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "MediaReadFailed", ErrorCategory.ReadError, resolvedInputPath));
             return;
         }
@@ -247,6 +277,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             var result = new ConversionResult(inputPath, false, "Failed to read media file information");
             _conversionResults.Add(result);
+            UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
             WriteWarning($"Could not read media file information for: {inputPath}");
             return;
         }
@@ -257,11 +288,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         // If AudioTrackMappings is provided and not empty, use it for all files
         if (AudioTrackMappings != null && AudioTrackMappings.Length > 0)
         {
+            UpdateFileProgress("Using provided audio mappings", fileName);
             audioMappings = AudioTrackMappings;
             Logger.LogInformation("Using provided audio track mappings for: {InputPath}", resolvedInputPath);
+            UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
         }
         else
         {
+            UpdateFileProgress("Detecting audio mappings", fileName);
             // Auto-detect and create mappings
             // Check for audio streams
             var audioStreams = mediaFile.Streams
@@ -272,7 +306,9 @@ public class ConvertMediaFilesCommand : CmdletBase
             if (audioStreams.Count == 0)
             {
                 Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
-                ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath);
+                UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50);
+                if (ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath))
+                    UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
                 return;
             }
 
@@ -296,19 +332,23 @@ public class ConvertMediaFilesCommand : CmdletBase
             try
             {
                 audioMappings = CreateAudioTrackMappings(streamsToUse);
+                UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
                 var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
                 _conversionResults.Add(result);
+                UpdateFileProgress("Failed to detect audio mappings", fileName, recordType: ProgressRecordType.Completed);
                 WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
                 return;
             }
         }
 
         // Perform conversion
-        ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath);
+        UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50);
+        if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath))
+            UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
     }
 
     private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
@@ -377,7 +417,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         return mappings.ToArray();
     }
 
-    private void ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
+    private bool ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
     {
         try
         {
@@ -386,17 +426,34 @@ public class ConvertMediaFilesCommand : CmdletBase
             var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var outputFileName = Path.GetFileName(resolvedOutputPath);
+            UpdateFileProgress(
+                $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)",
+                outputFileName,
+                percentComplete: 60);
 
-            MediaConversionService.ExecuteConversion(
+            var spinner = new[] { "|", "/", "-", "\\" };
+            var spinnerIndex = 0;
+            var conversionTask = Task.Run(() => MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 videoSettings,
                 audioMappings,
-                additionalArguments);
+                additionalArguments));
+
+            while (!conversionTask.Wait(TimeSpan.FromSeconds(0.1)))
+            {
+                var indicator = spinner[spinnerIndex];
+                spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                UpdateFileProgress($"Encoding {indicator}", outputFileName, percentComplete: 60);
+            }
+
+            conversionTask.GetAwaiter().GetResult();
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");
             _conversionResults.Add(result);
+            return true;
         }
         catch (FfmpegConversionException ex)
         {
@@ -404,6 +461,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             var statusMessage = BuildStatusMessage(ex);
             var result = new ConversionResult(originalInputPath, false, statusMessage);
             _conversionResults.Add(result);
+            UpdateFileProgress(statusMessage, Path.GetFileName(resolvedInputPath), recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
         catch (Exception ex)
@@ -411,8 +469,11 @@ public class ConvertMediaFilesCommand : CmdletBase
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, false, $"Conversion failed: {ex.Message}");
             _conversionResults.Add(result);
+            UpdateFileProgress("Conversion failed", Path.GetFileName(resolvedInputPath), recordType: ProgressRecordType.Completed);
             WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
         }
+
+        return false;
     }
 
     private static string BuildStatusMessage(FfmpegConversionException ex)

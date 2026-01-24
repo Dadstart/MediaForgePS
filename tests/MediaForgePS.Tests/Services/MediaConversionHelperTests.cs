@@ -1,3 +1,4 @@
+using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Xunit;
 
@@ -40,5 +41,24 @@ public class MediaConversionHelperTests
         var result = MediaConversionHelper.BuildX265Arguments("bframes=8", "libx264");
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void CreateNestedProgressRecord_SetsParentAndOperation()
+    {
+        var record = MediaConversionHelper.CreateNestedProgressRecord(
+            2,
+            "File Conversion",
+            "Encoding",
+            1,
+            "test.mp4",
+            -1,
+            ProgressRecordType.Processing);
+
+        Assert.Equal(2, record.ActivityId);
+        Assert.Equal(1, record.ParentActivityId);
+        Assert.Equal("test.mp4", record.CurrentOperation);
+        Assert.Equal(-1, record.PercentComplete);
+        Assert.Equal(ProgressRecordType.Processing, record.RecordType);
     }
 }

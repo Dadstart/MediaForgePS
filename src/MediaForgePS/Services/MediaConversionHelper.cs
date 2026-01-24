@@ -68,4 +68,38 @@ public static class MediaConversionHelper
 
         return progressRecord;
     }
+
+    /// <summary>
+    /// Creates a nested progress record with optional current operation text.
+    /// </summary>
+    /// <param name="activityId">Activity ID for the progress record.</param>
+    /// <param name="activity">Activity name for the progress record.</param>
+    /// <param name="status">Status message to display.</param>
+    /// <param name="parentActivityId">Parent activity ID for nested progress records.</param>
+    /// <param name="currentOperation">Current operation text to display.</param>
+    /// <param name="percentComplete">Percentage complete (0-100 or -1 for indeterminate).</param>
+    /// <param name="recordType">Record type (defaults to Processing).</param>
+    /// <returns>A ProgressRecord with the specified details.</returns>
+    public static ProgressRecord CreateNestedProgressRecord(
+        int activityId,
+        string activity,
+        string status,
+        int parentActivityId,
+        string? currentOperation = null,
+        int? percentComplete = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = CreateSimpleProgressRecord(
+            activityId,
+            activity,
+            status,
+            percentComplete,
+            parentActivityId,
+            recordType);
+
+        if (!string.IsNullOrWhiteSpace(currentOperation))
+            progressRecord.CurrentOperation = currentOperation;
+
+        return progressRecord;
+    }
 }
