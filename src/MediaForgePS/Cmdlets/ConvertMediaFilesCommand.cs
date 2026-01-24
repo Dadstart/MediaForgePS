@@ -422,7 +422,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         _conversionResults.Add(result);
         PlayAudio("SadError");
         UpdateFileProgress(errorMessage, fileName, recordType: ProgressRecordType.Completed);
-        
+
         if (exception != null)
             WriteError(new ErrorRecord(exception, "ProcessingFailed", errorCategory, inputPath));
     }
