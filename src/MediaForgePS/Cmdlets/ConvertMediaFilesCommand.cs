@@ -126,6 +126,8 @@ public class ConvertMediaFilesCommand : CmdletBase
     private Stopwatch? _fileProcessingStopwatch;
     private TimeSpan? _currentFileEstimatedTime;
     private bool _invokeAudioAvailable = false;
+    private Stopwatch? _batchStopwatch;
+    private int _batchTotalFiles = 0;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -188,6 +190,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             var totalFiles = _uniqueInputPaths.Count;
             _currentFileIndex = 0;
+            _batchTotalFiles = totalFiles;
+            _batchStopwatch = Stopwatch.StartNew();
 
             foreach (var inputPath in _uniqueInputPaths)
             {
@@ -195,6 +199,8 @@ public class ConvertMediaFilesCommand : CmdletBase
                 UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
                 ProcessFile(inputPath);
             }
+
+            _batchStopwatch.Stop();
 
             // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
@@ -244,6 +250,33 @@ public class ConvertMediaFilesCommand : CmdletBase
             if (batchEtaTimespan.HasValue)
                 progressRecord.StatusDescription += $" (Total ETA: {FormatTimespan(batchEtaTimespan.Value)})";
         }
+
+        WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Updates batch progress with current countdown ETA during file processing.
+    /// </summary>
+    private void UpdateBatchProgressWithCountdown(int currentFile, int totalFiles, string currentFilePath, TimeSpan? originalEta)
+    {
+        if (!originalEta.HasValue || _batchStopwatch == null)
+            return;
+
+        // Calculate elapsed time and remaining ETA
+        var elapsedTime = _batchStopwatch.Elapsed;
+        var remainingTime = originalEta.Value - elapsedTime;
+
+        // Don't show negative ETA
+        if (remainingTime.TotalSeconds <= 0)
+            return;
+
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            BatchProgressId,
+            "Batch Conversion",
+            $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
+            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+        progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
+        progressRecord.StatusDescription = $"{Path.GetFileName(currentFilePath)} - (Total ETA: {FormatTimespan(remainingTime)})";
 
         WriteProgress(progressRecord);
     }
@@ -668,6 +701,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             var spinner = new[] { "|", "/", "-", "\\" };
             var spinnerIndex = 0;
+            var lastBatchUpdateTime = DateTime.UtcNow;
             var conversionTask = Task.Run(() => MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
@@ -675,11 +709,27 @@ public class ConvertMediaFilesCommand : CmdletBase
                 audioMappings,
                 additionalArguments));
 
-            while (!conversionTask.Wait(TimeSpan.FromSeconds(0.1)))
+            // Calculate initial batch ETA
+            TimeSpan? initialBatchEta = null;
+            if (_currentFileIndex < _batchTotalFiles)
+            {
+                var remainingFiles = _batchTotalFiles - _currentFileIndex;
+                initialBatchEta = CalculateRemainingTime(resolvedInputPath, remainingFiles);
+            }
+
+            while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
                 var indicator = spinner[spinnerIndex];
                 spinnerIndex = (spinnerIndex + 1) % spinner.Length;
                 UpdateFileProgress($"Encoding {indicator}", outputFileName, percentComplete: 60);
+
+                // Update batch progress with countdown every second
+                var now = DateTime.UtcNow;
+                if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue)
+                {
+                    UpdateBatchProgressWithCountdown(_currentFileIndex, _batchTotalFiles, resolvedInputPath, initialBatchEta.Value);
+                    lastBatchUpdateTime = now;
+                }
             }
 
             conversionTask.GetAwaiter().GetResult();
