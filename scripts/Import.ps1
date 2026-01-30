@@ -97,12 +97,23 @@ Write-Host '========================================' -ForegroundColor Cyan
 Write-Host ''
 Write-Host "Process ID (PID): $PID" -ForegroundColor Yellow
 Write-Host "Configuration: $Configuration" -ForegroundColor Gray
-Write-Host "Module Directory: $modulePath" -ForegroundColor Gray
+
+# Create a temporary copy of the module to prevent file locks during rebuilds
+$tempModuleDir = Join-Path -Path $([System.IO.Path]::GetTempPath()) -ChildPath "MediaForgePS_$PID"
+if (Test-Path $tempModuleDir) {
+    Remove-Item -Path $tempModuleDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "Copying module to temporary directory: $tempModuleDir" -ForegroundColor Gray
+Copy-Item -Path $modulePath -Destination $tempModuleDir -Recurse -Force
+
+Write-Host "Module Directory (original): $modulePath" -ForegroundColor Gray
+Write-Host "Module Directory (loaded from): $tempModuleDir" -ForegroundColor Gray
 Write-Host ''
 Write-Host 'Attach your debugger to this process ID to begin debugging.' -ForegroundColor Green
 Write-Host 'The session will remain open for interactive use.' -ForegroundColor Green
 Write-Host ''
-$moduleScriptPath = Join-Path $modulePath "$moduleBaseName.psm1"
+$moduleScriptPath = Join-Path $tempModuleDir "$moduleBaseName.psm1"
 Write-Host "Importing $moduleScriptPath"
 Import-Module $moduleScriptPath
 Write-Host "$moduleBaseName module imported successfully." -ForegroundColor Green
