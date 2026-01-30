@@ -46,6 +46,8 @@ internal class FileProcessingStats
 /// (x264/x265: libx264/libx265, CRF 18, preset medium; nvenc: hevc_nvenc, CQ 18, preset p5) unless overridden via VideoEncodingSettings.
 /// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
 /// automatically detected and created for each file.
+/// Use -AudioFeedback to control audio cues: Error (on failure), Processing (during conversion), Success (on file or batch completion).
+/// Specify All to enable every level; otherwise only the listed levels play. Default is no audio feedback.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
@@ -63,7 +65,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         public const string DefaultVideoEncoder = "Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
         public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
-        public const string Quiet = "Suppress audio notifications during processing";
+        public const string AudioFeedback = "Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion), All (all levels). Default: none";
     }
 
     /// <summary>
@@ -147,17 +149,18 @@ public class ConvertMediaFilesCommand : CmdletBase
     public string? X265Params { get; set; }
 
     /// <summary>
-    /// Suppresses audio notifications during processing.
+    /// Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion). Use All to enable every level.
     /// </summary>
     [Parameter(
         Mandatory = false,
         ParameterSetName = DefaultEncoderParameterSet,
-        HelpMessage = HelpMessages.Quiet)]
+        HelpMessage = HelpMessages.AudioFeedback)]
     [Parameter(
         Mandatory = false,
         ParameterSetName = ExplicitSettingsParameterSet,
-        HelpMessage = HelpMessages.Quiet)]
-    public SwitchParameter Quiet { get; set; }
+        HelpMessage = HelpMessages.AudioFeedback)]
+    [ValidateSet("Error", "Processing", "Success", "All", IgnoreCase = true)]
+    public string[] AudioFeedback { get; set; } = Array.Empty<string>();
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
@@ -171,6 +174,10 @@ public class ConvertMediaFilesCommand : CmdletBase
     private bool _invokeAudioAvailable = false;
     private Stopwatch? _batchStopwatch;
     private int _batchTotalFiles = 0;
+    private bool _playError;
+    private bool _playProcessing;
+    private bool _playSuccess;
+    private bool _hasAudioFeedback;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -196,6 +203,24 @@ public class ConvertMediaFilesCommand : CmdletBase
         _uniqueInputPaths.Clear();
         _fileProcessingStats.Clear();
         _currentFileIndex = 0;
+
+        var audioFeedback = AudioFeedback ?? Array.Empty<string>();
+        _hasAudioFeedback = audioFeedback.Length > 0;
+        if (_hasAudioFeedback)
+        {
+            var feedback = audioFeedback
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _playError = feedback.Contains("Error") || feedback.Contains("All");
+            _playProcessing = feedback.Contains("Processing") || feedback.Contains("All");
+            _playSuccess = feedback.Contains("Success") || feedback.Contains("All");
+        }
+        else
+        {
+            _playError = _playProcessing = _playSuccess = false;
+        }
+
         CheckAudioAvailability();
     }
 
@@ -252,8 +277,8 @@ public class ConvertMediaFilesCommand : CmdletBase
                 "Completed",
                 recordType: ProgressRecordType.Completed));
 
-            // Play victory sound when batch is complete
-            PlayAudio("Victory");
+            if (_playSuccess)
+                PlayAudio("Victory");
         }
 
         if (_conversionResults.Count == 0)
@@ -449,7 +474,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// </summary>
     private void CheckAudioAvailability()
     {
-        if (Quiet)
+        if (!_hasAudioFeedback)
         {
             _invokeAudioAvailable = false;
             return;
@@ -457,7 +482,6 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         try
         {
-            var invokeAudioCmd = SessionState.PSVariable.GetValue("?") as string;
             _invokeAudioAvailable = SessionState.InvokeCommand.GetCommand("Invoke-Audio", System.Management.Automation.CommandTypes.Function) != null;
             Logger.LogDebug("Invoke-Audio availability: {IsAvailable}", _invokeAudioAvailable);
         }
@@ -468,7 +492,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Safely invokes Invoke-Audio with the specified pattern if available and not in quiet mode.
+    /// Safely invokes Invoke-Audio with the specified pattern if available and audio feedback is enabled.
     /// </summary>
     /// <param name="audioPattern">The audio pattern name to play.</param>
     private void PlayAudio(string audioPattern)
@@ -494,7 +518,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         _fileProcessingStopwatch?.Stop();
         var result = new ConversionResult(inputPath, false, errorMessage);
         _conversionResults.Add(result);
-        PlayAudio("SadError");
+        if (_playError)
+            PlayAudio("SadError");
         UpdateFileProgress(errorMessage, fileName, recordType: ProgressRecordType.Completed);
 
         if (exception != null)
@@ -607,7 +632,8 @@ public class ConvertMediaFilesCommand : CmdletBase
                 {
                     _fileProcessingStopwatch.Stop();
                     RecordFileProcessingStats(resolvedInputPath);
-                    PlayAudio("Doorbell");
+                    if (_playSuccess)
+                        PlayAudio("Doorbell");
                     UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
                 }
                 return;
@@ -650,7 +676,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             _fileProcessingStopwatch.Stop();
             RecordFileProcessingStats(resolvedInputPath);
-            PlayAudio("Doorbell");
+            if (_playSuccess)
+                PlayAudio("Doorbell");
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
         }
         else
