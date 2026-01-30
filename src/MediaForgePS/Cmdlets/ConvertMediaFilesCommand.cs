@@ -42,24 +42,28 @@ internal class FileProcessingStats
 /// </summary>
 /// <remarks>
 /// This cmdlet processes multiple video files, automatically detecting and configuring audio streams
-/// based on codec type and channel count. It applies default video encoding settings (libx265, CRF 22, preset fast)
-/// unless overridden, and provides a summary of any files that couldn't be processed.
+/// based on codec type and channel count. It applies default video encoding settings based on DefaultVideoEncoder
+/// (x265: libx265, CRF 18, preset medium; nvenc: hevc_nvenc, CQ 18, preset p5) unless overridden via VideoEncodingSettings.
 /// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
 /// automatically detected and created for each file.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFiles")]
+[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : CmdletBase
 {
     private const int BatchProgressId = 1;
     private const int FileProgressId = 2;
+    private const string DefaultEncoderParameterSet = "DefaultEncoder";
+    private const string ExplicitSettingsParameterSet = "ExplicitSettings";
     private static class HelpMessages
     {
         public const string InputPath = "Array of input file paths to convert";
         public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
-        public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses libx265, CRF 22, preset 'fast'";
+        public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses default for DefaultVideoEncoder";
+        public const string DefaultVideoEncoder = "Default encoder to use when VideoEncodingSettings is not specified: 'x265' (libx265) or 'nvenc' (NVENC HEVC)";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
         public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
+        public const string Quiet = "Suppress audio notifications during processing";
     }
 
     /// <summary>
@@ -70,6 +74,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         Position = 0,
         ValueFromPipeline = true,
         ValueFromPipelineByPropertyName = true,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.InputPath)]
+    [Parameter(
+        Mandatory = true,
+        Position = 0,
+        ValueFromPipeline = true,
+        ValueFromPipelineByPropertyName = true,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.InputPath)]
     [ValidateNotNullOrEmpty]
     public object[] InputPath { get; set; } = Array.Empty<object>();
@@ -80,23 +92,45 @@ public class ConvertMediaFilesCommand : CmdletBase
     [Parameter(
         Mandatory = true,
         Position = 1,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.OutputDirectory)]
+    [Parameter(
+        Mandatory = true,
+        Position = 1,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.OutputDirectory)]
     [ValidateNotNullOrEmpty]
     public string OutputDirectory { get; set; } = string.Empty;
 
     /// <summary>
-    /// Override default video encoding settings. If not provided, uses libx265, CRF 22, preset "fast".
+    /// Video encoding settings to use. Mutually exclusive with DefaultVideoEncoder.
+    /// </summary>
+    [Parameter(
+        Mandatory = true,
+        ParameterSetName = ExplicitSettingsParameterSet,
+        HelpMessage = HelpMessages.VideoEncodingSettings)]
+    public VideoEncodingSettings? VideoEncodingSettings { get; set; }
+
+    /// <summary>
+    /// Default encoder to use: 'x265' (libx265) or 'nvenc' (NVENC HEVC). Mutually exclusive with VideoEncodingSettings.
     /// </summary>
     [Parameter(
         Mandatory = false,
-        HelpMessage = HelpMessages.VideoEncodingSettings)]
-    public VideoEncodingSettings? VideoEncodingSettings { get; set; }
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.DefaultVideoEncoder)]
+    [ValidateSet("x265", "nvenc", IgnoreCase = true)]
+    public string DefaultVideoEncoder { get; set; } = "x265";
 
     /// <summary>
     /// Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file.
     /// </summary>
     [Parameter(
         Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.AudioTrackMappings)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.AudioTrackMappings)]
     public AudioTrackMapping[] AudioTrackMappings { get; set; } = Array.Empty<AudioTrackMapping>();
 
@@ -105,6 +139,11 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// </summary>
     [Parameter(
         Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.X265Params)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.X265Params)]
     public string? X265Params { get; set; }
 
@@ -113,7 +152,12 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// </summary>
     [Parameter(
         Mandatory = false,
-        HelpMessage = "Suppress audio notifications during processing")]
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.Quiet)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
+        HelpMessage = HelpMessages.Quiet)]
     public SwitchParameter Quiet { get; set; }
 
     private IPathResolver? _pathResolver;
@@ -771,15 +815,29 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
 
-    private ConstantRateVideoEncodingSettings CreateDefaultVideoEncodingSettings()
+    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
     {
-        return new ConstantRateVideoEncodingSettings(
-            "libx265",
-            "medium",
-            "high",
-            "film",
-            18,
-            VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
+        var defaultEncoder = DefaultVideoEncoder.Trim();
+        var normalized = defaultEncoder.Trim().Equals("nvenc", StringComparison.OrdinalIgnoreCase)
+            ? "nvenc"
+            : "x265";
+
+        if (normalized == "nvenc")
+        {
+            return new NvencVideoEncodingSettings(
+                "p5",
+                18);
+        }
+        else
+        {
+            return new ConstantRateVideoEncodingSettings(
+                "libx265",
+                "medium",
+                "high",
+                "film",
+                18,
+                VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
+        }
     }
 
 
