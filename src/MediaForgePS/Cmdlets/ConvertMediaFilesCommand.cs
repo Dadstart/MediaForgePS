@@ -115,7 +115,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// Default encoder to use: 'x265' (libx265) or 'nvenc' (NVENC HEVC). Mutually exclusive with VideoEncodingSettings.
     /// </summary>
     [Parameter(
-        Mandatory = false,
+        Mandatory = true,
         ParameterSetName = DefaultEncoderParameterSet,
         HelpMessage = HelpMessages.DefaultVideoEncoder)]
     [ValidateSet("x265", "nvenc", IgnoreCase = true)]
