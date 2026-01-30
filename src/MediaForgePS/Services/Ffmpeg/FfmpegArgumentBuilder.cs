@@ -103,6 +103,17 @@ public class FfmpegArgumentBuilder(IPlatformService platformService)
     }
 
     /// <summary>
+    /// Adds a CQ (Constant Quality) argument for NVENC quality-based encoding.
+    /// </summary>
+    /// <param name="cq">The CQ value (0-51, lower is better quality).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddCq(int cq)
+    {
+        _argumentBuilder.AddOption("-cq", cq.ToString());
+        return this;
+    }
+
+    /// <summary>
     /// Adds a pixel format argument.
     /// </summary>
     /// <param name="pixelFormat">The pixel format (default: "yuv420p").</param>

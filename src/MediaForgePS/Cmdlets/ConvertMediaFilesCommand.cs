@@ -239,16 +239,15 @@ public class ConvertMediaFilesCommand : CmdletBase
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             BatchProgressId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
+            $"Processing file {currentFile} of {totalFiles}",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
-        progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
 
         var remainingFiles = totalFiles - currentFile;
         if (remainingFiles > 0)
         {
             var batchEtaTimespan = CalculateRemainingTime(currentFilePath, remainingFiles);
             if (batchEtaTimespan.HasValue)
-                progressRecord.StatusDescription += $" (Total ETA: {FormatTimespan(batchEtaTimespan.Value)})";
+                progressRecord.StatusDescription = $"ETA: {FormatTimespan(batchEtaTimespan.Value)}";
         }
 
         WriteProgress(progressRecord);
@@ -273,10 +272,9 @@ public class ConvertMediaFilesCommand : CmdletBase
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             BatchProgressId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
+            $"Processing file {currentFile} of {totalFiles}",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
-        progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
-        progressRecord.StatusDescription = $"{Path.GetFileName(currentFilePath)} - (Total ETA: {FormatTimespan(remainingTime)})";
+        progressRecord.StatusDescription = $"ETA: {FormatTimespan(remainingTime)}";
 
         WriteProgress(progressRecord);
     }
@@ -432,7 +430,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// <param name="audioPattern">The audio pattern name to play.</param>
     private void PlayAudio(string audioPattern)
     {
-        if (!_invokeAudioAvailable || Quiet)
+        if (!_invokeAudioAvailable)
             return;
 
         try
@@ -488,7 +486,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         var fileName = Path.GetFileName(inputPath);
         UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
-        PlayAudio("Alert");
+        // PlayAudio("Alert");
 
         // Resolve input path
         UpdateFileProgress("Resolving input path", fileName);
@@ -721,7 +719,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             {
                 var indicator = spinner[spinnerIndex];
                 spinnerIndex = (spinnerIndex + 1) % spinner.Length;
-                UpdateFileProgress($"Encoding {indicator}", outputFileName, percentComplete: 60);
+                UpdateFileProgress($"{outputFileName} {indicator}", outputFileName, percentComplete: 60);
 
                 // Update batch progress with countdown every second
                 var now = DateTime.UtcNow;
@@ -777,10 +775,10 @@ public class ConvertMediaFilesCommand : CmdletBase
     {
         return new ConstantRateVideoEncodingSettings(
             "libx265",
-            "fast",
+            "medium",
             "high",
             "film",
-            22,
+            18,
             VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
     }
 
