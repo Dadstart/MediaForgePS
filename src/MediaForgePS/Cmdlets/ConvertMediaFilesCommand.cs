@@ -698,7 +698,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             AudioTrackMapping mapping;
             var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && stream.Profile.ToLower() != "dts")
+            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
             {
                 // DTS-HD MA or TrueHD: copy without re-encoding
                 mapping = new CopyAudioTrackMapping(
