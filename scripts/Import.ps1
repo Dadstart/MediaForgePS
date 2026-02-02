@@ -76,7 +76,7 @@ function TestModulePathsExist {
 # test that required paths exist
 Write-Debug "Testing for module files in `"$modulePath`""
 if (-not (TestModulePathsExist -ModuleDir $modulePath)) {
-    Write-Error "bad"
+    Write-Warning "Module not found at: $modulePath"
     $choice = Read-Host "Would you like to run the build script now? (Y/N)"
     if ($choice -match '^(Y|y)') {
         & "$repoRoot/scripts/Build.ps1" -Configuration $Configuration -Build -Publish
