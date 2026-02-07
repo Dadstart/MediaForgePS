@@ -9,7 +9,7 @@ public record MediaChapter(
     [property: JsonPropertyName("start_time")] decimal StartTime,
     [property: JsonPropertyName("end_time")] decimal EndTime,
     [property: JsonPropertyName("tags")] Dictionary<string, string> Tags,
-    [property: JsonIgnore] string? Title,
-    [property: JsonIgnore] string Raw
+    [property: JsonIgnore] string? Title = null,
+    [property: JsonIgnore] string Raw = ""
 )
     ;
