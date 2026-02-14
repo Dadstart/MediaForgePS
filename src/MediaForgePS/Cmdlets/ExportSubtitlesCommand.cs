@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Output files follow the naming pattern: [originalname].[streamindex].en.sdh.[ext] or [originalname].en.sdh.[ext].
 /// Supports SubRip (SRT), ASS, SSA, WebVTT, DVD subtitle, and HDMV PGS. For dvd_subtitle codec uses mkvextract when available.
 /// </remarks>
-[Cmdlet(VerbsData.Export, "AllSubtitles")]
+[Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-Subtitles")]
 [OutputType(typeof(void))]
 public class ExportSubtitlesCommand : CmdletBase
@@ -39,12 +39,6 @@ public class ExportSubtitlesCommand : CmdletBase
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Path(s) to media file(s) or folder(s) containing .mkv files.")]
     [Alias("Path")]
     public object[]? InputPath { get; set; }
-
-    /// <summary>
-    /// Suppress progress and non-essential output during extraction.
-    /// </summary>
-    [Parameter(HelpMessage = "Suppress progress and non-essential output during extraction.")]
-    public SwitchParameter Quiet { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
@@ -86,30 +80,25 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        if (!Quiet.IsPresent)
+        WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing {mediaFiles.Count} file(s)...")
         {
-            WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing {mediaFiles.Count} file(s)...")
-            {
-                RecordType = ProgressRecordType.Processing
-            });
-        }
+            RecordType = ProgressRecordType.Processing
+        });
 
         var fileIndex = 0;
         foreach (var mf in mediaFiles)
         {
             fileIndex++;
-            if (!Quiet.IsPresent)
-                WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing file {fileIndex} of {mediaFiles.Count}: {System.IO.Path.GetFileName(mf.Path)}")
-                {
-                    PercentComplete = (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0),
-                    RecordType = ProgressRecordType.Processing
-                });
+            WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing file {fileIndex} of {mediaFiles.Count}: {System.IO.Path.GetFileName(mf.Path)}")
+            {
+                PercentComplete = (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0),
+                RecordType = ProgressRecordType.Processing
+            });
 
             ExportSubtitlesForMediaFile(mf, mediaFiles.Count, fileIndex);
         }
 
-        if (!Quiet.IsPresent)
-            WriteProgress(new ProgressRecord(0, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(new ProgressRecord(0, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()
@@ -164,8 +153,7 @@ public class ExportSubtitlesCommand : CmdletBase
     private void ExportSubtitlesForMediaFile(MediaFile mediaFile, int totalFiles, int fileIndex)
     {
         var fileName = System.IO.Path.GetFileNameWithoutExtension(mediaFile.Path);
-        if (!Quiet.IsPresent)
-            WriteVerbose($"[{fileIndex}/{totalFiles}] Processing: {fileName}");
+        WriteVerbose($"[{fileIndex}/{totalFiles}] Processing: {fileName}");
 
         var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
             .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
@@ -174,29 +162,25 @@ public class ExportSubtitlesCommand : CmdletBase
 
         if (subtitles.Count == 0)
         {
-            if (!Quiet.IsPresent)
-                WriteVerbose($"  No English subtitles found in {fileName}");
+            WriteVerbose($"  No English subtitles found in {fileName}");
             return;
         }
 
-        if (!Quiet.IsPresent)
-            WriteVerbose($"  Found {subtitles.Count} English subtitle stream(s)");
+        WriteVerbose($"  Found {subtitles.Count} English subtitle stream(s)");
 
         var subIndex = 0;
         foreach (var sub in subtitles)
         {
             subIndex++;
-            if (!Quiet.IsPresent)
-                WriteProgress(new ProgressRecord(1, $"Extracting from {fileName}", $"Processing subtitle {subIndex} of {subtitles.Count}")
-                {
-                    PercentComplete = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0),
-                    RecordType = ProgressRecordType.Processing
-                });
+            WriteProgress(new ProgressRecord(1, $"Extracting from {fileName}", $"Processing subtitle {subIndex} of {subtitles.Count}")
+            {
+                PercentComplete = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0),
+                RecordType = ProgressRecordType.Processing
+            });
             ExportSingleSubtitle(sub, mediaFile, subIndex, subtitles.Count);
         }
 
-        if (!Quiet.IsPresent)
-            WriteProgress(new ProgressRecord(1, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(new ProgressRecord(1, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
     }
 
     private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int subtitleIndex, int totalSubtitleCount)
@@ -228,8 +212,7 @@ public class ExportSubtitlesCommand : CmdletBase
                     WriteError(new ErrorRecord(new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec."), "MkvextractNotFound", ErrorCategory.ObjectNotFound, null));
                     return;
                 }
-                if (!Quiet.IsPresent)
-                    WriteVerbose($"    Using mkvextract for stream {stream.Index} -> {resolvedOutput}");
+                WriteVerbose($"    Using mkvextract for stream {stream.Index} -> {resolvedOutput}");
                 var args = new[] { "tracks", mediaFile.Path, $"{stream.Index}:{resolvedOutput}" };
                 var result = ExecutableService.ExecuteAsync(mkvextract, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (result.ExitCode != 0)
@@ -243,8 +226,7 @@ public class ExportSubtitlesCommand : CmdletBase
                     throw new InvalidOperationException($"FFmpeg failed with exit code {result.ExitCode}. {result.ErrorOutput}");
             }
 
-            if (!Quiet.IsPresent)
-                WriteVerbose($"    Extracted stream {stream.Index} ({stream.Codec}) -> {resolvedOutput}");
+            WriteVerbose($"    Extracted stream {stream.Index} ({stream.Codec}) -> {resolvedOutput}");
         }
         catch (Exception ex)
         {
