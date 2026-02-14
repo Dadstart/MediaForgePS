@@ -57,7 +57,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -78,7 +78,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -103,7 +103,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -131,7 +131,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -159,7 +159,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -187,7 +187,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 2, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 2, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -214,7 +214,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -240,7 +240,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -262,7 +262,7 @@ public class AudioTrackMappingServiceTests
         // Arrange
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[]
             {
@@ -297,7 +297,7 @@ public class AudioTrackMappingServiceTests
 
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
-            new MediaFormat(string.Empty, "C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[] { streamWithoutChannels },
             "{}");

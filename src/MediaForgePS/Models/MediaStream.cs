@@ -11,7 +11,7 @@ public record MediaStream(
     [property: JsonPropertyName("profile")] string Profile,
     [property: JsonPropertyName("codec_long_name")] string CodecLongName,
     [property: JsonPropertyName("tags")] Dictionary<string, string> Tags,
-    [property: JsonIgnore] TimeSpan Duration,
-    [property: JsonIgnore] string? Language,
-    [property: JsonIgnore] string Raw
+    [property: JsonIgnore] TimeSpan Duration = default,
+    [property: JsonIgnore] string? Language = null,
+    [property: JsonIgnore] string Raw = ""
 );

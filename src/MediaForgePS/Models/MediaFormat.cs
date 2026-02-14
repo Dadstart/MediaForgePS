@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 namespace Dadstart.Labs.MediaForge.Models;
 
 public record MediaFormat(
-    [property: JsonIgnore] string? Title,
     [property: JsonPropertyName("filename")] string Path,
     [property: JsonPropertyName("nb_streams")] int StreamCount,
     [property: JsonPropertyName("format_name")] string Format,
@@ -15,5 +14,6 @@ public record MediaFormat(
     [property: JsonPropertyName("size")] long Size,
     [property: JsonPropertyName("bit_rate")] long BitRate,
     [property: JsonPropertyName("tags")] Dictionary<string, string> Tags,
-    [property: JsonIgnore] string Raw
+    [property: JsonIgnore] string? Title = null,
+    [property: JsonIgnore] string Raw = ""
 );

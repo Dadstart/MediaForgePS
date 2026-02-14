@@ -9,8 +9,8 @@ namespace Dadstart.Labs.MediaForge.Models;
 public abstract record VideoEncodingSettings(
     string Codec,
     string Preset,
-    string CodecProfile,
-    string Tune,
+    string? CodecProfile,
+    string? Tune,
     string PixelFormat)
 {
     public const char StreamType = 'v';

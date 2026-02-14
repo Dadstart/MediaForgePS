@@ -115,7 +115,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
 
         var mediaFile = new MediaFile(
             resolvedPath,
-            new MediaFormat(string.Empty, resolvedPath, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat(resolvedPath, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             Array.Empty<MediaStream>(),
             "{}");

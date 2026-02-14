@@ -31,6 +31,11 @@
     Enable publish step. Publishes the main module project to the bin directory.
     Only runs if build succeeded.
 
+.PARAMETER Aot
+    Publish with Native AOT (Ahead-of-Time compilation). Only applies when -Publish is used.
+    Produces a self-contained native executable. Requires platform-specific tooling
+    (e.g. Visual Studio C++ workload on Windows).
+
 .PARAMETER Verbosity
     The verbosity level for dotnet commands. Defaults to minimal.
     Valid values: quiet, minimal, normal, detailed, diagnostic
@@ -62,6 +67,10 @@
 .EXAMPLE
     .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Lint View -Lint Fix -Test -Publish
     Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
+
+.EXAMPLE
+    .\scripts\Build-Project.ps1 -Configuration Release -Build -Publish -Aot
+    Builds in Release, then publishes with Native AOT (native executable output).
 #>
 [CmdletBinding(DefaultParameterSetName = "PartialBuild")]
 param(
@@ -88,6 +97,9 @@ param(
 
     [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
+
+    [Parameter()]
+    [switch]$Aot,
 
     [Parameter()]
     [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
@@ -462,7 +474,20 @@ if ($Publish) {
 
         $progressTracker.UpdateProgress("Publishing MediaForgePS module ($Configuration)")
 
-        dotnet publish $csprojPath --configuration $Configuration --verbosity $Verbosity --output $outputDir
+        $publishArgs = @(
+            'publish',
+            $csprojPath,
+            '--configuration', $Configuration,
+            '--verbosity', $Verbosity,
+            '--output', $outputDir
+        )
+        if ($Aot) {
+            $runtimeId = [System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier
+            $publishArgs += '-p:PublishAot=true'
+            $publishArgs += '--runtime', $runtimeId
+            Write-Host "AOT: Native AOT enabled (RuntimeIdentifier: $runtimeId)" -ForegroundColor Gray
+        }
+        & dotnet @publishArgs
 
         if ($LASTEXITCODE -ne 0) {
             Write-Information "Build:Publish:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue

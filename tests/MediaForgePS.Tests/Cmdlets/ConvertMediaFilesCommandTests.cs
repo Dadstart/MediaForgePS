@@ -110,7 +110,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
     {
         return new MediaFile(
             path,
-            new MediaFormat(string.Empty, path, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>(), string.Empty),
+            new MediaFormat(path, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             streams,
             "{}");

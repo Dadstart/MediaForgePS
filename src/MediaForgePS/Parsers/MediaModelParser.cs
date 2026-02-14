@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Dadstart.Labs.MediaForge.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.PowerShell.Commands;
@@ -12,12 +11,6 @@ namespace Dadstart.Labs.MediaForge.Parsers;
 public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelParser
 {
     private readonly ILogger<MediaModelParser> _logger = logger;
-    private static readonly JsonSerializerOptions _options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas = true,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString,
-    };
 
     /// <summary>
     /// Parses a duration string in the format "hh:mm:ss.nanoseconds" (e.g., "00:43:29.481875000")
@@ -162,7 +155,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaChapter");
         _logger.LogDebug("Json: {json}", json);
-        var chapter = JsonSerializer.Deserialize<MediaChapter>(json, _options)
+        var chapter = JsonSerializer.Deserialize(json, MediaForgeJsonContext.Default.MediaChapter)
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
         _logger.LogInformation("Deserialized MediaChapter");
 
@@ -198,7 +191,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaFormat");
         _logger.LogDebug("Json: {json}", json);
-        var format = JsonSerializer.Deserialize<MediaFormat>(json, _options)
+        var format = JsonSerializer.Deserialize(json, MediaForgeJsonContext.Default.MediaFormat)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
         _logger.LogInformation("Deserialized MediaFormat");
         format.Tags.TryGetValue("title", out var title);
@@ -234,7 +227,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         _logger.LogInformation("Deserializing MediaStream");
         _logger.LogDebug("Json: {json}", json);
-        var stream = JsonSerializer.Deserialize<MediaStream>(json, _options)
+        var stream = JsonSerializer.Deserialize(json, MediaForgeJsonContext.Default.MediaStream)
             ?? throw new JsonException("Failed to deserialize MediaStream from JSON");
         _logger.LogInformation("Deserialized MediaStream");
 

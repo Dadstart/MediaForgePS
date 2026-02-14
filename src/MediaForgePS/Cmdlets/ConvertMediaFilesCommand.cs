@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -12,25 +15,57 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
+/// Represents statistics for a processed file used for ETA calculations.
+/// </summary>
+internal class FileProcessingStats
+{
+    /// <summary>
+    /// Size of the file in bytes.
+    /// </summary>
+    public long FileSizeBytes { get; set; }
+
+    /// <summary>
+    /// Time taken to process the file.
+    /// </summary>
+    public TimeSpan ProcessingTime { get; set; }
+
+    /// <summary>
+    /// Processing speed in bytes per second.
+    /// </summary>
+    public double BytesPerSecond => FileSizeBytes > 0 && ProcessingTime.TotalSeconds > 0
+        ? FileSizeBytes / ProcessingTime.TotalSeconds
+        : 0;
+}
+
+/// <summary>
 /// Automatically converts multiple media files with intelligent audio stream selection.
 /// </summary>
 /// <remarks>
 /// This cmdlet processes multiple video files, automatically detecting and configuring audio streams
-/// based on codec type and channel count. It applies default video encoding settings (libx265, CRF 22, preset fast)
-/// unless overridden, and provides a summary of any files that couldn't be processed.
+/// based on codec type and channel count. It applies default video encoding settings based on DefaultVideoEncoder
+/// (x264/x265: libx264/libx265, CRF 18, preset medium; nvenc: hevc_nvenc, CQ 18, preset p5) unless overridden via VideoEncodingSettings.
 /// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
 /// automatically detected and created for each file.
+/// Use -AudioFeedback to control audio cues: Error (on failure), Processing (during conversion), Success (on file or batch completion).
+/// Specify All to enable every level; otherwise only the listed levels play. Default is no audio feedback.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFiles")]
+[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : CmdletBase
 {
+    private const int BatchProgressId = 1;
+    private const int FileProgressId = 2;
+    private const string DefaultEncoderParameterSet = "DefaultEncoder";
+    private const string ExplicitSettingsParameterSet = "ExplicitSettings";
     private static class HelpMessages
     {
         public const string InputPath = "Array of input file paths to convert";
         public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
-        public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses libx265, CRF 22, preset 'fast'";
+        public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses default for DefaultVideoEncoder";
+        public const string DefaultVideoEncoder = "Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
+        public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
+        public const string AudioFeedback = "Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion), All (all levels). Default: none";
     }
 
     /// <summary>
@@ -41,6 +76,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         Position = 0,
         ValueFromPipeline = true,
         ValueFromPipelineByPropertyName = true,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.InputPath)]
+    [Parameter(
+        Mandatory = true,
+        Position = 0,
+        ValueFromPipeline = true,
+        ValueFromPipelineByPropertyName = true,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.InputPath)]
     [ValidateNotNullOrEmpty]
     public object[] InputPath { get; set; } = Array.Empty<object>();
@@ -51,32 +94,90 @@ public class ConvertMediaFilesCommand : CmdletBase
     [Parameter(
         Mandatory = true,
         Position = 1,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.OutputDirectory)]
+    [Parameter(
+        Mandatory = true,
+        Position = 1,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.OutputDirectory)]
     [ValidateNotNullOrEmpty]
     public string OutputDirectory { get; set; } = string.Empty;
 
     /// <summary>
-    /// Override default video encoding settings. If not provided, uses libx265, CRF 22, preset "fast".
+    /// Video encoding settings to use. Mutually exclusive with DefaultVideoEncoder.
     /// </summary>
     [Parameter(
-        Mandatory = false,
+        Mandatory = true,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.VideoEncodingSettings)]
     public VideoEncodingSettings? VideoEncodingSettings { get; set; }
+
+    /// <summary>
+    /// Default encoder to use: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC). Mutually exclusive with VideoEncodingSettings.
+    /// </summary>
+    [Parameter(
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.DefaultVideoEncoder)]
+    [ValidateSet("x264", "x265", "nvenc", IgnoreCase = true)]
+    public string? DefaultVideoEncoder { get; set; }
 
     /// <summary>
     /// Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file.
     /// </summary>
     [Parameter(
         Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.AudioTrackMappings)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.AudioTrackMappings)]
     public AudioTrackMapping[] AudioTrackMappings { get; set; } = Array.Empty<AudioTrackMapping>();
+
+    /// <summary>
+    /// Additional x265 params to pass through to ffmpeg.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.X265Params)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
+        HelpMessage = HelpMessages.X265Params)]
+    public string? X265Params { get; set; }
+
+    /// <summary>
+    /// Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion). Use All to enable every level.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = HelpMessages.AudioFeedback)]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
+        HelpMessage = HelpMessages.AudioFeedback)]
+    [ValidateSet("Error", "Processing", "Success", "All", IgnoreCase = true)]
+    public string[] AudioFeedback { get; set; } = Array.Empty<string>();
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
     private readonly List<ConversionResult> _conversionResults = new();
     private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<FileProcessingStats> _fileProcessingStats = new();
     private int _currentFileIndex = 0;
+    private Stopwatch? _fileProcessingStopwatch;
+    private TimeSpan? _currentFileEstimatedTime;
+    private bool _invokeAudioAvailable = false;
+    private Stopwatch? _batchStopwatch;
+    private int _batchTotalFiles = 0;
+    private bool _playError;
+    private bool _playProcessing;
+    private bool _playSuccess;
+    private bool _hasAudioFeedback;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -100,7 +201,27 @@ public class ConvertMediaFilesCommand : CmdletBase
     {
         _conversionResults.Clear();
         _uniqueInputPaths.Clear();
+        _fileProcessingStats.Clear();
         _currentFileIndex = 0;
+
+        var audioFeedback = AudioFeedback ?? Array.Empty<string>();
+        _hasAudioFeedback = audioFeedback.Length > 0;
+        if (_hasAudioFeedback)
+        {
+            var feedback = audioFeedback
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _playError = feedback.Contains("Error") || feedback.Contains("All");
+            _playProcessing = feedback.Contains("Processing") || feedback.Contains("All");
+            _playSuccess = feedback.Contains("Success") || feedback.Contains("All");
+        }
+        else
+        {
+            _playError = _playProcessing = _playSuccess = false;
+        }
+
+        CheckAudioAvailability();
     }
 
     /// <summary>
@@ -137,6 +258,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             var totalFiles = _uniqueInputPaths.Count;
             _currentFileIndex = 0;
+            _batchTotalFiles = totalFiles;
+            _batchStopwatch = Stopwatch.StartNew();
 
             foreach (var inputPath in _uniqueInputPaths)
             {
@@ -145,12 +268,17 @@ public class ConvertMediaFilesCommand : CmdletBase
                 ProcessFile(inputPath);
             }
 
+            _batchStopwatch.Stop();
+
             // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                1,
+                BatchProgressId,
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
+
+            if (_playSuccess)
+                PlayAudio("Victory");
         }
 
         if (_conversionResults.Count == 0)
@@ -177,44 +305,276 @@ public class ConvertMediaFilesCommand : CmdletBase
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            1,
+            BatchProgressId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles} ({Path.GetFileName(currentFilePath)})",
+            $"Processing file {currentFile} of {totalFiles}",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
-        progressRecord.CurrentOperation = Path.GetFileName(currentFilePath);
+
+        var remainingFiles = totalFiles - currentFile;
+        if (remainingFiles > 0)
+        {
+            var batchEtaTimespan = CalculateRemainingTime(currentFilePath, remainingFiles);
+            if (batchEtaTimespan.HasValue)
+                progressRecord.StatusDescription = $"ETA: {FormatTimespan(batchEtaTimespan.Value)}";
+        }
+
+        WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Updates batch progress with current countdown ETA during file processing.
+    /// </summary>
+    private void UpdateBatchProgressWithCountdown(int currentFile, int totalFiles, string currentFilePath, TimeSpan? originalEta)
+    {
+        if (!originalEta.HasValue || _batchStopwatch == null)
+            return;
+
+        // Calculate elapsed time and remaining ETA
+        var elapsedTime = _batchStopwatch.Elapsed;
+        var remainingTime = originalEta.Value - elapsedTime;
+
+        // Don't show negative ETA
+        if (remainingTime.TotalSeconds <= 0)
+            return;
+
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            BatchProgressId,
+            "Batch Conversion",
+            $"Processing file {currentFile} of {totalFiles}",
+            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+        progressRecord.StatusDescription = $"ETA: {FormatTimespan(remainingTime)}";
+
+        WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Calculates the estimated remaining time based on file sizes and average processing speed.
+    /// </summary>
+    /// <param name="currentFilePath">Path of the current file being processed.</param>
+    /// <param name="remainingFilesCount">Number of remaining files after the current one.</param>
+    /// <returns>Estimated time remaining, or null if no estimate can be calculated.</returns>
+    private TimeSpan? CalculateRemainingTime(string currentFilePath, int remainingFilesCount)
+    {
+        if (_fileProcessingStats.Count == 0)
+            return null;
+
+        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
+        if (averageBytesPerSecond <= 0)
+            return null;
+
+        long remainingBytes = 0;
+
+        try
+        {
+            var currentFile = new FileInfo(currentFilePath);
+            if (currentFile.Exists)
+                remainingBytes = currentFile.Length;
+        }
+        catch
+        {
+            // If we can't get the file size, skip ETA calculation
+            return null;
+        }
+
+        // Add remaining files from the input paths list
+        var remainingPaths = _uniqueInputPaths.Skip(_currentFileIndex).Take(remainingFilesCount);
+        foreach (var path in remainingPaths)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(path);
+                if (fileInfo.Exists)
+                    remainingBytes += fileInfo.Length;
+            }
+            catch
+            {
+                // If we can't get the file size, continue with what we have
+            }
+        }
+
+        if (remainingBytes <= 0)
+            return null;
+
+        var remainingSeconds = remainingBytes / averageBytesPerSecond;
+        return TimeSpan.FromSeconds(remainingSeconds);
+    }
+
+    /// <summary>
+    /// Calculates the estimated time for processing a single file based on its size and average processing speed.
+    /// </summary>
+    /// <param name="filePath">Path of the file to estimate.</param>
+    /// <returns>Estimated time for the file, or null if no estimate can be calculated.</returns>
+    private TimeSpan? CalculateFileEta(string filePath)
+    {
+        if (_fileProcessingStats.Count == 0)
+            return null;
+
+        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
+        if (averageBytesPerSecond <= 0)
+            return null;
+
+        try
+        {
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
+                return null;
+
+            var estimatedSeconds = fileInfo.Length / averageBytesPerSecond;
+            return TimeSpan.FromSeconds(estimatedSeconds);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Formats a timespan into a human-readable string.
+    /// </summary>
+    private static string FormatTimespan(TimeSpan time)
+    {
+        if (time.TotalHours >= 1)
+            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
+        if (time.TotalMinutes >= 1)
+            return $"{time.Minutes}m {time.Seconds}s";
+        return $"{time.Seconds}s";
+    }
+
+    /// <summary>
+    /// Records file processing statistics for ETA calculation.
+    /// </summary>
+    private void RecordFileProcessingStats(string filePath)
+    {
+        if (_fileProcessingStopwatch == null)
+            return;
+
+        try
+        {
+            var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Exists)
+            {
+                var stats = new FileProcessingStats
+                {
+                    FileSizeBytes = fileInfo.Length,
+                    ProcessingTime = _fileProcessingStopwatch.Elapsed
+                };
+                _fileProcessingStats.Add(stats);
+                Logger.LogDebug("Recorded processing stats - Size: {FileSizeBytes} bytes, Time: {ProcessingTime}ms, Rate: {BytesPerSecond} bytes/sec",
+                    stats.FileSizeBytes, _fileProcessingStopwatch.ElapsedMilliseconds, stats.BytesPerSecond);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to record file processing statistics");
+        }
+    }
+
+    /// <summary>
+    /// Checks if Invoke-Audio function is available in the PowerShell session.
+    /// </summary>
+    private void CheckAudioAvailability()
+    {
+        if (!_hasAudioFeedback)
+        {
+            _invokeAudioAvailable = false;
+            return;
+        }
+
+        try
+        {
+            _invokeAudioAvailable = SessionState.InvokeCommand.GetCommand("Invoke-Audio", System.Management.Automation.CommandTypes.Function) != null;
+            Logger.LogDebug("Invoke-Audio availability: {IsAvailable}", _invokeAudioAvailable);
+        }
+        catch
+        {
+            _invokeAudioAvailable = false;
+        }
+    }
+
+    /// <summary>
+    /// Safely invokes Invoke-Audio with the specified pattern if available and audio feedback is enabled.
+    /// </summary>
+    /// <param name="audioPattern">The audio pattern name to play.</param>
+    private void PlayAudio(string audioPattern)
+    {
+        if (!_invokeAudioAvailable)
+            return;
+
+        try
+        {
+            SessionState.InvokeCommand.InvokeScript($"Invoke-Audio '{audioPattern}'");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to invoke audio pattern: {AudioPattern}", audioPattern);
+        }
+    }
+
+    /// <summary>
+    /// Handles file processing errors with consistent logging, result recording, audio feedback, and progress updates.
+    /// </summary>
+    private void HandleFileError(string inputPath, string fileName, string errorMessage, Exception? exception = null, ErrorCategory errorCategory = ErrorCategory.NotSpecified)
+    {
+        _fileProcessingStopwatch?.Stop();
+        var result = new ConversionResult(inputPath, false, errorMessage);
+        _conversionResults.Add(result);
+        if (_playError)
+            PlayAudio("SadError");
+        UpdateFileProgress(errorMessage, fileName, recordType: ProgressRecordType.Completed);
+
+        if (exception != null)
+            WriteError(new ErrorRecord(exception, "ProcessingFailed", errorCategory, inputPath));
+    }
+
+    private void UpdateFileProgress(
+        string status,
+        string? currentOperation = null,
+        int? percentComplete = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing,
+        TimeSpan? eta = null)
+    {
+        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
+            FileProgressId,
+            "File Conversion",
+            status,
+            BatchProgressId,
+            currentOperation,
+            percentComplete,
+            recordType);
+
+        if (eta.HasValue)
+            progressRecord.StatusDescription += $" (File ETA: {FormatTimespan(eta.Value)})";
 
         WriteProgress(progressRecord);
     }
 
     private void ProcessFile(string inputPath)
     {
+        _fileProcessingStopwatch = Stopwatch.StartNew();
+        var fileName = Path.GetFileName(inputPath);
+        UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
+        // PlayAudio("Alert");
 
         // Resolve input path
+        UpdateFileProgress("Resolving input path", fileName);
         if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
         {
-            var result = new ConversionResult(inputPath, false, "File not found");
-            _conversionResults.Add(result);
-            WriteError(new ErrorRecord(
+            HandleFileError(inputPath, fileName, "File not found",
                 new FileNotFoundException($"Input media file not found: {inputPath}"),
-                "FileNotFound",
-                ErrorCategory.ObjectNotFound,
-                inputPath));
+                ErrorCategory.ObjectNotFound);
             return;
         }
 
         // Resolve output path
+        UpdateFileProgress("Resolving output path", fileName);
         var outputFileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mp4";
         var outputPath = Path.Combine(OutputDirectory, outputFileName);
         if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
         {
-            var result = new ConversionResult(inputPath, false, "Failed to resolve output path");
-            _conversionResults.Add(result);
-            WriteError(new ErrorRecord(
-                new Exception($"Failed to resolve output path: {outputPath}"),
-                "PathError",
-                ErrorCategory.InvalidArgument,
-                outputPath));
+            HandleFileError(inputPath, fileName, "Failed to resolve output path",
+                new InvalidOperationException($"Failed to resolve output path: {outputPath}"),
+                ErrorCategory.InvalidArgument);
             return;
         }
 
@@ -222,25 +582,26 @@ public class ConvertMediaFilesCommand : CmdletBase
         MediaFile? mediaFile;
         try
         {
+            UpdateFileProgress("Reading media metadata", fileName);
             mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to read media file: {InputPath}", resolvedInputPath);
-            var result = new ConversionResult(inputPath, false, $"Failed to read media file: {ex.Message}");
-            _conversionResults.Add(result);
-            WriteError(new ErrorRecord(ex, "MediaReadFailed", ErrorCategory.ReadError, resolvedInputPath));
+            HandleFileError(inputPath, fileName, $"Failed to read media file: {ex.Message}", ex, ErrorCategory.ReadError);
             return;
         }
 
         if (mediaFile == null)
         {
-            var result = new ConversionResult(inputPath, false, "Failed to read media file information");
-            _conversionResults.Add(result);
+            HandleFileError(inputPath, fileName, "Failed to read media file information");
             WriteWarning($"Could not read media file information for: {inputPath}");
             return;
         }
+
+        // Calculate ETA for this file (only available if we have prior processing stats)
+        _currentFileEstimatedTime = CalculateFileEta(resolvedInputPath);
 
         // Determine audio track mappings
         AudioTrackMapping[] audioMappings;
@@ -248,11 +609,14 @@ public class ConvertMediaFilesCommand : CmdletBase
         // If AudioTrackMappings is provided and not empty, use it for all files
         if (AudioTrackMappings != null && AudioTrackMappings.Length > 0)
         {
+            UpdateFileProgress("Using provided audio mappings", fileName);
             audioMappings = AudioTrackMappings;
             Logger.LogInformation("Using provided audio track mappings for: {InputPath}", resolvedInputPath);
+            UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
         }
         else
         {
+            UpdateFileProgress("Detecting audio mappings", fileName);
             // Auto-detect and create mappings
             // Check for audio streams
             var audioStreams = mediaFile.Streams
@@ -263,7 +627,15 @@ public class ConvertMediaFilesCommand : CmdletBase
             if (audioStreams.Count == 0)
             {
                 Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
-                ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath);
+                UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
+                if (ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath))
+                {
+                    _fileProcessingStopwatch.Stop();
+                    RecordFileProcessingStats(resolvedInputPath);
+                    if (_playSuccess)
+                        PlayAudio("Doorbell");
+                    UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
+                }
                 return;
             }
 
@@ -287,19 +659,31 @@ public class ConvertMediaFilesCommand : CmdletBase
             try
             {
                 audioMappings = CreateAudioTrackMappings(streamsToUse);
+                UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
-                var result = new ConversionResult(inputPath, false, $"Auto-detection failed: {ex.Message}");
-                _conversionResults.Add(result);
+                HandleFileError(inputPath, fileName, $"Auto-detection failed: {ex.Message}", ex);
                 WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
                 return;
             }
         }
 
         // Perform conversion
-        ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath);
+        UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
+        if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath))
+        {
+            _fileProcessingStopwatch.Stop();
+            RecordFileProcessingStats(resolvedInputPath);
+            if (_playSuccess)
+                PlayAudio("Doorbell");
+            UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
+        }
+        else
+        {
+            _fileProcessingStopwatch.Stop();
+        }
     }
 
     private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
@@ -314,7 +698,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             AudioTrackMapping mapping;
             var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && stream.Profile.ToLower() != "dts")
+            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
             {
                 // DTS-HD MA or TrueHD: copy without re-encoding
                 mapping = new CopyAudioTrackMapping(
@@ -368,40 +752,74 @@ public class ConvertMediaFilesCommand : CmdletBase
         return mappings.ToArray();
     }
 
-    private void ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
+    private bool ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
     {
         try
         {
             // Get or create video encoding settings
             var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
+            var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            var outputFileName = Path.GetFileName(resolvedOutputPath);
+            UpdateFileProgress(
+                $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)",
+                outputFileName,
+                percentComplete: 60);
 
-            MediaConversionService.ExecuteConversion(
+            var spinner = new[] { "|", "/", "-", "\\" };
+            var spinnerIndex = 0;
+            var lastBatchUpdateTime = DateTime.UtcNow;
+            var conversionTask = Task.Run(() => MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
                 videoSettings,
-                audioMappings);
+                audioMappings,
+                additionalArguments));
+
+            // Calculate initial batch ETA
+            TimeSpan? initialBatchEta = null;
+            if (_currentFileIndex < _batchTotalFiles)
+            {
+                var remainingFiles = _batchTotalFiles - _currentFileIndex;
+                initialBatchEta = CalculateRemainingTime(resolvedInputPath, remainingFiles);
+            }
+
+            while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
+            {
+                var indicator = spinner[spinnerIndex];
+                spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                UpdateFileProgress($"{outputFileName} {indicator}", outputFileName, percentComplete: 60);
+
+                // Update batch progress with countdown every second
+                var now = DateTime.UtcNow;
+                if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue)
+                {
+                    UpdateBatchProgressWithCountdown(_currentFileIndex, _batchTotalFiles, resolvedInputPath, initialBatchEta.Value);
+                    lastBatchUpdateTime = now;
+                }
+            }
+
+            conversionTask.GetAwaiter().GetResult();
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");
             _conversionResults.Add(result);
+            return true;
         }
         catch (FfmpegConversionException ex)
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var statusMessage = BuildStatusMessage(ex);
-            var result = new ConversionResult(originalInputPath, false, statusMessage);
-            _conversionResults.Add(result);
-            WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            var result = new ConversionResult(originalInputPath, false, $"Conversion failed: {ex.Message}");
-            _conversionResults.Add(result);
-            WriteError(new ErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), $"Conversion failed: {ex.Message}", ex, ErrorCategory.OperationStopped);
         }
+
+        return false;
     }
 
     private static string BuildStatusMessage(FfmpegConversionException ex)
@@ -423,15 +841,32 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
 
-    private ConstantRateVideoEncodingSettings CreateDefaultVideoEncodingSettings()
+    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
     {
-        return new ConstantRateVideoEncodingSettings(
-            "libx265",
-            "fast",
-            "high",
-            "film",
-            22,
-            VideoEncodingSettings.GetDefaultPixelFormat("libx265"));
+        var encoder = DefaultVideoEncoder?.Trim();
+        var codec = encoder?.ToLowerInvariant() switch
+        {
+            "nvenc" => "nvenc",
+            "x264" => "libx264",
+            _ => "libx265"
+        };
+
+        if (codec == "nvenc")
+        {
+            return new NvencVideoEncodingSettings(
+                "p5",
+                18);
+        }
+        else
+        {
+            return new ConstantRateVideoEncodingSettings(
+                codec,
+                "medium",
+                "high",
+                "film",
+                18,
+                VideoEncodingSettings.GetDefaultPixelFormat(codec));
+        }
     }
 
 
