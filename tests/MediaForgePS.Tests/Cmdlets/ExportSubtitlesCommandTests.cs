@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -55,44 +56,48 @@ public class ExportSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ExportSubtitles_WhenNoPathProvided_WritesWarning()
+    public void ExportSubtitles_WhenPathHasNoMkvFiles_WritesWarning()
     {
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(typeof(ExportSubtitlesCommand).Assembly);
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-AllSubtitles", typeof(ExportSubtitlesCommand), null));
+        var emptyDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ExportSubtitles_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(emptyDir);
+            var asm = typeof(ExportSubtitlesCommand).Assembly;
+            var initialSessionState = InitialSessionState.CreateDefault();
+            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-AllSubtitles", typeof(ExportSubtitlesCommand), null));
 
-        using var runspace = RunspaceFactory.CreateRunspace(initialSessionState);
-        runspace.Open();
+            using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
+            ps.AddCommand("Export-AllSubtitles").AddParameter("InputPath", new[] { emptyDir });
 
-        using var pipeline = runspace.CreatePipeline();
-        pipeline.Commands.Add("Export-AllSubtitles");
-        pipeline.Commands[0].Parameters.Add("InputPath", Array.Empty<string>());
+            var results = ps.Invoke();
+            var errors = ps.Streams.Error.ReadAll();
+            var warnings = ps.Streams.Warning.ReadAll();
 
-        var results = pipeline.Invoke();
-        var errors = pipeline.Streams.Error.ReadAll();
-
-        Assert.Empty(results);
-        Assert.Empty(errors);
-        var warnings = pipeline.Streams.Warning.ReadAll();
-        Assert.NotEmpty(warnings);
+            Assert.Empty(results);
+            Assert.Empty(errors);
+            Assert.NotEmpty(warnings);
+        }
+        finally
+        {
+            if (Directory.Exists(emptyDir))
+                Directory.Delete(emptyDir);
+        }
     }
 
     [Fact]
     public void ExportSubtitles_Alias_ResolvesToExportAllSubtitles()
     {
+        var asm = typeof(ExportSubtitlesCommand).Assembly;
         var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(typeof(ExportSubtitlesCommand).Assembly);
+        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
         initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-AllSubtitles", typeof(ExportSubtitlesCommand), null));
         initialSessionState.Commands.Add(new SessionStateAliasEntry("Export-Subtitles", "Export-AllSubtitles"));
 
-        using var runspace = RunspaceFactory.CreateRunspace(initialSessionState);
-        runspace.Open();
-
-        using var pipeline = runspace.CreatePipeline();
-        pipeline.Commands.Add("Export-Subtitles");
-        pipeline.Commands[0].Parameters.Add("InputPath", new[] { "C:\\NonexistentFolder" });
+        using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
+        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { "C:\\NonexistentFolder" });
 
         // Should not throw; may write error for invalid path
-        pipeline.Invoke();
+        ps.Invoke();
     }
 }
