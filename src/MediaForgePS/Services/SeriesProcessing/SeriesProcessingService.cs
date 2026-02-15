@@ -4,7 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,14 @@ namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 public class SeriesProcessingService : ISeriesProcessingService
 {
     private const string TvDbSeriesUrlPrefix = "https://thetvdb.com/series/";
+    private const string TvDbSeasonPathSegment = "/seasons/";
+
+    private static readonly HttpClient _httpClient = new()
+    {
+        DefaultRequestHeaders = { { "User-Agent", "MediaForgePS/1.0" } }
+    };
+
+    private static readonly Regex _episodeIdRegex = new(@"/series/[^/]+/episodes/(\d+)", RegexOptions.Compiled);
 
     private static readonly string[] _defaultSubDirectories = ["HandBrake", "Remux", "Topaz", "Bonus"];
     private static readonly Dictionary<string, string> _subtitleCodecExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -221,33 +230,60 @@ public class SeriesProcessingService : ISeriesProcessingService
             return Array.Empty<TvDbEpisodeInfo>();
         }
 
-        using var ps = PowerShell.Create(RunspaceMode.CurrentRunspace);
-        ps.AddCommand("Get-TvDbEpisodeInfo");
-        ps.AddParameter("SeasonNumber", season);
-        if (!string.IsNullOrWhiteSpace(tvDbSeasonUrl))
-            ps.AddParameter("SeasonUrl", tvDbSeasonUrl);
-        else
-            ps.AddParameter("SeriesUrl", tvDbSeriesUrl);
-
-        var results = ps.Invoke();
-        if (ps.HadErrors)
+        if (!string.IsNullOrWhiteSpace(tvDbSeasonUrl) &&
+            (!tvDbSeasonUrl.StartsWith(TvDbSeriesUrlPrefix, StringComparison.OrdinalIgnoreCase) ||
+             !tvDbSeasonUrl.Contains(TvDbSeasonPathSegment, StringComparison.Ordinal)))
         {
-            foreach (var err in ps.Streams.Error)
-                cmdlet.WriteError(err);
+            cmdlet.WriteError(new ErrorRecord(
+                new ArgumentException($"Invalid TVDb season URL format. Expected: {TvDbSeriesUrlPrefix}show-name/seasons/..."),
+                "InvalidTvDbSeasonUrl",
+                ErrorCategory.InvalidArgument,
+                tvDbSeasonUrl));
             return Array.Empty<TvDbEpisodeInfo>();
         }
 
-        var episodes = new List<TvDbEpisodeInfo>();
-        foreach (var result in results)
-        {
-            var item = result?.BaseObject ?? result;
-            if (item == null)
-                continue;
+        var seasonUrl = !string.IsNullOrWhiteSpace(tvDbSeasonUrl)
+            ? tvDbSeasonUrl
+            : $"{tvDbSeriesUrl!.TrimEnd('/')}/seasons/official/{season}";
 
-            if (TryParseTvDbEpisode(PSObject.AsPSObject(item), season, out var episode))
-                episodes.Add(episode);
+        _logger.LogDebug("Fetching TVDb season page: {SeasonUrl}", seasonUrl);
+
+        string html;
+        try
+        {
+            html = _httpClient.GetStringAsync(seasonUrl).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (HttpRequestException ex)
+        {
+            cmdlet.WriteError(new ErrorRecord(ex, "TvDbRequestFailed", ErrorCategory.ConnectionError, seasonUrl));
+            return Array.Empty<TvDbEpisodeInfo>();
         }
 
+        var episodeIds = _episodeIdRegex.Matches(html)
+            .Select(m => m.Groups[1].Value)
+            .Distinct()
+            .OrderBy(id => int.Parse(id, CultureInfo.InvariantCulture))
+            .ToList();
+
+        if (episodeIds.Count == 0)
+        {
+            _logger.LogDebug("No episode IDs found on the season page");
+            return Array.Empty<TvDbEpisodeInfo>();
+        }
+
+        var episodes = new List<TvDbEpisodeInfo>(episodeIds.Count);
+        for (var i = 0; i < episodeIds.Count; i++)
+        {
+            var episodeId = episodeIds[i];
+            var titlePattern = $"episodes/{Regex.Escape(episodeId)}[^>]*>([^<]+)</a>";
+            var titleMatch = Regex.Match(html, titlePattern);
+            var title = titleMatch.Success
+                ? titleMatch.Groups[1].Value.Trim()
+                : $"Episode {i + 1}";
+            episodes.Add(new TvDbEpisodeInfo(episodeId, season, title, i + 1));
+        }
+
+        _logger.LogDebug("Found {Count} episodes for season {Season}", episodes.Count, season);
         return episodes.ToArray();
     }
 
