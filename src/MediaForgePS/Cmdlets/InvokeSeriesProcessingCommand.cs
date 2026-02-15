@@ -43,6 +43,10 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     [Parameter]
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
+    [Parameter]
+    [ValidateRange(0, long.MaxValue)]
+    public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
+
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
@@ -76,12 +80,16 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                 episodes,
                 FilePatterns,
                 EpisodeStart,
-                1L * 1024 * 1024 * 1024));
+                MinimumFileSize));
 
         if (copiedFiles.Count == 0)
         {
+            var minSizeHint = MinimumFileSize > 0
+                ? $" (minimum file size: {MinimumFileSize / (1024 * 1024)} MB)"
+                : string.Empty;
             WriteError(new ErrorRecord(
-                new InvalidOperationException("Video copying failed. Cannot proceed without copied files."),
+                new InvalidOperationException(
+                    "Video copying failed. No files were copied. Check that Path contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
                 "VideoCopyFailed",
                 ErrorCategory.InvalidData,
                 null));

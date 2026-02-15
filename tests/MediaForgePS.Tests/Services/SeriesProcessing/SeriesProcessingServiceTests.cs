@@ -104,6 +104,20 @@ public class SeriesProcessingServiceTests
     }
 
     [Fact]
+    public void InvokeSeriesProcessingCommand_DefaultMinimumFileSize_IsOneGigabyte()
+    {
+        var cmdlet = new InvokeSeriesProcessingCommand();
+        Assert.Equal(1L * 1024 * 1024 * 1024, cmdlet.MinimumFileSize);
+    }
+
+    [Fact]
+    public void InvokeSeriesProcessingCommand_MinimumFileSize_CanBeSetToZeroForBonusContent()
+    {
+        var cmdlet = new InvokeSeriesProcessingCommand { MinimumFileSize = 0 };
+        Assert.Equal(0, cmdlet.MinimumFileSize);
+    }
+
+    [Fact]
     public void TryParseTvDbEpisode_ValidPSObject_ReturnsTrueAndParsedEpisode()
     {
         var ps = PSObject.AsPSObject(new { Id = "42", Title = "Pilot", EpisodeNumber = 1, SeasonNumber = 2 });
