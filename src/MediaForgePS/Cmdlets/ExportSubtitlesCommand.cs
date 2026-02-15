@@ -49,6 +49,15 @@ public class ExportSubtitlesCommand : CmdletBase
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
+    private void WriteHostMessage(string message, ConsoleColor? foregroundColor = null)
+    {
+        var hostMsg = new HostInformationMessage { Message = message };
+        if (foregroundColor.HasValue)
+            hostMsg.ForegroundColor = foregroundColor.Value;
+        var record = new InformationRecord(hostMsg, "PSHOST");
+        WriteInformation(record);
+    }
+
     protected override void Begin()
     {
         Logger.LogDebug("Export-Subtitles Begin");
@@ -80,8 +89,10 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing {mediaFiles.Count} file(s)...")
+        WriteHostMessage($"Extracting subtitles ({mediaFiles.Count} file(s))", ConsoleColor.Cyan);
+        WriteProgress(new ProgressRecord(0, "Extracting subtitles", $"Processing {mediaFiles.Count} file(s)...")
         {
+            PercentComplete = 0,
             RecordType = ProgressRecordType.Processing
         });
 
@@ -89,7 +100,8 @@ public class ExportSubtitlesCommand : CmdletBase
         foreach (var mf in mediaFiles)
         {
             fileIndex++;
-            WriteProgress(new ProgressRecord(0, "Extracting Subtitles", $"Processing file {fileIndex} of {mediaFiles.Count}: {System.IO.Path.GetFileName(mf.Path)}")
+            var fileName = System.IO.Path.GetFileName(mf.Path);
+            WriteProgress(new ProgressRecord(0, "Extracting subtitles", $"{fileName} ({fileIndex}/{mediaFiles.Count})")
             {
                 PercentComplete = (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0),
                 RecordType = ProgressRecordType.Processing
@@ -98,7 +110,7 @@ public class ExportSubtitlesCommand : CmdletBase
             ExportSubtitlesForMediaFile(mf, mediaFiles.Count, fileIndex);
         }
 
-        WriteProgress(new ProgressRecord(0, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(new ProgressRecord(0, "Extracting subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()
@@ -162,17 +174,15 @@ public class ExportSubtitlesCommand : CmdletBase
 
         if (subtitles.Count == 0)
         {
-            WriteVerbose($"  No English subtitles found in {fileName}");
+            WriteVerbose($"No English subtitles in {fileName}");
             return;
         }
-
-        WriteVerbose($"  Found {subtitles.Count} English subtitle stream(s)");
 
         var subIndex = 0;
         foreach (var sub in subtitles)
         {
             subIndex++;
-            WriteProgress(new ProgressRecord(1, $"Extracting from {fileName}", $"Processing subtitle {subIndex} of {subtitles.Count}")
+            WriteProgress(new ProgressRecord(1, fileName, $"Stream {sub.Index} ({sub.Codec})")
             {
                 PercentComplete = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0),
                 RecordType = ProgressRecordType.Processing
@@ -180,7 +190,7 @@ public class ExportSubtitlesCommand : CmdletBase
             ExportSingleSubtitle(sub, mediaFile, subIndex, subtitles.Count);
         }
 
-        WriteProgress(new ProgressRecord(1, "Extracting Subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(new ProgressRecord(1, fileName, "Complete") { RecordType = ProgressRecordType.Completed });
     }
 
     private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int subtitleIndex, int totalSubtitleCount)
@@ -212,7 +222,6 @@ public class ExportSubtitlesCommand : CmdletBase
                     WriteError(new ErrorRecord(new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec."), "MkvextractNotFound", ErrorCategory.ObjectNotFound, null));
                     return;
                 }
-                WriteVerbose($"    Using mkvextract for stream {stream.Index} -> {resolvedOutput}");
                 var args = new[] { "tracks", mediaFile.Path, $"{stream.Index}:{resolvedOutput}" };
                 var result = ExecutableService.ExecuteAsync(mkvextract, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
                 if (result.ExitCode != 0)
@@ -226,7 +235,7 @@ public class ExportSubtitlesCommand : CmdletBase
                     throw new InvalidOperationException($"FFmpeg failed with exit code {result.ExitCode}. {result.ErrorOutput}");
             }
 
-            WriteVerbose($"    Extracted stream {stream.Index} ({stream.Codec}) -> {resolvedOutput}");
+            WriteVerbose($"Extracted {System.IO.Path.GetFileName(resolvedOutput)}");
         }
         catch (Exception ex)
         {
