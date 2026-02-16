@@ -53,8 +53,6 @@ internal class FileProcessingStats
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : CmdletBase
 {
-    private const int BatchProgressId = 1;
-    private const int FileProgressId = 2;
     private const string DefaultEncoderParameterSet = "DefaultEncoder";
     private const string ExplicitSettingsParameterSet = "ExplicitSettings";
     private static class HelpMessages
@@ -272,7 +270,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                BatchProgressId,
+                MainActivityId,
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
@@ -305,7 +303,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            BatchProgressId,
+            MainActivityId,
             "Batch Conversion",
             $"Processing file {currentFile} of {totalFiles}",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
@@ -338,7 +336,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             return;
 
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            BatchProgressId,
+            MainActivityId,
             "Batch Conversion",
             $"Processing file {currentFile} of {totalFiles}",
             percentComplete: (int)((currentFile * 100.0) / totalFiles));
@@ -534,10 +532,10 @@ public class ConvertMediaFilesCommand : CmdletBase
         TimeSpan? eta = null)
     {
         var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
-            FileProgressId,
+            CurrentItemActivityId,
             "File Conversion",
             status,
-            BatchProgressId,
+            MainActivityId,
             currentOperation,
             percentComplete,
             recordType);

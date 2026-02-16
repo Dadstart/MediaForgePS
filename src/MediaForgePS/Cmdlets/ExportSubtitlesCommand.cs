@@ -49,15 +49,6 @@ public class ExportSubtitlesCommand : CmdletBase
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
-    private void WriteHostMessage(string message, ConsoleColor? foregroundColor = null)
-    {
-        var hostMsg = new HostInformationMessage { Message = message };
-        if (foregroundColor.HasValue)
-            hostMsg.ForegroundColor = foregroundColor.Value;
-        var record = new InformationRecord(hostMsg, "PSHOST");
-        WriteInformation(record);
-    }
-
     protected override void Begin()
     {
         Logger.LogDebug("Export-Subtitles Begin");
@@ -90,27 +81,31 @@ public class ExportSubtitlesCommand : CmdletBase
         }
 
         WriteHostMessage($"Extracting subtitles ({mediaFiles.Count} file(s))", ConsoleColor.Cyan);
-        WriteProgress(new ProgressRecord(0, "Extracting subtitles", $"Processing {mediaFiles.Count} file(s)...")
-        {
-            PercentComplete = 0,
-            RecordType = ProgressRecordType.Processing
-        });
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Extracting subtitles",
+            $"Processing {mediaFiles.Count} file(s)...",
+            percentComplete: 0));
 
         var fileIndex = 0;
         foreach (var mf in mediaFiles)
         {
             fileIndex++;
             var fileName = System.IO.Path.GetFileName(mf.Path);
-            WriteProgress(new ProgressRecord(0, "Extracting subtitles", $"{fileName} ({fileIndex}/{mediaFiles.Count})")
-            {
-                PercentComplete = (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0),
-                RecordType = ProgressRecordType.Processing
-            });
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                MainActivityId,
+                "Extracting subtitles",
+                $"{fileName} ({fileIndex}/{mediaFiles.Count})",
+                percentComplete: (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0)));
 
             ExportSubtitlesForMediaFile(mf, mediaFiles.Count, fileIndex);
         }
 
-        WriteProgress(new ProgressRecord(0, "Extracting subtitles", "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Extracting subtitles",
+            "Complete",
+            recordType: ProgressRecordType.Completed));
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()
@@ -182,15 +177,21 @@ public class ExportSubtitlesCommand : CmdletBase
         foreach (var sub in subtitles)
         {
             subIndex++;
-            WriteProgress(new ProgressRecord(1, fileName, $"Stream {sub.Index} ({sub.Codec})")
-            {
-                PercentComplete = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0),
-                RecordType = ProgressRecordType.Processing
-            });
+            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+                CurrentItemActivityId,
+                fileName,
+                $"Stream {sub.Index} ({sub.Codec})",
+                MainActivityId,
+                percentComplete: (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0)));
             ExportSingleSubtitle(sub, mediaFile, subIndex, subtitles.Count);
         }
 
-        WriteProgress(new ProgressRecord(1, fileName, "Complete") { RecordType = ProgressRecordType.Completed });
+        WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+            CurrentItemActivityId,
+            fileName,
+            "Complete",
+            MainActivityId,
+            recordType: ProgressRecordType.Completed));
     }
 
     private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int subtitleIndex, int totalSubtitleCount)
