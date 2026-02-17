@@ -455,7 +455,18 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     }
 
                     WriteVerbose($"Moving {sourceFile} to {destFolder}");
-                    File.Move(sourceFile, destinationPath);
+                    File.Copy(sourceFile, destinationPath);
+                    try
+                    {
+                        File.Delete(sourceFile);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        throw new InvalidOperationException(
+                            $"Copied file to destination but failed to remove source: {deleteEx.Message}",
+                            deleteEx);
+                    }
+
                     filesMoved++;
                 }
                 catch (Exception ex)
