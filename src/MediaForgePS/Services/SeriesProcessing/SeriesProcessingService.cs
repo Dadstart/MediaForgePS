@@ -422,16 +422,8 @@ public class SeriesProcessingService : ISeriesProcessingService
         TimeSpan? eta,
         ProgressRecordType recordType)
     {
-        var status = $"File {currentFileIndex} of {totalFiles}";
-        var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
-        status += $" ({percent}%)";
-        if (totalBytes > 0)
-        {
-            status += $" — {FormatByteCount(completedBytes)} / {FormatByteCount(totalBytes)}";
-        }
-
-        status += $" — {currentFileName}";
-
+        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+            currentFileIndex, totalFiles, currentFileName, completedBytes, totalBytes);
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Video copy",
@@ -439,7 +431,7 @@ public class SeriesProcessingService : ISeriesProcessingService
             percent,
             recordType: recordType);
         if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+            progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(eta.Value)}";
         cmdlet.WriteProgress(progressRecord);
     }
 
@@ -475,38 +467,10 @@ public class SeriesProcessingService : ISeriesProcessingService
 
     private static TimeSpan? CalculateCopyRemainingTime(long completedBytes, long totalBytes, List<FileCopyStats> stats)
     {
-        if (stats.Count == 0)
-            return null;
-
-        var averageBytesPerSecond = stats.Average(s => s.BytesPerSecond);
-        if (averageBytesPerSecond <= 0)
-            return null;
-
         var remainingBytes = totalBytes - completedBytes;
-        if (remainingBytes <= 0)
-            return null;
-
-        return TimeSpan.FromSeconds(remainingBytes / averageBytesPerSecond);
-    }
-
-    private static string FormatByteCount(long bytes)
-    {
-        if (bytes >= 1 << 30)
-            return $"{bytes / (double)(1 << 30):F1} GB";
-        if (bytes >= 1 << 20)
-            return $"{bytes / (double)(1 << 20):F1} MB";
-        if (bytes >= 1 << 10)
-            return $"{bytes / (double)(1 << 10):F1} KB";
-        return $"{bytes} B";
-    }
-
-    private static string FormatTimespan(TimeSpan time)
-    {
-        if (time.TotalHours >= 1)
-            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
-        if (time.TotalMinutes >= 1)
-            return $"{time.Minutes}m {time.Seconds}s";
-        return $"{time.Seconds}s";
+        return MediaConversionHelper.CalculateRemainingTime(
+            remainingBytes,
+            stats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
     }
 
     private sealed class FileCopyStats

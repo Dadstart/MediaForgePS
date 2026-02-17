@@ -102,7 +102,7 @@ public class ExportSubtitlesCommand : CmdletBase
             filesWithSize.Add((mf, size));
         }
 
-        WriteHostMessage($"Extracting subtitles from {mediaFiles.Count} file(s) (total size: {FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
+        WriteHostMessage($"Extracting subtitles from {mediaFiles.Count} file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
         long completedBytes = 0;
         var totalFiles = filesWithSize.Count;
@@ -111,8 +111,8 @@ public class ExportSubtitlesCommand : CmdletBase
             var (mf, fileSize) = filesWithSize[i];
             var fileIndex = i + 1;
             var fileName = System.IO.Path.GetFileName(mf.Path);
-            var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
-            UpdateSubtitleExtractionProgress(fileIndex, totalFiles, fileName, totalBytes, completedBytes, percent, ProgressRecordType.Processing);
+            var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
+            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
             WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
                 CurrentItemActivityId,
                 "Current file",
@@ -124,8 +124,8 @@ public class ExportSubtitlesCommand : CmdletBase
             ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex);
 
             completedBytes += fileSize;
-            percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 100;
-            UpdateSubtitleExtractionProgress(fileIndex, totalFiles, fileName, totalBytes, completedBytes, percent, ProgressRecordType.Processing);
+            (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
+            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
             WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
                 CurrentItemActivityId,
                 "Current file",
@@ -149,20 +149,8 @@ public class ExportSubtitlesCommand : CmdletBase
         WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
     }
 
-    private void UpdateSubtitleExtractionProgress(
-        int currentFileIndex,
-        int totalFiles,
-        string currentFileName,
-        long totalBytes,
-        long completedBytes,
-        int percentComplete,
-        ProgressRecordType recordType)
+    private void UpdateSubtitleExtractionProgress(string status, int percentComplete, ProgressRecordType recordType)
     {
-        var status = $"File {currentFileIndex} of {totalFiles} ({percentComplete}%)";
-        if (totalBytes > 0)
-            status += $" — {FormatByteCount(completedBytes)} / {FormatByteCount(totalBytes)}";
-        status += $" — {currentFileName}";
-
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Extracting subtitles",
@@ -170,17 +158,6 @@ public class ExportSubtitlesCommand : CmdletBase
             percentComplete,
             recordType: recordType);
         WriteProgress(progressRecord);
-    }
-
-    private static string FormatByteCount(long bytes)
-    {
-        if (bytes >= 1 << 30)
-            return $"{bytes / (double)(1 << 30):F1} GB";
-        if (bytes >= 1 << 20)
-            return $"{bytes / (double)(1 << 20):F1} MB";
-        if (bytes >= 1 << 10)
-            return $"{bytes / (double)(1 << 10):F1} KB";
-        return $"{bytes} B";
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()

@@ -228,8 +228,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             bonusFilesWithSize.Add((path, size));
         }
 
-        var totalSizeFormatted = FormatByteCount(totalBytes);
-        WriteHostMessage($"Converting {bonusFileCount} bonus file(s) (total size: {totalSizeFormatted})", ConsoleColor.Cyan);
+        WriteHostMessage($"Converting {bonusFileCount} bonus file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
         _fileProcessingStats.Clear();
         long completedBytes = 0;
@@ -239,18 +238,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         {
             currentFileIndex++;
             var fileName = Path.GetFileName(filePath);
-            var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
-            var eta = CalculateRemainingTime(completedBytes, totalBytes);
+            var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
+            var eta = MediaConversionHelper.CalculateRemainingTime(totalBytes - completedBytes, _fileProcessingStats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
 
-            UpdateBonusConversionProgress(
-                percent,
-                currentFileIndex,
-                bonusFileCount,
-                fileName,
-                totalBytes,
-                completedBytes,
-                eta,
-                ProgressRecordType.Processing);
+            UpdateBonusConversionProgress(status, percent, eta, ProgressRecordType.Processing);
             UpdateCurrentFileProgress(fileName, "Converting...", ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
@@ -264,16 +255,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 RecordFileProcessingStats(fileSize, stopwatch.Elapsed);
             }
 
-            percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 100;
-            UpdateBonusConversionProgress(
-                percent,
-                currentFileIndex,
-                bonusFileCount,
-                fileName,
-                totalBytes,
-                completedBytes,
-                null,
-                ProgressRecordType.Processing);
+            (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
+            UpdateBonusConversionProgress(status, percent, null, ProgressRecordType.Processing);
             UpdateCurrentFileProgress(fileName, summary.Success ? "Completed" : "Failed", ProgressRecordType.Completed);
         }
 
@@ -291,37 +274,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         return bonusFileCount;
     }
 
-    private static string FormatByteCount(long bytes)
+    private void UpdateBonusConversionProgress(string status, int percentComplete, TimeSpan? eta, ProgressRecordType recordType)
     {
-        if (bytes >= 1 << 30)
-            return $"{bytes / (double)(1 << 30):F1} GB";
-        if (bytes >= 1 << 20)
-            return $"{bytes / (double)(1 << 20):F1} MB";
-        if (bytes >= 1 << 10)
-            return $"{bytes / (double)(1 << 10):F1} KB";
-        return $"{bytes} B";
-    }
-
-    private void UpdateBonusConversionProgress(
-        int percentComplete,
-        int currentFileIndex,
-        int totalFiles,
-        string currentFileName,
-        long totalBytes,
-        long completedBytes,
-        TimeSpan? eta,
-        ProgressRecordType recordType)
-    {
-        var status = $"File {currentFileIndex} of {totalFiles} ({percentComplete}%)";
-        if (totalBytes > 0)
-        {
-            var completedFormatted = FormatByteCount(completedBytes);
-            var totalFormatted = FormatByteCount(totalBytes);
-            status += $" — {completedFormatted} / {totalFormatted}";
-        }
-
-        status += $" — {currentFileName}";
-
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Bonus file conversion",
@@ -329,7 +283,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             percentComplete,
             recordType: recordType);
         if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+            progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(eta.Value)}";
         WriteProgress(progressRecord);
     }
 
@@ -343,32 +297,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             fileName,
             recordType: recordType);
         WriteProgress(progressRecord);
-    }
-
-    private static string FormatTimespan(TimeSpan time)
-    {
-        if (time.TotalHours >= 1)
-            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
-        if (time.TotalMinutes >= 1)
-            return $"{time.Minutes}m {time.Seconds}s";
-        return $"{time.Seconds}s";
-    }
-
-    private TimeSpan? CalculateRemainingTime(long completedBytes, long totalBytes)
-    {
-        if (_fileProcessingStats.Count == 0)
-            return null;
-
-        var averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
-        if (averageBytesPerSecond <= 0)
-            return null;
-
-        long remainingBytes = totalBytes - completedBytes;
-        if (remainingBytes <= 0)
-            return null;
-
-        var remainingSeconds = remainingBytes / averageBytesPerSecond;
-        return TimeSpan.FromSeconds(remainingSeconds);
     }
 
     private void RecordFileProcessingStats(long fileSizeBytes, TimeSpan processingTime)
