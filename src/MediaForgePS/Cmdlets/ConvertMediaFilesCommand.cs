@@ -154,6 +154,9 @@ public class ConvertMediaFilesCommand : CmdletBase
     private TimeSpan? _currentFileEstimatedTime;
     private Stopwatch? _batchStopwatch;
     private int _batchTotalFiles = 0;
+    private long _batchTotalBytes = 0;
+    private long _batchCompletedBytes = 0;
+    private List<(string Path, long Size)>? _inputPathsWithSize;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -213,26 +216,60 @@ public class ConvertMediaFilesCommand : CmdletBase
         // Process all collected files
         if (_uniqueInputPaths.Count > 0)
         {
-            var totalFiles = _uniqueInputPaths.Count;
+            _inputPathsWithSize = new List<(string Path, long Size)>();
+            _batchTotalBytes = 0;
+            foreach (var path in _uniqueInputPaths)
+            {
+                long size = 0;
+                try
+                {
+                    var fi = new FileInfo(path);
+                    if (fi.Exists)
+                    {
+                        size = fi.Length;
+                        _batchTotalBytes += size;
+                    }
+                }
+                catch
+                {
+                    // Use 0 for this file
+                }
+
+                _inputPathsWithSize.Add((path, size));
+            }
+
+            var totalFiles = _inputPathsWithSize.Count;
             _currentFileIndex = 0;
             _batchTotalFiles = totalFiles;
+            _batchCompletedBytes = 0;
             _batchStopwatch = Stopwatch.StartNew();
 
-            foreach (var inputPath in _uniqueInputPaths)
+            WriteHostMessage($"Converting {totalFiles} file(s) (total size: {FormatByteCount(_batchTotalBytes)})", ConsoleColor.Cyan);
+            WriteHostMessage($"  Output: {OutputDirectory}", ConsoleColor.Gray);
+
+            foreach (var (inputPath, fileSize) in _inputPathsWithSize)
             {
                 _currentFileIndex++;
                 UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
                 ProcessFile(inputPath);
+                if (_conversionResults.Count > 0 && _conversionResults[^1].Success)
+                    _batchCompletedBytes += fileSize;
             }
 
             _batchStopwatch.Stop();
 
-            // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
                 MainActivityId,
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                CurrentItemActivityId,
+                "File Conversion",
+                "Completed",
+                recordType: ProgressRecordType.Completed));
+
+            WriteHostMessage("Batch conversion completed", ConsoleColor.Green);
         }
 
         if (_conversionResults.Count == 0)
@@ -251,18 +288,26 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Updates the overall progress for batch conversion.
+    /// Updates the overall progress for batch conversion using size-based percent.
     /// </summary>
     /// <param name="currentFile">Current file number (1-based).</param>
     /// <param name="totalFiles">Total number of files to process.</param>
     /// <param name="currentFilePath">Path of the current file being processed.</param>
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
+        var percent = _batchTotalBytes > 0
+            ? (int)((_batchCompletedBytes * 100.0) / _batchTotalBytes)
+            : (int)((currentFile * 100.0) / totalFiles);
+        var status = $"File {currentFile} of {totalFiles} ({percent}%)";
+        if (_batchTotalBytes > 0)
+            status += $" — {FormatByteCount(_batchCompletedBytes)} / {FormatByteCount(_batchTotalBytes)}";
+        status += $" — {Path.GetFileName(currentFilePath)}";
+
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles}",
-            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+            status,
+            percent);
 
         var remainingFiles = totalFiles - currentFile;
         if (remainingFiles > 0)
@@ -275,6 +320,17 @@ public class ConvertMediaFilesCommand : CmdletBase
         WriteProgress(progressRecord);
     }
 
+    private static string FormatByteCount(long bytes)
+    {
+        if (bytes >= 1 << 30)
+            return $"{bytes / (double)(1 << 30):F1} GB";
+        if (bytes >= 1 << 20)
+            return $"{bytes / (double)(1 << 20):F1} MB";
+        if (bytes >= 1 << 10)
+            return $"{bytes / (double)(1 << 10):F1} KB";
+        return $"{bytes} B";
+    }
+
     /// <summary>
     /// Updates batch progress with current countdown ETA during file processing.
     /// </summary>
@@ -283,19 +339,24 @@ public class ConvertMediaFilesCommand : CmdletBase
         if (!originalEta.HasValue || _batchStopwatch == null)
             return;
 
-        // Calculate elapsed time and remaining ETA
         var elapsedTime = _batchStopwatch.Elapsed;
         var remainingTime = originalEta.Value - elapsedTime;
-
-        // Don't show negative ETA
         if (remainingTime.TotalSeconds <= 0)
             return;
+
+        var percent = _batchTotalBytes > 0
+            ? (int)((_batchCompletedBytes * 100.0) / _batchTotalBytes)
+            : (int)((currentFile * 100.0) / totalFiles);
+        var status = $"Processing file {currentFile} of {totalFiles} ({percent}%)";
+        if (_batchTotalBytes > 0)
+            status += $" — {FormatByteCount(_batchCompletedBytes)} / {FormatByteCount(_batchTotalBytes)}";
+        status += $" — {Path.GetFileName(currentFilePath)}";
 
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles}",
-            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+            status,
+            percent);
         progressRecord.StatusDescription = $"ETA: {FormatTimespan(remainingTime)}";
 
         WriteProgress(progressRecord);
