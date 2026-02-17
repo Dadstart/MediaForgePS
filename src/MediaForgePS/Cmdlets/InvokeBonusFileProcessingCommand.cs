@@ -289,12 +289,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private void UpdateCurrentFileProgress(string fileName, string status, ProgressRecordType recordType)
     {
-        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             CurrentItemActivityId,
             "Current file",
-            status,
-            MainActivityId,
-            fileName,
+            $"{status} - {fileName}",
             recordType: recordType);
         WriteProgress(progressRecord);
     }
@@ -465,6 +463,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     private void MovePlexFiles(string sourceDirectory, string destinationDirectory)
     {
         var filesMoved = 0;
+        var moveCandidates = new List<(string SourceFile, string DestinationFolder, long FileSizeBytes)>();
+        long totalBytes = 0;
 
         foreach (var (folderName, suffix) in _plexLayout)
         {
@@ -477,7 +477,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
             var videoFiles = Directory.EnumerateFiles(sourceDirectory, videoPattern, SearchOption.AllDirectories);
             var subtitleFiles = Directory.EnumerateFiles(sourceDirectory, subtitlePattern, SearchOption.AllDirectories);
-
             var sourceFiles = videoFiles.Concat(subtitleFiles).ToList();
 
             if (sourceFiles.Count > 0)
@@ -485,15 +484,47 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
             foreach (var sourceFile in sourceFiles)
             {
-                var destinationPath = Path.Combine(destFolder, Path.GetFileName(sourceFile));
-                try
-                {
-                    if (File.Exists(destinationPath))
-                    {
-                        WriteWarning($"Destination file already exists, skipping: {destinationPath}");
-                        continue;
-                    }
+                var fileSizeBytes = GetFileSizeOrZero(sourceFile);
+                totalBytes += fileSizeBytes;
+                moveCandidates.Add((sourceFile, destFolder, fileSizeBytes));
+            }
+        }
 
+        if (moveCandidates.Count == 0)
+        {
+            WriteWarning($"No bonus content files found to move in source directory {sourceDirectory}");
+            return;
+        }
+
+        WriteHostMessage($"Moving {moveCandidates.Count} Plex file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
+
+        long completedBytes = 0;
+        var currentFileIndex = 0;
+        foreach (var (sourceFile, destFolder, fileSizeBytes) in moveCandidates)
+        {
+            currentFileIndex++;
+            var fileName = Path.GetFileName(sourceFile);
+            var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                currentFileIndex,
+                moveCandidates.Count,
+                fileName,
+                completedBytes,
+                totalBytes);
+
+            UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
+            UpdateCurrentPlexMoveProgress(fileName, "Moving...", ProgressRecordType.Processing);
+
+            var destinationPath = Path.Combine(destFolder, fileName);
+            var currentFileStatus = "Completed";
+            try
+            {
+                if (File.Exists(destinationPath))
+                {
+                    WriteWarning($"Destination file already exists, skipping: {destinationPath}");
+                    currentFileStatus = "Skipped";
+                }
+                else
+                {
                     WriteVerbose($"Moving {sourceFile} to {destFolder}");
                     File.Copy(sourceFile, destinationPath);
                     try
@@ -509,26 +540,84 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
                     filesMoved++;
                 }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(
-                        ex,
-                        "Failed to move bonus file from {SourceFile} to {DestinationPath}",
-                        sourceFile,
-                        destinationPath);
-                    WriteError(new ErrorRecord(
-                        ex,
-                        "PlexMoveFailed",
-                        ErrorCategory.WriteError,
-                        sourceFile));
-                }
+            }
+            catch (Exception ex)
+            {
+                currentFileStatus = "Failed";
+                Logger.LogWarning(
+                    ex,
+                    "Failed to move bonus file from {SourceFile} to {DestinationPath}",
+                    sourceFile,
+                    destinationPath);
+                WriteError(new ErrorRecord(
+                    ex,
+                    "PlexMoveFailed",
+                    ErrorCategory.WriteError,
+                    sourceFile));
+            }
+            finally
+            {
+                completedBytes += fileSizeBytes;
+                (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                    currentFileIndex,
+                    moveCandidates.Count,
+                    fileName,
+                    completedBytes,
+                    totalBytes);
+                UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
+                UpdateCurrentPlexMoveProgress(fileName, currentFileStatus, ProgressRecordType.Completed);
             }
         }
+
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Plex file organization",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            CurrentItemActivityId,
+            "Current move file",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
 
         if (filesMoved == 0)
             WriteWarning($"No bonus content files found to move in source directory {sourceDirectory}");
         else
             WriteVerbose($"{filesMoved} files moved to Plex folders");
+    }
+
+    private static long GetFileSizeOrZero(string path)
+    {
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            return fileInfo.Exists ? fileInfo.Length : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private void UpdatePlexMoveProgress(string status, int percentComplete, ProgressRecordType recordType)
+    {
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Plex file organization",
+            status,
+            percentComplete,
+            recordType: recordType);
+        WriteProgress(progressRecord);
+    }
+
+    private void UpdateCurrentPlexMoveProgress(string fileName, string status, ProgressRecordType recordType)
+    {
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            CurrentItemActivityId,
+            "Current move file",
+            $"{status} - {fileName}",
+            recordType: recordType);
+        WriteProgress(progressRecord);
     }
 
     private void RemovePlexEmptyFolders(string destinationDirectory)

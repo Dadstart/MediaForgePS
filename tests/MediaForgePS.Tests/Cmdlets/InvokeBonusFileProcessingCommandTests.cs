@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -143,6 +144,36 @@ public class InvokeBonusFileProcessingCommandTests
         Assert.Equal("aac", firstEncode.DestinationCodec);
     }
 
+    [Fact]
+    public void GetFileSizeOrZero_ReturnsExpectedSize_WhenFileExists()
+    {
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            var content = new byte[] { 1, 2, 3, 4, 5, 6, 7 };
+            File.WriteAllBytes(tempPath, content);
+
+            var size = InvokeGetFileSizeOrZero(tempPath);
+
+            Assert.Equal(content.Length, size);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public void GetFileSizeOrZero_ReturnsZero_WhenFileDoesNotExist()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
+
+        var size = InvokeGetFileSizeOrZero(path);
+
+        Assert.Equal(0, size);
+    }
+
     private static VideoEncodingSettings InvokeCreateDefaultVideoEncodingSettings(InvokeBonusFileProcessingCommand cmdlet)
     {
         var method = typeof(InvokeBonusFileProcessingCommand)
@@ -163,6 +194,17 @@ public class InvokeBonusFileProcessingCommandTests
         var result = method!.Invoke(null, new object[] { streams });
         Assert.NotNull(result);
         return (AudioTrackMapping[])result!;
+    }
+
+    private static long InvokeGetFileSizeOrZero(string path)
+    {
+        var method = typeof(InvokeBonusFileProcessingCommand)
+            .GetMethod("GetFileSizeOrZero", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = method!.Invoke(null, new object[] { path });
+        Assert.NotNull(result);
+        return (long)result!;
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, string language, int channels, string? title = null)
