@@ -67,7 +67,7 @@ public class InvokeBonusFileProcessingCommandTests
     public void PlexLayout_DefinesExpectedBonusFoldersAndSuffixes()
     {
         var layoutField = typeof(InvokeBonusFileProcessingCommand)
-            .GetField("PlexLayout", BindingFlags.NonPublic | BindingFlags.Static);
+            .GetField("_plexLayout", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(layoutField);
 
         var layout = (ValueTuple<string, string>[])layoutField!.GetValue(null)!;
