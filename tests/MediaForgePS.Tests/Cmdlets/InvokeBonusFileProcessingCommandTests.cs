@@ -17,7 +17,6 @@ public class InvokeBonusFileProcessingCommandTests
 
         Assert.NotNull(cmdlet);
         Assert.Equal("nvenc", cmdlet.DefaultVideoEncoder);
-        Assert.Empty(cmdlet.AudioFeedback);
         Assert.Equal(string.Empty, cmdlet.InputPath);
         Assert.Equal(string.Empty, cmdlet.OutputPath);
     }

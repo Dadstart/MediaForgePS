@@ -29,12 +29,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     private IMediaReaderService? _mediaReaderService;
     private IMediaConversionService? _mediaConversionService;
 
-    private bool _playError;
-    private bool _playProcessing;
-    private bool _playSuccess;
-    private bool _hasAudioFeedback;
-    private bool _invokeAudioAvailable;
-
     private static readonly (string FolderName, string Suffix)[] PlexLayout =
     {
         ("Behind The Scenes", "behindthescenes"),
@@ -68,15 +62,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     public string OutputPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on completion), All (all levels).
-    /// </summary>
-    [Parameter(
-        Mandatory = false,
-        HelpMessage = "Audio cue levels to play: Error, Processing, Success, All")]
-    [ValidateSet("Error", "Processing", "Success", "All", IgnoreCase = true)]
-    public string[] AudioFeedback { get; set; } = Array.Empty<string>();
-
-    /// <summary>
     /// Default encoder to use: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC).
     /// </summary>
     [Parameter(
@@ -88,30 +73,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
 
     private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
-
-    protected override void Begin()
-    {
-        var audioFeedback = AudioFeedback ?? Array.Empty<string>();
-        _hasAudioFeedback = audioFeedback.Length > 0;
-        if (_hasAudioFeedback)
-        {
-            var feedback = audioFeedback
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Select(s => s.Trim())
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            _playError = feedback.Contains("Error") || feedback.Contains("All");
-            _playProcessing = feedback.Contains("Processing") || feedback.Contains("All");
-            _playSuccess = feedback.Contains("Success") || feedback.Contains("All");
-        }
-        else
-        {
-            _playError = false;
-            _playProcessing = false;
-            _playSuccess = false;
-        }
-
-        CheckAudioAvailability();
-    }
 
     /// <summary>
     /// Executes the bonus file processing workflow.
@@ -154,8 +115,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             WriteHostMessage(string.Empty);
             WriteHostMessage("Step 1: Converting media files...", ConsoleColor.Cyan);
             bonusFileCount = ConvertBonusFiles(inputFullPath);
-            if (_playProcessing)
-                PlayAudio("Tones");
 
             WriteHostMessage("Media files converted successfully", ConsoleColor.Green);
 
@@ -170,8 +129,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 "BonusConversionFailed",
                 ErrorCategory.OperationStopped,
                 inputFullPath));
-            if (_playError)
-                PlayAudio("SadError");
             WriteWarning("Continuing with file organization for Plex despite conversion error.");
             bonusFileCount = _conversionResults.Count(summary => summary.Success);
         }
@@ -198,8 +155,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         WriteHostMessage(string.Empty);
         WriteHostMessage("Bonus File Processing completed successfully!", ConsoleColor.Green);
         WriteHostMessage($"  Bonus files processed: {bonusFileCount}", ConsoleColor.Gray);
-        if (_playSuccess)
-            PlayAudio("Victory");
     }
 
     private bool ValidatePlexOutputPath(string outputFullPath)
@@ -272,8 +227,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             {
                 const string status = "Failed to read media file information";
                 WriteWarning($"{status}: {inputFilePath}");
-                if (_playError)
-                    PlayAudio("SadError");
                 return new ConversionSummary(inputFilePath, false, status);
             }
 
@@ -305,8 +258,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     Logger.LogError(ex, "Failed to create audio track mappings for bonus file: {InputFilePath}", inputFilePath);
                     var message = $"Audio settings can't be auto-detected for: {inputFilePath}. Error: {ex.Message}";
                     WriteWarning(message);
-                    if (_playError)
-                        PlayAudio("SadError");
                     return new ConversionSummary(inputFilePath, false, message);
                 }
             }
@@ -346,8 +297,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     outputFilePath);
 
                 var statusMessage = BuildStatusMessage(ex);
-                if (_playError)
-                    PlayAudio("SadError");
                 return new ConversionSummary(inputFilePath, false, statusMessage);
             }
             catch (Exception ex)
@@ -359,8 +308,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     outputFilePath);
 
                 var message = $"Conversion failed: {ex.Message}";
-                if (_playError)
-                    PlayAudio("SadError");
                 return new ConversionSummary(inputFilePath, false, message);
             }
         }
@@ -369,8 +316,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             Logger.LogError(ex, "Failed to read media file for bonus processing: {InputFilePath}", inputFilePath);
             var message = $"Failed to read media file: {ex.Message}";
             WriteWarning($"{message} ({inputFilePath})");
-            if (_playError)
-                PlayAudio("SadError");
             return new ConversionSummary(inputFilePath, false, message);
         }
     }
@@ -634,40 +579,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         }
 
         return message;
-    }
-
-    private void CheckAudioAvailability()
-    {
-        if (!_hasAudioFeedback)
-        {
-            _invokeAudioAvailable = false;
-            return;
-        }
-
-        try
-        {
-            _invokeAudioAvailable = SessionState.InvokeCommand.GetCommand("Invoke-Audio", CommandTypes.Function) != null;
-            Logger.LogDebug("Invoke-Audio availability for bonus processing: {IsAvailable}", _invokeAudioAvailable);
-        }
-        catch
-        {
-            _invokeAudioAvailable = false;
-        }
-    }
-
-    private void PlayAudio(string audioPattern)
-    {
-        if (!_invokeAudioAvailable)
-            return;
-
-        try
-        {
-            SessionState.InvokeCommand.InvokeScript($"Invoke-Audio '{audioPattern}'");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Failed to invoke audio pattern for bonus processing: {AudioPattern}", audioPattern);
-        }
     }
 
     private readonly struct ConversionSummary
