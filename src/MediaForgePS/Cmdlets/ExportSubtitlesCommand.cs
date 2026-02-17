@@ -80,32 +80,107 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        WriteHostMessage($"Extracting subtitles ({mediaFiles.Count} file(s))", ConsoleColor.Cyan);
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Extracting subtitles",
-            $"Processing {mediaFiles.Count} file(s)...",
-            percentComplete: 0));
-
-        var fileIndex = 0;
+        var filesWithSize = new List<(MediaFile Mf, long Size)>();
+        long totalBytes = 0;
         foreach (var mf in mediaFiles)
         {
-            fileIndex++;
-            var fileName = System.IO.Path.GetFileName(mf.Path);
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                MainActivityId,
-                "Extracting subtitles",
-                $"{fileName} ({fileIndex}/{mediaFiles.Count})",
-                percentComplete: (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0)));
+            long size = 0;
+            try
+            {
+                var fi = new FileInfo(mf.Path);
+                if (fi.Exists)
+                {
+                    size = fi.Length;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // Use 0 for this file
+            }
 
-            ExportSubtitlesForMediaFile(mf, mediaFiles.Count, fileIndex);
+            filesWithSize.Add((mf, size));
+        }
+
+        WriteHostMessage($"Extracting subtitles from {mediaFiles.Count} file(s) (total size: {FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
+
+        long completedBytes = 0;
+        var totalFiles = filesWithSize.Count;
+        for (var i = 0; i < filesWithSize.Count; i++)
+        {
+            var (mf, fileSize) = filesWithSize[i];
+            var fileIndex = i + 1;
+            var fileName = System.IO.Path.GetFileName(mf.Path);
+            var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
+            UpdateSubtitleExtractionProgress(fileIndex, totalFiles, fileName, totalBytes, completedBytes, percent, ProgressRecordType.Processing);
+            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+                CurrentItemActivityId,
+                "Current file",
+                "Extracting...",
+                MainActivityId,
+                fileName,
+                recordType: ProgressRecordType.Processing));
+
+            ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex);
+
+            completedBytes += fileSize;
+            percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 100;
+            UpdateSubtitleExtractionProgress(fileIndex, totalFiles, fileName, totalBytes, completedBytes, percent, ProgressRecordType.Processing);
+            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+                CurrentItemActivityId,
+                "Current file",
+                "Completed",
+                MainActivityId,
+                fileName,
+                recordType: ProgressRecordType.Completed));
         }
 
         WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Extracting subtitles",
-            "Complete",
+            "Completed",
             recordType: ProgressRecordType.Completed));
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            CurrentItemActivityId,
+            "Current file",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+
+        WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
+    }
+
+    private void UpdateSubtitleExtractionProgress(
+        int currentFileIndex,
+        int totalFiles,
+        string currentFileName,
+        long totalBytes,
+        long completedBytes,
+        int percentComplete,
+        ProgressRecordType recordType)
+    {
+        var status = $"File {currentFileIndex} of {totalFiles} ({percentComplete}%)";
+        if (totalBytes > 0)
+            status += $" — {FormatByteCount(completedBytes)} / {FormatByteCount(totalBytes)}";
+        status += $" — {currentFileName}";
+
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Extracting subtitles",
+            status,
+            percentComplete,
+            recordType: recordType);
+        WriteProgress(progressRecord);
+    }
+
+    private static string FormatByteCount(long bytes)
+    {
+        if (bytes >= 1 << 30)
+            return $"{bytes / (double)(1 << 30):F1} GB";
+        if (bytes >= 1 << 20)
+            return $"{bytes / (double)(1 << 20):F1} MB";
+        if (bytes >= 1 << 10)
+            return $"{bytes / (double)(1 << 10):F1} KB";
+        return $"{bytes} B";
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()
