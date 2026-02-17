@@ -52,13 +52,18 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
     protected override void Process()
     {
+        WriteHostMessage($"Starting series processing for '{Title}' Season {Season:D2}", ConsoleColor.Cyan);
         WriteVerbose($"Starting series processing for '{Title}' season {Season}.");
 
         var seasonUrl = EnsureSeasonUrl(TvDbSeasonUrl, Season);
+        WriteHostMessage("Step 1: Creating directory structure...", ConsoleColor.Cyan);
         var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season);
         if (string.IsNullOrWhiteSpace(directoryStructure.SeasonDir))
             return;
+        WriteHostMessage($"  Season directory: {directoryStructure.SeasonDir}", ConsoleColor.Gray);
 
+        WriteHostMessage(string.Empty);
+        WriteHostMessage("Step 2: Scanning season (TVDb)...", ConsoleColor.Cyan);
         var episodes = SeriesProcessingService.InvokeSeasonScan(this, Season, TvDbSeriesUrl, seasonUrl);
         if (episodes.Count == 0)
         {
@@ -69,7 +74,10 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                 null));
             return;
         }
+        WriteHostMessage($"  Found {episodes.Count} episode(s)", ConsoleColor.Green);
 
+        WriteHostMessage(string.Empty);
+        WriteHostMessage("Step 3: Copying video files...", ConsoleColor.Cyan);
         var copiedFiles = SeriesProcessingService.InvokeVideoCopy(
             this,
             new VideoCopyRequest(
@@ -95,19 +103,29 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                 null));
             return;
         }
+        WriteHostMessage($"  Copied {copiedFiles.Count} file(s)", ConsoleColor.Green);
 
         if (ExtractChapters.IsPresent)
         {
+            WriteHostMessage(string.Empty);
+            WriteHostMessage("Step 4: Extracting chapters...", ConsoleColor.Cyan);
             var chapterStats = SeriesProcessingService.InvokeChapterExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles);
+            WriteHostMessage($"  Processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Chapter extraction - processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}.");
         }
 
         if (!SkipCaptionExtraction.IsPresent)
         {
+            WriteHostMessage(string.Empty);
+            var stepNum = ExtractChapters.IsPresent ? 5 : 4;
+            WriteHostMessage($"Step {stepNum}: Extracting captions...", ConsoleColor.Cyan);
             var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles);
+            WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
         }
 
+        WriteHostMessage(string.Empty);
+        WriteHostMessage($"Series processing completed for '{Title}' Season {Season:D2}.", ConsoleColor.Green);
         WriteVerbose($"Series processing completed for '{Title}' season {Season}.");
     }
 
