@@ -51,14 +51,6 @@ public class SplitChaptersCommand : CmdletBase
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
-    private static void WriteHostMessage(PSCmdlet cmdlet, string message, ConsoleColor? foregroundColor = null)
-    {
-        var hostMsg = new HostInformationMessage { Message = message };
-        if (foregroundColor.HasValue)
-            hostMsg.ForegroundColor = foregroundColor.Value;
-        cmdlet.WriteInformation(new InformationRecord(hostMsg, "PSHOST"));
-    }
-
     protected override void Process()
     {
         if (!string.IsNullOrWhiteSpace(InputFile))
@@ -156,7 +148,7 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
-        WriteHostMessage(this, $"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
 
         var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
             .ConfigureAwait(false).GetAwaiter().GetResult();
@@ -172,7 +164,7 @@ public class SplitChaptersCommand : CmdletBase
         }
 
         var chapters = mediaFile.Chapters;
-        WriteHostMessage(this, $"Found {chapters.Length} chapters", ConsoleColor.Green);
+        WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
 
         var inputExtension = Path.GetExtension(resolvedInputPath);
         if (string.IsNullOrWhiteSpace(inputExtension))
@@ -226,7 +218,7 @@ public class SplitChaptersCommand : CmdletBase
             var startTimeCode = FormatTimeCode(startTime);
             var durationTimeCode = FormatTimeCode(duration);
 
-            WriteHostMessage(this,
+            WriteHostMessage(
                 $"Splitting chapters {chapterStart + 1}-{chapterEnd + 1} ({startTimeCode} - {durationTimeCode}) -> {outputFileName}",
                 ConsoleColor.Yellow);
 
@@ -254,7 +246,7 @@ public class SplitChaptersCommand : CmdletBase
                 throw new InvalidOperationException(msg);
             }
 
-            WriteHostMessage(this, $"Successfully created: {outputFile}", ConsoleColor.Green);
+            WriteHostMessage($"Successfully created: {outputFile}", ConsoleColor.Green);
             outputFiles.Add(outputFile);
         }
 

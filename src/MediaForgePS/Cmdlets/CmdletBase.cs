@@ -1,3 +1,4 @@
+using System;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
@@ -13,6 +14,16 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </summary>
 public abstract class CmdletBase : PSCmdlet
 {
+    /// <summary>
+    /// Activity ID for the main operation in progress records (e.g. batch or top-level task).
+    /// </summary>
+    protected const int MainActivityId = 0;
+
+    /// <summary>
+    /// Activity ID for the current item in progress records (e.g. current file or stream).
+    /// </summary>
+    protected const int CurrentItemActivityId = 1;
+
     private IDebuggerService? _debugger;
     private ILogger? _logger;
 
@@ -92,5 +103,19 @@ public abstract class CmdletBase : PSCmdlet
     /// </summary>
     protected virtual void End()
     {
+    }
+
+    /// <summary>
+    /// Writes a message to the host (information stream) with optional foreground color.
+    /// Use for user-facing status and milestone messages that should appear in the console.
+    /// </summary>
+    /// <param name="message">Message to display.</param>
+    /// <param name="foregroundColor">Optional console color for the message.</param>
+    protected void WriteHostMessage(string message, ConsoleColor? foregroundColor = null)
+    {
+        var hostMsg = new HostInformationMessage { Message = message };
+        if (foregroundColor.HasValue)
+            hostMsg.ForegroundColor = foregroundColor.Value;
+        WriteInformation(new InformationRecord(hostMsg, "PSHOST"));
     }
 }

@@ -134,7 +134,8 @@ public class SplitChaptersCommandTests : IDisposable
             File.WriteAllText(inputPath, "placeholder");
 
             string? resolvedPath = inputPath;
-            _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedPath))
+            _pathResolverMock.Setup(p => p.TryResolveInputPath(It.IsAny<string>(), out resolvedPath))
+                .Callback(new TryResolveInputPathCallback((string p, out string r) => r = p))
                 .Returns(true);
 
             var chapters = new[]
@@ -148,8 +149,10 @@ public class SplitChaptersCommandTests : IDisposable
                 chapters,
                 Array.Empty<MediaStream>(),
                 "{}");
-            _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(inputPath, It.IsAny<CancellationToken>()))
+            _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mediaFile);
+
+            InjectServiceProvider();
 
             var asm = typeof(SplitChaptersCommand).Assembly;
             var initialSessionState = InitialSessionState.CreateDefault();
@@ -182,4 +185,14 @@ public class SplitChaptersCommandTests : IDisposable
             }
         }
     }
+
+    private void InjectServiceProvider()
+    {
+        if (_providerField != null)
+            _providerField.SetValue(null, _serviceProvider);
+        if (_initializedField != null)
+            _initializedField.SetValue(null, true);
+    }
+
+    private delegate void TryResolveInputPathCallback(string path, out string resolvedPath);
 }
