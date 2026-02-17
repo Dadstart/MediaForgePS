@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -25,11 +26,12 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 public class InvokeBonusFileProcessingCommand : CmdletBase
 {
     private readonly List<ConversionSummary> _conversionResults = new();
+    private readonly List<BonusFileProcessingStats> _fileProcessingStats = new();
 
     private IMediaReaderService? _mediaReaderService;
     private IMediaConversionService? _mediaConversionService;
 
-    private static readonly (string FolderName, string Suffix)[] PlexLayout =
+    private static readonly (string FolderName, string Suffix)[] _plexLayout =
     {
         ("Behind The Scenes", "behindthescenes"),
         ("Deleted Scenes", "deleted"),
@@ -182,7 +184,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private int ConvertBonusFiles(string inputDirectory)
     {
-        var bonusSuffixes = PlexLayout.Select(p => p.Suffix).ToArray();
+        var bonusSuffixes = _plexLayout.Select(p => p.Suffix).ToArray();
         var allMkvFiles = Directory.EnumerateFiles(inputDirectory, "*.mkv", SearchOption.TopDirectoryOnly)
             .ToList();
 
@@ -204,13 +206,178 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             return 0;
         }
 
-        foreach (var filePath in bonusFiles)
+        var bonusFilesWithSize = new List<(string Path, long Size)>();
+        long totalBytes = 0;
+        foreach (var path in bonusFiles)
         {
-            var summary = ConvertSingleBonusFile(filePath, inputDirectory);
-            _conversionResults.Add(summary);
+            long size = 0;
+            try
+            {
+                var fi = new FileInfo(path);
+                if (fi.Exists)
+                {
+                    size = fi.Length;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // Use 0 for this file; total progress still reflects the rest
+            }
+
+            bonusFilesWithSize.Add((path, size));
         }
 
+        var totalSizeFormatted = FormatByteCount(totalBytes);
+        WriteHostMessage($"Converting {bonusFileCount} bonus file(s) (total size: {totalSizeFormatted})", ConsoleColor.Cyan);
+
+        _fileProcessingStats.Clear();
+        long completedBytes = 0;
+        var currentFileIndex = 0;
+
+        foreach (var (filePath, fileSize) in bonusFilesWithSize)
+        {
+            currentFileIndex++;
+            var fileName = Path.GetFileName(filePath);
+            var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
+            var eta = CalculateRemainingTime(completedBytes, totalBytes);
+
+            UpdateBonusConversionProgress(
+                percent,
+                currentFileIndex,
+                bonusFileCount,
+                fileName,
+                totalBytes,
+                completedBytes,
+                eta,
+                ProgressRecordType.Processing);
+            UpdateCurrentFileProgress(fileName, "Converting...", ProgressRecordType.Processing);
+
+            var stopwatch = Stopwatch.StartNew();
+            var summary = ConvertSingleBonusFile(filePath, inputDirectory);
+            stopwatch.Stop();
+
+            _conversionResults.Add(summary);
+            if (summary.Success)
+            {
+                completedBytes += fileSize;
+                RecordFileProcessingStats(fileSize, stopwatch.Elapsed);
+            }
+
+            percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 100;
+            UpdateBonusConversionProgress(
+                percent,
+                currentFileIndex,
+                bonusFileCount,
+                fileName,
+                totalBytes,
+                completedBytes,
+                null,
+                ProgressRecordType.Processing);
+            UpdateCurrentFileProgress(fileName, summary.Success ? "Completed" : "Failed", ProgressRecordType.Completed);
+        }
+
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Bonus file conversion",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            CurrentItemActivityId,
+            "Current file",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+
         return bonusFileCount;
+    }
+
+    private static string FormatByteCount(long bytes)
+    {
+        if (bytes >= 1 << 30)
+            return $"{bytes / (double)(1 << 30):F1} GB";
+        if (bytes >= 1 << 20)
+            return $"{bytes / (double)(1 << 20):F1} MB";
+        if (bytes >= 1 << 10)
+            return $"{bytes / (double)(1 << 10):F1} KB";
+        return $"{bytes} B";
+    }
+
+    private void UpdateBonusConversionProgress(
+        int percentComplete,
+        int currentFileIndex,
+        int totalFiles,
+        string currentFileName,
+        long totalBytes,
+        long completedBytes,
+        TimeSpan? eta,
+        ProgressRecordType recordType)
+    {
+        var status = $"File {currentFileIndex} of {totalFiles} ({percentComplete}%)";
+        if (totalBytes > 0)
+        {
+            var completedFormatted = FormatByteCount(completedBytes);
+            var totalFormatted = FormatByteCount(totalBytes);
+            status += $" — {completedFormatted} / {totalFormatted}";
+        }
+
+        status += $" — {currentFileName}";
+
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Bonus file conversion",
+            status,
+            percentComplete,
+            recordType: recordType);
+        if (eta.HasValue)
+            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+        WriteProgress(progressRecord);
+    }
+
+    private void UpdateCurrentFileProgress(string fileName, string status, ProgressRecordType recordType)
+    {
+        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
+            CurrentItemActivityId,
+            "Current file",
+            status,
+            MainActivityId,
+            fileName,
+            recordType: recordType);
+        WriteProgress(progressRecord);
+    }
+
+    private static string FormatTimespan(TimeSpan time)
+    {
+        if (time.TotalHours >= 1)
+            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
+        if (time.TotalMinutes >= 1)
+            return $"{time.Minutes}m {time.Seconds}s";
+        return $"{time.Seconds}s";
+    }
+
+    private TimeSpan? CalculateRemainingTime(long completedBytes, long totalBytes)
+    {
+        if (_fileProcessingStats.Count == 0)
+            return null;
+
+        var averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
+        if (averageBytesPerSecond <= 0)
+            return null;
+
+        long remainingBytes = totalBytes - completedBytes;
+        if (remainingBytes <= 0)
+            return null;
+
+        var remainingSeconds = remainingBytes / averageBytesPerSecond;
+        return TimeSpan.FromSeconds(remainingSeconds);
+    }
+
+    private void RecordFileProcessingStats(long fileSizeBytes, TimeSpan processingTime)
+    {
+        _fileProcessingStats.Add(new BonusFileProcessingStats
+        {
+            FileSizeBytes = fileSizeBytes,
+            ProcessingTime = processingTime
+        });
     }
 
     private ConversionSummary ConvertSingleBonusFile(string inputFilePath, string inputDirectory)
@@ -225,9 +392,9 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (mediaFile == null)
             {
-                const string status = "Failed to read media file information";
-                WriteWarning($"{status}: {inputFilePath}");
-                return new ConversionSummary(inputFilePath, false, status);
+                const string StatusMessage = "Failed to read media file information";
+                WriteWarning($"{StatusMessage}: {inputFilePath}");
+                return new ConversionSummary(inputFilePath, false, StatusMessage);
             }
 
             var audioStreams = mediaFile.Streams
@@ -357,7 +524,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private static void AddPlexFolders(string destinationDirectory)
     {
-        foreach (var (folderName, _) in PlexLayout)
+        foreach (var (folderName, _) in _plexLayout)
         {
             var path = Path.Combine(destinationDirectory, folderName);
             if (Directory.Exists(path))
@@ -371,7 +538,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     {
         var filesMoved = 0;
 
-        foreach (var (folderName, suffix) in PlexLayout)
+        foreach (var (folderName, suffix) in _plexLayout)
         {
             var destFolder = Path.Combine(destinationDirectory, folderName);
             if (!Directory.Exists(destFolder))
@@ -440,7 +607,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     {
         var foldersDeleted = 0;
 
-        foreach (var (folderName, _) in PlexLayout)
+        foreach (var (folderName, _) in _plexLayout)
         {
             var path = Path.Combine(destinationDirectory, folderName);
             if (!Directory.Exists(path))
@@ -595,6 +762,15 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         public bool Success { get; }
 
         public string Status { get; }
+    }
+
+    private sealed class BonusFileProcessingStats
+    {
+        public long FileSizeBytes { get; set; }
+        public TimeSpan ProcessingTime { get; set; }
+        public double BytesPerSecond => FileSizeBytes > 0 && ProcessingTime.TotalSeconds > 0
+            ? FileSizeBytes / ProcessingTime.TotalSeconds
+            : 0;
     }
 }
 
