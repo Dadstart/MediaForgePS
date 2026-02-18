@@ -37,6 +37,19 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Formats seconds as an Ffmpeg-compatible timecode string (hh:mm:ss.fff).
+    /// </summary>
+    /// <param name="seconds">Time in seconds.</param>
+    /// <returns>Formatted timecode string.</returns>
+    public static string FormatTimeCode(double seconds)
+    {
+        var hours = (int)Math.Floor(seconds / 3600);
+        var minutes = (int)Math.Floor((seconds % 3600) / 60);
+        var secs = seconds % 60;
+        return $"{hours:D2}:{minutes:D2}:{secs:00.000}";
+    }
+
+    /// <summary>
     /// Builds status text and percent for size-based batch progress (e.g. "File 2 of 5 (35%) — 120.5 MB / 350.2 MB — filename").
     /// </summary>
     /// <param name="currentFileIndex">Current file number (1-based).</param>

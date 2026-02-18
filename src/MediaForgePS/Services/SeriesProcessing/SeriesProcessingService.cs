@@ -162,14 +162,8 @@ public class SeriesProcessingService : ISeriesProcessingService
     public static string BuildEpisodeFileName(string title, int season, TvDbEpisodeInfo episode, string extension) =>
         $"{title} {{tvdb {episode.Id}}} - s{season:D2}e{episode.EpisodeNumber:D2}{extension}";
 
-    private static string ResolveAbsolutePath(PSCmdlet cmdlet, string path)
-    {
-        if (Path.IsPathRooted(path))
-            return Path.GetFullPath(path);
-
-        var currentLocation = cmdlet.SessionState.Path.CurrentLocation.Path;
-        return Path.GetFullPath(Path.Combine(currentLocation, path));
-    }
+    private static string ResolveAbsolutePath(PSCmdlet cmdlet, string path) =>
+        PathHelper.ResolveAbsolutePath(path, cmdlet.SessionState.Path.CurrentLocation.Path);
 
     private static IReadOnlyList<string> ResolveDirectories(PSCmdlet cmdlet, IReadOnlyList<string> paths)
     {

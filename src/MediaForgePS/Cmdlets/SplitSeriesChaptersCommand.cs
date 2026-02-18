@@ -6,50 +6,60 @@ using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Splits a video file into multiple files based on chapter ranges.
+/// Splits a video file into episodes based on chapter ranges and TVDb episode IDs.
 /// </summary>
-/// <remarks>
-/// Uses ffprobe to read chapter information and ffmpeg to split by time ranges.
-/// Chapter indices in ranges are 1-based (e.g. Start=1, End=1 is the first chapter).
-/// </remarks>
-[Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByPath")]
+[Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath")]
 [OutputType(typeof(string[]))]
-public class SplitChaptersCommand : CmdletBase
+public class SplitSeriesChaptersCommand : CmdletBase
 {
-    /// <summary>
-    /// Path to the input video file.
-    /// </summary>
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
     [ValidateNotNullOrEmpty]
     public string InputFile { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Chapter ranges. Each range has Start (1-based), End (1-based inclusive), and optional OutputName.
-    /// </summary>
     [Parameter(Mandatory = true, Position = 1)]
     [ValidateNotNull]
     public object[] ChapterRanges { get; set; } = [];
 
-    /// <summary>
-    /// Directory where output files are saved. Defaults to the input file's directory.
-    /// </summary>
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? TvDbSeriesUrl { get; set; }
+
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? TvDbSeasonUrl { get; set; }
+
+    [Parameter(Mandatory = true)]
+    [ValidateRange(1, 1000)]
+    public int Season { get; set; }
+
+    [Parameter]
+    [ValidateRange(1, 1000)]
+    public int EpisodeStart { get; set; } = 1;
+
+    [Parameter]
     public string? OutputPath { get; set; }
 
     private readonly List<string> _inputFiles = [];
     private IMediaReaderService? _mediaReaderService;
     private IExecutableService? _executableService;
     private IPathResolver? _pathResolver;
+    private ISeriesProcessingService? _seriesProcessingService;
 
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
+    private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
     protected override void Process()
     {
@@ -76,15 +86,41 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
+        var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);
+        var episodes = SeriesProcessingService.InvokeSeasonScan(this, Season, TvDbSeriesUrl, seasonUrl)
+            .OrderBy(e => e.EpisodeNumber)
+            .ToArray();
+        if (episodes.Length == 0)
+        {
+            WriteError(new ErrorRecord(
+                new InvalidOperationException("No TVDb episode information returned for the requested season."),
+                "NoTvDbEpisodes",
+                ErrorCategory.InvalidData,
+                Season));
+            return;
+        }
+
+        var requiredEpisodeCount = (EpisodeStart - 1) + normalizedRanges.Count;
+        if (episodes.Length < requiredEpisodeCount)
+        {
+            WriteError(new ErrorRecord(
+                new InvalidOperationException(
+                    $"Not enough episode IDs found. Need {requiredEpisodeCount}, but only found {episodes.Length}."),
+                "InsufficientTvDbEpisodes",
+                ErrorCategory.InvalidData,
+                Season));
+            return;
+        }
+
         foreach (var inputPath in _inputFiles)
         {
             try
             {
-                SplitChaptersForFile(inputPath, normalizedRanges);
+                SplitChaptersForFile(inputPath, normalizedRanges, episodes);
             }
             catch (Exception ex)
             {
-                WriteError(new ErrorRecord(ex, "SplitChaptersFailed", ErrorCategory.OperationStopped, inputPath));
+                WriteError(new ErrorRecord(ex, "SplitSeriesChaptersFailed", ErrorCategory.OperationStopped, inputPath));
             }
         }
     }
@@ -107,16 +143,12 @@ public class SplitChaptersCommand : CmdletBase
             var outputNameProp = psObj?.Properties["OutputName"]?.Value;
 
             if (startProp == null || endProp == null)
-            {
-                throw new ArgumentException(
-                    $"Chapter range at index {i} is missing Start or End property.");
-            }
+                throw new ArgumentException($"Chapter range at index {i} is missing Start or End property.");
 
             if (!LanguagePrimitives.TryConvertTo(startProp, out int start) ||
                 !LanguagePrimitives.TryConvertTo(endProp, out int end))
             {
-                throw new ArgumentException(
-                    $"Chapter range at index {i}: Start and End must be integers.");
+                throw new ArgumentException($"Chapter range at index {i}: Start and End must be integers.");
             }
 
             list.Add((start, end, outputNameProp?.ToString()));
@@ -125,7 +157,10 @@ public class SplitChaptersCommand : CmdletBase
         return list;
     }
 
-    private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges)
+    private void SplitChaptersForFile(
+        string inputPath,
+        List<(int Start, int End, string? OutputName)> ranges,
+        IReadOnlyList<TvDbEpisodeInfo> episodes)
     {
         if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
         {
@@ -149,7 +184,6 @@ public class SplitChaptersCommand : CmdletBase
         }
 
         WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-
         var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
             .ConfigureAwait(false).GetAwaiter().GetResult();
 
@@ -170,7 +204,6 @@ public class SplitChaptersCommand : CmdletBase
         if (string.IsNullOrWhiteSpace(inputExtension))
             inputExtension = ".mkv";
 
-        var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
         var outputFiles = new List<string>();
 
         for (var i = 0; i < ranges.Count; i++)
@@ -197,9 +230,12 @@ public class SplitChaptersCommand : CmdletBase
                     $"Start ({startOneBased}) must be less than or equal to End ({endOneBased}) for range at index {i}.");
             }
 
+            var episodeIndex = (EpisodeStart - 1) + i;
+            var episodeNumber = EpisodeStart + i;
+            var tvDbEpisode = episodes[episodeIndex];
             var outputFileName = !string.IsNullOrWhiteSpace(outputName)
                 ? outputName + inputExtension
-                : $"{baseName}.split-{(i + 1):D2}{inputExtension}";
+                : $"{Title} {{tvdb {tvDbEpisode.Id}}} S{Season:D2}E{episodeNumber:D2}{inputExtension}";
             var outputFile = Path.Combine(outputDir, outputFileName);
 
             if (File.Exists(outputFile))
@@ -234,16 +270,15 @@ public class SplitChaptersCommand : CmdletBase
             };
 
             Logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
-
             var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
 
             if (result.ExitCode != 0)
             {
-                var msg = $"ffmpeg failed with exit code {result.ExitCode} for output file: {outputFile}";
+                var message = $"ffmpeg failed with exit code {result.ExitCode} for output file: {outputFile}";
                 if (!string.IsNullOrWhiteSpace(result.ErrorOutput))
-                    msg += ". " + result.ErrorOutput.Trim();
-                throw new InvalidOperationException(msg);
+                    message += ". " + result.ErrorOutput.Trim();
+                throw new InvalidOperationException(message);
             }
 
             WriteHostMessage($"Successfully created: {outputFile}", ConsoleColor.Green);
