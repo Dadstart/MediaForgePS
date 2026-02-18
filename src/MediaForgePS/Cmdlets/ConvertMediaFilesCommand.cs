@@ -46,8 +46,6 @@ internal class FileProcessingStats
 /// (x264/x265: libx264/libx265, CRF 18, preset medium; nvenc: hevc_nvenc, CQ 18, preset p5) unless overridden via VideoEncodingSettings.
 /// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
 /// automatically detected and created for each file.
-/// Use -AudioFeedback to control audio cues: Error (on failure), Processing (during conversion), Success (on file or batch completion).
-/// Specify All to enable every level; otherwise only the listed levels play. Default is no audio feedback.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
@@ -63,7 +61,6 @@ public class ConvertMediaFilesCommand : CmdletBase
         public const string DefaultVideoEncoder = "Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
         public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
-        public const string AudioFeedback = "Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion), All (all levels). Default: none";
     }
 
     /// <summary>
@@ -146,20 +143,6 @@ public class ConvertMediaFilesCommand : CmdletBase
         HelpMessage = HelpMessages.X265Params)]
     public string? X265Params { get; set; }
 
-    /// <summary>
-    /// Audio cue levels to play: Error (on failure), Processing (during conversion), Success (on file or batch completion). Use All to enable every level.
-    /// </summary>
-    [Parameter(
-        Mandatory = false,
-        ParameterSetName = DefaultEncoderParameterSet,
-        HelpMessage = HelpMessages.AudioFeedback)]
-    [Parameter(
-        Mandatory = false,
-        ParameterSetName = ExplicitSettingsParameterSet,
-        HelpMessage = HelpMessages.AudioFeedback)]
-    [ValidateSet("Error", "Processing", "Success", "All", IgnoreCase = true)]
-    public string[] AudioFeedback { get; set; } = Array.Empty<string>();
-
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
@@ -169,13 +152,11 @@ public class ConvertMediaFilesCommand : CmdletBase
     private int _currentFileIndex = 0;
     private Stopwatch? _fileProcessingStopwatch;
     private TimeSpan? _currentFileEstimatedTime;
-    private bool _invokeAudioAvailable = false;
     private Stopwatch? _batchStopwatch;
     private int _batchTotalFiles = 0;
-    private bool _playError;
-    private bool _playProcessing;
-    private bool _playSuccess;
-    private bool _hasAudioFeedback;
+    private long _batchTotalBytes = 0;
+    private long _batchCompletedBytes = 0;
+    private List<(string Path, long Size)>? _inputPathsWithSize;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -201,25 +182,6 @@ public class ConvertMediaFilesCommand : CmdletBase
         _uniqueInputPaths.Clear();
         _fileProcessingStats.Clear();
         _currentFileIndex = 0;
-
-        var audioFeedback = AudioFeedback ?? Array.Empty<string>();
-        _hasAudioFeedback = audioFeedback.Length > 0;
-        if (_hasAudioFeedback)
-        {
-            var feedback = audioFeedback
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Select(s => s.Trim())
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            _playError = feedback.Contains("Error") || feedback.Contains("All");
-            _playProcessing = feedback.Contains("Processing") || feedback.Contains("All");
-            _playSuccess = feedback.Contains("Success") || feedback.Contains("All");
-        }
-        else
-        {
-            _playError = _playProcessing = _playSuccess = false;
-        }
-
-        CheckAudioAvailability();
     }
 
     /// <summary>
@@ -254,29 +216,60 @@ public class ConvertMediaFilesCommand : CmdletBase
         // Process all collected files
         if (_uniqueInputPaths.Count > 0)
         {
-            var totalFiles = _uniqueInputPaths.Count;
+            _inputPathsWithSize = new List<(string Path, long Size)>();
+            _batchTotalBytes = 0;
+            foreach (var path in _uniqueInputPaths)
+            {
+                long size = 0;
+                try
+                {
+                    var fi = new FileInfo(path);
+                    if (fi.Exists)
+                    {
+                        size = fi.Length;
+                        _batchTotalBytes += size;
+                    }
+                }
+                catch
+                {
+                    // Use 0 for this file
+                }
+
+                _inputPathsWithSize.Add((path, size));
+            }
+
+            var totalFiles = _inputPathsWithSize.Count;
             _currentFileIndex = 0;
             _batchTotalFiles = totalFiles;
+            _batchCompletedBytes = 0;
             _batchStopwatch = Stopwatch.StartNew();
 
-            foreach (var inputPath in _uniqueInputPaths)
+            WriteHostMessage($"Converting {totalFiles} file(s) (total size: {MediaConversionHelper.FormatByteCount(_batchTotalBytes)})", ConsoleColor.Cyan);
+            WriteHostMessage($"  Output: {OutputDirectory}", ConsoleColor.Gray);
+
+            foreach (var (inputPath, fileSize) in _inputPathsWithSize)
             {
                 _currentFileIndex++;
                 UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
                 ProcessFile(inputPath);
+                if (_conversionResults.Count > 0 && _conversionResults[^1].Success)
+                    _batchCompletedBytes += fileSize;
             }
 
             _batchStopwatch.Stop();
 
-            // Complete overall progress
             WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
                 MainActivityId,
                 "Batch Conversion",
                 "Completed",
                 recordType: ProgressRecordType.Completed));
+            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+                CurrentItemActivityId,
+                "File Conversion",
+                "Completed",
+                recordType: ProgressRecordType.Completed));
 
-            if (_playSuccess)
-                PlayAudio("Victory");
+            WriteHostMessage("Batch conversion completed", ConsoleColor.Green);
         }
 
         if (_conversionResults.Count == 0)
@@ -295,25 +288,28 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Updates the overall progress for batch conversion.
+    /// Updates the overall progress for batch conversion using size-based percent.
     /// </summary>
     /// <param name="currentFile">Current file number (1-based).</param>
     /// <param name="totalFiles">Total number of files to process.</param>
     /// <param name="currentFilePath">Path of the current file being processed.</param>
     private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
     {
+        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+            currentFile, totalFiles, Path.GetFileName(currentFilePath), _batchCompletedBytes, _batchTotalBytes);
+
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles}",
-            percentComplete: (int)((currentFile * 100.0) / totalFiles));
+            status,
+            percent);
 
         var remainingFiles = totalFiles - currentFile;
         if (remainingFiles > 0)
         {
             var batchEtaTimespan = CalculateRemainingTime(currentFilePath, remainingFiles);
             if (batchEtaTimespan.HasValue)
-                progressRecord.StatusDescription = $"ETA: {FormatTimespan(batchEtaTimespan.Value)}";
+                progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(batchEtaTimespan.Value)}";
         }
 
         WriteProgress(progressRecord);
@@ -327,20 +323,20 @@ public class ConvertMediaFilesCommand : CmdletBase
         if (!originalEta.HasValue || _batchStopwatch == null)
             return;
 
-        // Calculate elapsed time and remaining ETA
         var elapsedTime = _batchStopwatch.Elapsed;
         var remainingTime = originalEta.Value - elapsedTime;
-
-        // Don't show negative ETA
         if (remainingTime.TotalSeconds <= 0)
             return;
+
+        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+            currentFile, totalFiles, Path.GetFileName(currentFilePath), _batchCompletedBytes, _batchTotalBytes);
 
         var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Batch Conversion",
-            $"Processing file {currentFile} of {totalFiles}",
-            percentComplete: (int)((currentFile * 100.0) / totalFiles));
-        progressRecord.StatusDescription = $"ETA: {FormatTimespan(remainingTime)}";
+            status,
+            percent);
+        progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(remainingTime)}";
 
         WriteProgress(progressRecord);
     }
@@ -353,15 +349,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// <returns>Estimated time remaining, or null if no estimate can be calculated.</returns>
     private TimeSpan? CalculateRemainingTime(string currentFilePath, int remainingFilesCount)
     {
-        if (_fileProcessingStats.Count == 0)
-            return null;
-
-        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
-        if (averageBytesPerSecond <= 0)
-            return null;
-
         long remainingBytes = 0;
-
         try
         {
             var currentFile = new FileInfo(currentFilePath);
@@ -370,11 +358,9 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
         catch
         {
-            // If we can't get the file size, skip ETA calculation
             return null;
         }
 
-        // Add remaining files from the input paths list
         var remainingPaths = _uniqueInputPaths.Skip(_currentFileIndex).Take(remainingFilesCount);
         foreach (var path in remainingPaths)
         {
@@ -386,15 +372,13 @@ public class ConvertMediaFilesCommand : CmdletBase
             }
             catch
             {
-                // If we can't get the file size, continue with what we have
+                // Continue with what we have
             }
         }
 
-        if (remainingBytes <= 0)
-            return null;
-
-        var remainingSeconds = remainingBytes / averageBytesPerSecond;
-        return TimeSpan.FromSeconds(remainingSeconds);
+        return MediaConversionHelper.CalculateRemainingTime(
+            remainingBytes,
+            _fileProcessingStats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
     }
 
     /// <summary>
@@ -427,18 +411,6 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Formats a timespan into a human-readable string.
-    /// </summary>
-    private static string FormatTimespan(TimeSpan time)
-    {
-        if (time.TotalHours >= 1)
-            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
-        if (time.TotalMinutes >= 1)
-            return $"{time.Minutes}m {time.Seconds}s";
-        return $"{time.Seconds}s";
-    }
-
-    /// <summary>
     /// Records file processing statistics for ETA calculation.
     /// </summary>
     private void RecordFileProcessingStats(string filePath)
@@ -468,56 +440,13 @@ public class ConvertMediaFilesCommand : CmdletBase
     }
 
     /// <summary>
-    /// Checks if Invoke-Audio function is available in the PowerShell session.
-    /// </summary>
-    private void CheckAudioAvailability()
-    {
-        if (!_hasAudioFeedback)
-        {
-            _invokeAudioAvailable = false;
-            return;
-        }
-
-        try
-        {
-            _invokeAudioAvailable = SessionState.InvokeCommand.GetCommand("Invoke-Audio", System.Management.Automation.CommandTypes.Function) != null;
-            Logger.LogDebug("Invoke-Audio availability: {IsAvailable}", _invokeAudioAvailable);
-        }
-        catch
-        {
-            _invokeAudioAvailable = false;
-        }
-    }
-
-    /// <summary>
-    /// Safely invokes Invoke-Audio with the specified pattern if available and audio feedback is enabled.
-    /// </summary>
-    /// <param name="audioPattern">The audio pattern name to play.</param>
-    private void PlayAudio(string audioPattern)
-    {
-        if (!_invokeAudioAvailable)
-            return;
-
-        try
-        {
-            SessionState.InvokeCommand.InvokeScript($"Invoke-Audio '{audioPattern}'");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Failed to invoke audio pattern: {AudioPattern}", audioPattern);
-        }
-    }
-
-    /// <summary>
-    /// Handles file processing errors with consistent logging, result recording, audio feedback, and progress updates.
+    /// Handles file processing errors with consistent logging, result recording, and progress updates.
     /// </summary>
     private void HandleFileError(string inputPath, string fileName, string errorMessage, Exception? exception = null, ErrorCategory errorCategory = ErrorCategory.NotSpecified)
     {
         _fileProcessingStopwatch?.Stop();
         var result = new ConversionResult(inputPath, false, errorMessage);
         _conversionResults.Add(result);
-        if (_playError)
-            PlayAudio("SadError");
         UpdateFileProgress(errorMessage, fileName, recordType: ProgressRecordType.Completed);
 
         if (exception != null)
@@ -541,7 +470,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             recordType);
 
         if (eta.HasValue)
-            progressRecord.StatusDescription += $" (File ETA: {FormatTimespan(eta.Value)})";
+            progressRecord.StatusDescription += $" (File ETA: {MediaConversionHelper.FormatTimespan(eta.Value)})";
 
         WriteProgress(progressRecord);
     }
@@ -552,7 +481,6 @@ public class ConvertMediaFilesCommand : CmdletBase
         var fileName = Path.GetFileName(inputPath);
         UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
-        // PlayAudio("Alert");
 
         // Resolve input path
         UpdateFileProgress("Resolving input path", fileName);
@@ -630,8 +558,6 @@ public class ConvertMediaFilesCommand : CmdletBase
                 {
                     _fileProcessingStopwatch.Stop();
                     RecordFileProcessingStats(resolvedInputPath);
-                    if (_playSuccess)
-                        PlayAudio("Doorbell");
                     UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
                 }
                 return;
@@ -674,8 +600,6 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             _fileProcessingStopwatch.Stop();
             RecordFileProcessingStats(resolvedInputPath);
-            if (_playSuccess)
-                PlayAudio("Doorbell");
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
         }
         else

@@ -80,32 +80,84 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        WriteHostMessage($"Extracting subtitles ({mediaFiles.Count} file(s))", ConsoleColor.Cyan);
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Extracting subtitles",
-            $"Processing {mediaFiles.Count} file(s)...",
-            percentComplete: 0));
-
-        var fileIndex = 0;
+        var filesWithSize = new List<(MediaFile Mf, long Size)>();
+        long totalBytes = 0;
         foreach (var mf in mediaFiles)
         {
-            fileIndex++;
-            var fileName = System.IO.Path.GetFileName(mf.Path);
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                MainActivityId,
-                "Extracting subtitles",
-                $"{fileName} ({fileIndex}/{mediaFiles.Count})",
-                percentComplete: (int)Math.Round((fileIndex * 100.0) / mediaFiles.Count, 0)));
+            long size = 0;
+            try
+            {
+                var fi = new FileInfo(mf.Path);
+                if (fi.Exists)
+                {
+                    size = fi.Length;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // Use 0 for this file
+            }
 
-            ExportSubtitlesForMediaFile(mf, mediaFiles.Count, fileIndex);
+            filesWithSize.Add((mf, size));
+        }
+
+        WriteHostMessage($"Extracting subtitles from {mediaFiles.Count} file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
+
+        long completedBytes = 0;
+        var totalFiles = filesWithSize.Count;
+        for (var i = 0; i < filesWithSize.Count; i++)
+        {
+            var (mf, fileSize) = filesWithSize[i];
+            var fileIndex = i + 1;
+            var fileName = System.IO.Path.GetFileName(mf.Path);
+            var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
+            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
+            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+                CurrentItemActivityId,
+                "Current file",
+                "Extracting...",
+                MainActivityId,
+                fileName,
+                recordType: ProgressRecordType.Processing));
+
+            ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex);
+
+            completedBytes += fileSize;
+            (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
+            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
+            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
+                CurrentItemActivityId,
+                "Current file",
+                "Completed",
+                MainActivityId,
+                fileName,
+                recordType: ProgressRecordType.Completed));
         }
 
         WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
             MainActivityId,
             "Extracting subtitles",
-            "Complete",
+            "Completed",
             recordType: ProgressRecordType.Completed));
+        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
+            CurrentItemActivityId,
+            "Current file",
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+
+        WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
+    }
+
+    private void UpdateSubtitleExtractionProgress(string status, int percentComplete, ProgressRecordType recordType)
+    {
+        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
+            MainActivityId,
+            "Extracting subtitles",
+            status,
+            percentComplete,
+            recordType: recordType);
+        WriteProgress(progressRecord);
     }
 
     private IEnumerable<MediaFile> ResolveMediaFiles()
