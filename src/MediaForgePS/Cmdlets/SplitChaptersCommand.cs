@@ -65,7 +65,7 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
-        var normalizedRanges = NormalizeChapterRanges(ChapterRanges);
+        var normalizedRanges = ChapterRangeHelper.NormalizeChapterRanges(ChapterRanges);
         if (normalizedRanges.Count == 0)
         {
             WriteError(new ErrorRecord(
@@ -89,53 +89,10 @@ public class SplitChaptersCommand : CmdletBase
         }
     }
 
-    private static List<(int Start, int End, string? OutputName)> NormalizeChapterRanges(object[] chapterRanges)
-    {
-        var list = new List<(int, int, string?)>();
-        for (var i = 0; i < chapterRanges.Length; i++)
-        {
-            var item = chapterRanges[i];
-            if (item is ChapterRange cr)
-            {
-                list.Add((cr.Start, cr.End, cr.OutputName));
-                continue;
-            }
-
-            var psObj = item as PSObject;
-            var startProp = psObj?.Properties["Start"]?.Value;
-            var endProp = psObj?.Properties["End"]?.Value;
-            var outputNameProp = psObj?.Properties["OutputName"]?.Value;
-
-            if (startProp == null || endProp == null)
-            {
-                throw new ArgumentException(
-                    $"Chapter range at index {i} is missing Start or End property.");
-            }
-
-            if (!LanguagePrimitives.TryConvertTo(startProp, out int start) ||
-                !LanguagePrimitives.TryConvertTo(endProp, out int end))
-            {
-                throw new ArgumentException(
-                    $"Chapter range at index {i}: Start and End must be integers.");
-            }
-
-            list.Add((start, end, outputNameProp?.ToString()));
-        }
-
-        return list;
-    }
-
     private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges)
     {
-        if (!PathResolver.TryResolveInputPath(inputPath, out var resolvedInputPath))
-        {
-            WriteError(new ErrorRecord(
-                new FileNotFoundException("Input file not found.", inputPath),
-                "FileNotFound",
-                ErrorCategory.ObjectNotFound,
-                inputPath));
+        if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
-        }
 
         var outputDir = ResolveOutputDirectory(resolvedInputPath);
         if (string.IsNullOrEmpty(outputDir))

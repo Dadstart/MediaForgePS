@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Services;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
@@ -30,7 +30,7 @@ public class InvokeBonusFileProcessingCommandTests
             DefaultVideoEncoder = "nvenc"
         };
 
-        var settings = InvokeCreateDefaultVideoEncodingSettings(cmdlet);
+        var settings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(cmdlet.DefaultVideoEncoder);
 
         var nvencSettings = Assert.IsType<NvencVideoEncodingSettings>(settings);
         Assert.Equal("hevc_nvenc", nvencSettings.Codec);
@@ -44,7 +44,7 @@ public class InvokeBonusFileProcessingCommandTests
             DefaultVideoEncoder = "x264"
         };
 
-        var settings = InvokeCreateDefaultVideoEncodingSettings(cmdlet);
+        var settings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(cmdlet.DefaultVideoEncoder);
 
         var crfSettings = Assert.IsType<ConstantRateVideoEncodingSettings>(settings);
         Assert.Equal("libx264", crfSettings.Codec);
@@ -58,7 +58,7 @@ public class InvokeBonusFileProcessingCommandTests
             DefaultVideoEncoder = null!
         };
 
-        var settings = InvokeCreateDefaultVideoEncodingSettings(cmdlet);
+        var settings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(cmdlet.DefaultVideoEncoder);
 
         var crfSettings = Assert.IsType<ConstantRateVideoEncodingSettings>(settings);
         Assert.Equal("libx265", crfSettings.Codec);
@@ -93,7 +93,7 @@ public class InvokeBonusFileProcessingCommandTests
             CreateAudioStream(1, "dts", "eng", 6, "DTS 5.1")
         };
 
-        var mappings = InvokeCreateAudioTrackMappings(streams);
+        var mappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streams);
 
         Assert.Single(mappings);
         var copy = Assert.IsType<CopyAudioTrackMapping>(mappings[0]);
@@ -109,7 +109,7 @@ public class InvokeBonusFileProcessingCommandTests
             CreateAudioStream(1, "aac", "eng", 2, "AAC 2.0")
         };
 
-        var mappings = InvokeCreateAudioTrackMappings(streams);
+        var mappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streams);
 
         Assert.Single(mappings);
         var encode = Assert.IsType<EncodeAudioTrackMapping>(mappings[0]);
@@ -128,7 +128,7 @@ public class InvokeBonusFileProcessingCommandTests
             CreateAudioStream(2, "aac", "eng", 6, "AAC 5.1")
         };
 
-        var mappings = InvokeCreateAudioTrackMappings(streams);
+        var mappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streams);
 
         Assert.Equal(2, mappings.Length);
 
@@ -172,28 +172,6 @@ public class InvokeBonusFileProcessingCommandTests
         var size = InvokeGetFileSizeOrZero(path);
 
         Assert.Equal(0, size);
-    }
-
-    private static VideoEncodingSettings InvokeCreateDefaultVideoEncodingSettings(InvokeBonusFileProcessingCommand cmdlet)
-    {
-        var method = typeof(InvokeBonusFileProcessingCommand)
-            .GetMethod("CreateDefaultVideoEncodingSettings", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        var result = method!.Invoke(cmdlet, Array.Empty<object>());
-        Assert.NotNull(result);
-        return (VideoEncodingSettings)result!;
-    }
-
-    private static AudioTrackMapping[] InvokeCreateAudioTrackMappings(List<MediaStream> streams)
-    {
-        var method = typeof(InvokeBonusFileProcessingCommand)
-            .GetMethod("CreateAudioTrackMappings", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        var result = method!.Invoke(null, new object[] { streams });
-        Assert.NotNull(result);
-        return (AudioTrackMapping[])result!;
     }
 
     private static long InvokeGetFileSizeOrZero(string path)

@@ -582,7 +582,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             try
             {
-                audioMappings = CreateAudioTrackMappings(streamsToUse);
+                audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streamsToUse);
                 UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             }
             catch (Exception ex)
@@ -608,78 +608,12 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
     }
 
-    private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
-    {
-        var mappings = new List<AudioTrackMapping>();
-        int destinationIndex = 0;
-
-        foreach (var stream in englishAudioStreams)
-        {
-            int channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
-
-            AudioTrackMapping mapping;
-            var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
-            {
-                // DTS-HD MA or TrueHD: copy without re-encoding
-                mapping = new CopyAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex);
-            }
-            else
-            {
-                // Other streams: encode as AAC, preserving channel count
-                mapping = new EncodeAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex,
-                    "aac",
-                    0, // Bitrate 0 means use default based on channel count
-                    channels);
-            }
-
-            mappings.Add(mapping);
-            destinationIndex++;
-        }
-
-        // Apply swap logic: if first is DTS/TrueHD (copy) and second is multi-channel (6+ channels), swap destination indices
-        if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping copyMapping &&
-            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
-            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6 && copyMapping.SourceIndex < encodeMapping.SourceIndex)
-        {
-            // Swap by creating new instances with swapped destination indices
-            Logger.LogDebug("Applying swap logic: swapping destination indices for DTS/TrueHD and 6+ channel AAC");
-            mappings[0] = new EncodeAudioTrackMapping(
-                encodeMapping.Title,
-                encodeMapping.SourceStream,
-                encodeMapping.SourceIndex,
-                copyMapping.DestinationIndex,
-                encodeMapping.DestinationCodec,
-                encodeMapping.DestinationBitrate,
-                encodeMapping.DestinationChannels);
-
-            mappings[1] = new CopyAudioTrackMapping(
-                copyMapping.Title,
-                copyMapping.SourceStream,
-                copyMapping.SourceIndex,
-                encodeMapping.DestinationIndex);
-        }
-
-        return mappings.ToArray();
-    }
-
     private bool ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
     {
         try
         {
             // Get or create video encoding settings
-            var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
+            var videoSettings = VideoEncodingSettings ?? MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
             var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
@@ -732,7 +666,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         catch (FfmpegConversionException ex)
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            var statusMessage = BuildStatusMessage(ex);
+            var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
         }
         catch (Exception ex)
@@ -743,54 +677,6 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         return false;
     }
-
-    private static string BuildStatusMessage(FfmpegConversionException ex)
-    {
-        var message = "Conversion failed";
-        if (ex.ExitCode.HasValue)
-            message += $" (exit code: {ex.ExitCode.Value})";
-        if (!string.IsNullOrWhiteSpace(ex.ErrorOutput))
-        {
-            var errorLines = ex.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (errorLines.Length > 0)
-            {
-                var firstErrorLine = errorLines[0].Trim();
-                if (firstErrorLine.Length > 0)
-                    message += $": {firstErrorLine}";
-            }
-        }
-        return message;
-    }
-
-
-    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
-    {
-        var encoder = DefaultVideoEncoder?.Trim();
-        var codec = encoder?.ToLowerInvariant() switch
-        {
-            "nvenc" => "nvenc",
-            "x264" => "libx264",
-            _ => "libx265"
-        };
-
-        if (codec == "nvenc")
-        {
-            return new NvencVideoEncodingSettings(
-                "p5",
-                18);
-        }
-        else
-        {
-            return new ConstantRateVideoEncodingSettings(
-                codec,
-                "medium",
-                "high",
-                "film",
-                18,
-                VideoEncodingSettings.GetDefaultPixelFormat(codec));
-        }
-    }
-
 
     /// <summary>
     /// Represents the result of a conversion operation.

@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -54,48 +52,15 @@ public class GetAudioTrackMappingsCommand : CmdletBase
     {
         Logger.LogInformation("Processing Get-AudioStreams request for path: {Path}", InputPath);
 
-        string resolvedPath;
-        if (!PathResolver.TryResolveInputPath(InputPath, out resolvedPath))
-        {
-            var errorRecord = new ErrorRecord(
-                new FileNotFoundException($"Media file not found: {InputPath}"),
-                "FileNotFound",
-                ErrorCategory.ObjectNotFound,
-                InputPath);
-            WriteError(errorRecord);
+        if (!TryResolveInputPath(PathResolver, InputPath, out var resolvedPath))
             return;
-        }
 
-        try
-        {
-            Logger.LogDebug("Reading media file information: {ResolvedPath}", resolvedPath);
-            var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedPath, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (mediaFile is null)
-            {
-                Logger.LogWarning("Media file information is null for: {ResolvedPath}", resolvedPath);
-                var errorRecord = new ErrorRecord(
-                    new Exception($"Failed to get media file information: {resolvedPath}"),
-                    "MediaFileReadFailed",
-                    ErrorCategory.ReadError,
-                    resolvedPath);
-                WriteError(errorRecord);
-                return;
-            }
-
-            var mappings = AudioTrackMappingService.CreateMappings(mediaFile);
-            WriteObject(mappings);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Exception occurred while processing media file: {ResolvedPath}", resolvedPath);
-            var errorRecord = new ErrorRecord(
-                ex,
-                "MediaFileReadFailed",
-                ErrorCategory.ReadError,
-                resolvedPath);
-            WriteError(errorRecord);
+        Logger.LogDebug("Reading media file information: {ResolvedPath}", resolvedPath);
+        if (!TryGetMediaFile(MediaReaderService, resolvedPath, out var mediaFile))
             return;
-        }
+
+        var mappings = AudioTrackMappingService.CreateMappings(mediaFile);
+        WriteObject(mappings);
     }
 }
 

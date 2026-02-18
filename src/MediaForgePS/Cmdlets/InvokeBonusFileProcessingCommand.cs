@@ -344,7 +344,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
                 try
                 {
-                    audioMappings = CreateAudioTrackMappings(streamsToUse);
+                    audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streamsToUse);
                 }
                 catch (Exception ex)
                 {
@@ -355,7 +355,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 }
             }
 
-            var videoSettings = CreateDefaultVideoEncodingSettings();
+            var videoSettings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
             var x265Arguments = MediaConversionHelper.BuildX265Arguments(null, videoSettings.Codec);
 
             var outputFileName = Path.GetFileNameWithoutExtension(inputFilePath) + ".mp4";
@@ -389,7 +389,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     inputFilePath,
                     outputFilePath);
 
-                var statusMessage = BuildStatusMessage(ex);
+                var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
                 return new ConversionSummary(inputFilePath, false, statusMessage);
             }
             catch (Exception ex)
@@ -654,115 +654,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             WriteWarning($"No empty Plex folders found to remove in '{destinationDirectory}'");
         else
             WriteVerbose($"{foldersDeleted} empty Plex folders deleted");
-    }
-
-    private static AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> streams)
-    {
-        var mappings = new List<AudioTrackMapping>();
-        var destinationIndex = 0;
-
-        foreach (var stream in streams)
-        {
-            var channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
-
-            AudioTrackMapping mapping;
-            var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") &&
-                channels >= 6 &&
-                !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
-            {
-                mapping = new CopyAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex);
-            }
-            else
-            {
-                mapping = new EncodeAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex,
-                    "aac",
-                    0,
-                    channels);
-            }
-
-            mappings.Add(mapping);
-            destinationIndex++;
-        }
-
-        if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping copyMapping &&
-            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
-            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6 &&
-            copyMapping.SourceIndex < encodeMapping.SourceIndex)
-        {
-            mappings[0] = new EncodeAudioTrackMapping(
-                encodeMapping.Title,
-                encodeMapping.SourceStream,
-                encodeMapping.SourceIndex,
-                copyMapping.DestinationIndex,
-                encodeMapping.DestinationCodec,
-                encodeMapping.DestinationBitrate,
-                encodeMapping.DestinationChannels);
-
-            mappings[1] = new CopyAudioTrackMapping(
-                copyMapping.Title,
-                copyMapping.SourceStream,
-                copyMapping.SourceIndex,
-                encodeMapping.DestinationIndex);
-        }
-
-        return mappings.ToArray();
-    }
-
-    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
-    {
-        var encoder = DefaultVideoEncoder?.Trim();
-        var codec = encoder?.ToLowerInvariant() switch
-        {
-            "nvenc" => "nvenc",
-            "x264" => "libx264",
-            _ => "libx265"
-        };
-
-        if (codec == "nvenc")
-        {
-            return new NvencVideoEncodingSettings(
-                "p5",
-                18);
-        }
-
-        return new ConstantRateVideoEncodingSettings(
-            codec,
-            "medium",
-            "high",
-            "film",
-            18,
-            VideoEncodingSettings.GetDefaultPixelFormat(codec));
-    }
-
-    private static string BuildStatusMessage(FfmpegConversionException ex)
-    {
-        var message = "Conversion failed";
-        if (ex.ExitCode.HasValue)
-            message += $" (exit code: {ex.ExitCode.Value})";
-        if (!string.IsNullOrWhiteSpace(ex.ErrorOutput))
-        {
-            var errorLines = ex.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (errorLines.Length > 0)
-            {
-                var firstErrorLine = errorLines[0].Trim();
-                if (firstErrorLine.Length > 0)
-                    message += $": {firstErrorLine}";
-            }
-        }
-
-        return message;
     }
 
     private readonly struct ConversionSummary
