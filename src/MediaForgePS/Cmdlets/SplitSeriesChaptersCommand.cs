@@ -289,20 +289,15 @@ public class SplitSeriesChaptersCommand : CmdletBase
             WriteObject(path);
     }
 
-    private string? ResolveOutputDirectory(string resolvedInputPath)
-    {
-        if (string.IsNullOrWhiteSpace(OutputPath))
-            return Path.GetDirectoryName(resolvedInputPath);
-
-        var pathToResolve = Path.Combine(OutputPath.Trim(), "dummy.mkv");
-        if (!PathResolver.TryResolveOutputPath(pathToResolve, out var resolved))
-            resolved = Path.GetFullPath(Path.Combine(SessionState.Path.CurrentLocation.Path, OutputPath.Trim(), "dummy.mkv"));
-
-        var dir = Path.GetDirectoryName(resolved);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        return dir;
-    }
+    private string? ResolveOutputDirectory(string resolvedInputPath) =>
+        PathHelper.ResolveOutputDirectory(
+            OutputPath,
+            resolvedInputPath,
+            SessionState.Path.CurrentLocation.Path,
+            path =>
+            {
+                var ok = PathResolver.TryResolveOutputPath(path, out var r);
+                return (ok, r);
+            });
 
 }
