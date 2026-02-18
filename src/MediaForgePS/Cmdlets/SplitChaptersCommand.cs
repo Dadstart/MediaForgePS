@@ -215,8 +215,8 @@ public class SplitChaptersCommand : CmdletBase
             var endTime = (double)endChapter.EndTime;
             var duration = endTime - startTime;
 
-            var startTimeCode = FormatTimeCode(startTime);
-            var durationTimeCode = FormatTimeCode(duration);
+            var startTimeCode = MediaConversionHelper.FormatTimeCode(startTime);
+            var durationTimeCode = MediaConversionHelper.FormatTimeCode(duration);
 
             WriteHostMessage(
                 $"Splitting chapters {chapterStart + 1}-{chapterEnd + 1} ({startTimeCode} - {durationTimeCode}) -> {outputFileName}",
@@ -270,11 +270,4 @@ public class SplitChaptersCommand : CmdletBase
         return dir;
     }
 
-    private static string FormatTimeCode(double seconds)
-    {
-        var hours = (int)Math.Floor(seconds / 3600);
-        var minutes = (int)Math.Floor((seconds % 3600) / 60);
-        var secs = seconds % 60;
-        return $"{hours:D2}:{minutes:D2}:{secs:00.000}";
-    }
 }
