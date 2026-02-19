@@ -121,6 +121,7 @@ public class PathResolver : IPathResolver
 
     /// <summary>
     /// Attempts to resolve a PowerShell path using the provider path resolution.
+    /// Requires the path to exist.
     /// </summary>
     /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
     /// <param name="path">The path to resolve.</param>
@@ -131,9 +132,7 @@ public class PathResolver : IPathResolver
         resolvedPath = null;
         try
         {
-            // Escape PowerShell wildcard characters to handle literal brackets and other special characters
-            // in filenames (e.g., "[Blu-ray]" should be treated as literal, not a wildcard pattern)
-            var escapedPath = WildcardPattern.Escape(path);
+            var escapedPath = EscapePath(path);
             var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(escapedPath, out _);
             if (providerPaths.Count > 0)
             {
@@ -146,6 +145,34 @@ public class PathResolver : IPathResolver
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Resolves a PowerShell path using the session's current location without requiring the path to exist.
+    /// Use for directory paths that may not yet exist (e.g. output directory).
+    /// </summary>
+    /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
+    /// <param name="path">The path to resolve.</param>
+    /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
+    /// <returns>True if the path was successfully resolved, false otherwise.</returns>
+    public static bool TryGetUnresolvedProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
+    {
+        resolvedPath = null;
+        try
+        {
+            var escapedPath = EscapePath(path);
+            resolvedPath = cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(escapedPath);
+            return !string.IsNullOrEmpty(resolvedPath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string EscapePath(string path)
+    {
+        return WildcardPattern.Escape(path);
     }
 }
 

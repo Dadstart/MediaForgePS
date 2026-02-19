@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
@@ -84,8 +85,25 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         if (string.IsNullOrWhiteSpace(InputPath) || string.IsNullOrWhiteSpace(OutputPath))
             return;
 
-        var inputFullPath = Path.GetFullPath(InputPath);
-        var outputFullPath = Path.GetFullPath(OutputPath);
+        if (!TryResolveDirectoryPath(InputPath, requireExists: true, out var inputFullPath))
+        {
+            WriteError(CreateErrorRecord(
+                new DirectoryNotFoundException($"Input path does not exist or could not be resolved: '{InputPath}'"),
+                "InputPathNotFound",
+                ErrorCategory.InvalidArgument,
+                InputPath));
+            return;
+        }
+
+        if (!TryResolveDirectoryPath(OutputPath, requireExists: false, out var outputFullPath))
+        {
+            WriteError(CreateErrorRecord(
+                new InvalidOperationException($"Failed to resolve output path: {OutputPath}"),
+                "OutputPathResolutionFailed",
+                ErrorCategory.InvalidArgument,
+                OutputPath));
+            return;
+        }
 
         WriteHostMessage("Starting Bonus File Processing", ConsoleColor.Cyan);
         WriteHostMessage($"  Input:  {inputFullPath}", ConsoleColor.Gray);
@@ -157,6 +175,32 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         WriteHostMessage(string.Empty);
         WriteHostMessage("Bonus File Processing completed successfully!", ConsoleColor.Green);
         WriteHostMessage($"  Bonus files processed: {bonusFileCount}", ConsoleColor.Gray);
+    }
+
+    /// <summary>
+    /// Resolves a directory path using the PowerShell session's current location.
+    /// </summary>
+    /// <param name="path">The path to resolve (e.g. ".", "P:\Movies\...").</param>
+    /// <param name="requireExists">If true, resolved path must exist as a directory (used for input).</param>
+    /// <param name="resolvedPath">The resolved full path.</param>
+    /// <returns>True if resolution succeeded and, when requireExists is true, the directory exists.</returns>
+    private bool TryResolveDirectoryPath(string path, bool requireExists, out string resolvedPath)
+    {
+        resolvedPath = string.Empty;
+
+        if (PathResolver.TryResolveProviderPath(this, path, out var fromProvider))
+        {
+            resolvedPath = fromProvider!;
+            return !requireExists || Directory.Exists(resolvedPath);
+        }
+
+        if (PathResolver.TryGetUnresolvedProviderPath(this, path, out var unresolved))
+        {
+            resolvedPath = unresolved!;
+            return !requireExists || Directory.Exists(resolvedPath);
+        }
+
+        return false;
     }
 
     private bool ValidatePlexOutputPath(string outputFullPath)
