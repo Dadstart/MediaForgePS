@@ -15,7 +15,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
     [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
-    public string[] Path { get; set; } = Array.Empty<string>();
+    public string[] InputPath { get; set; } = Array.Empty<string>();
 
     [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
@@ -86,7 +86,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
         var copiedFiles = SeriesProcessingService.InvokeVideoCopy(
             this,
             new VideoCopyRequest(
-                Path,
+                InputPath,
                 directoryStructure.SeasonDir,
                 Title,
                 Season,
@@ -102,7 +102,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                 : string.Empty;
             WriteError(new ErrorRecord(
                 new InvalidOperationException(
-                    "Video copying failed. No files were copied. Check that Path contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
+                    "Video copying failed. No files were copied. Check that InputPath contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
                 "VideoCopyFailed",
                 ErrorCategory.InvalidData,
                 null));
