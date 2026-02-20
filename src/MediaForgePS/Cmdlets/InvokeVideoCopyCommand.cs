@@ -11,14 +11,6 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string))]
 public class InvokeVideoCopyCommand : CmdletBase
 {
-    [Parameter(Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
-    [ValidateNotNullOrEmpty]
-    public string[] Path { get; set; } = Array.Empty<string>();
-
-    [Parameter(Mandatory = true)]
-    [ValidateNotNullOrEmpty]
-    public string Destination { get; set; } = string.Empty;
-
     [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
     public string Title { get; set; } = string.Empty;
@@ -27,13 +19,13 @@ public class InvokeVideoCopyCommand : CmdletBase
     [ValidateRange(1, 1000)]
     public int Season { get; set; }
 
-    [Parameter(Mandatory = true)]
-    [ValidateNotNull]
-    public TvDbEpisodeInfo[] Episodes { get; set; } = Array.Empty<TvDbEpisodeInfo>();
-
     [Parameter]
     [ValidateRange(1, 1000)]
     public int EpisodeStart { get; set; } = 1;
+
+    [Parameter(Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
+    public string[] Path { get; set; } = Array.Empty<string>();
 
     [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
@@ -42,6 +34,14 @@ public class InvokeVideoCopyCommand : CmdletBase
     [Parameter]
     [ValidateRange(1, long.MaxValue)]
     public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
+
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string Destination { get; set; } = string.Empty;
+
+    [Parameter(Mandatory = true)]
+    [ValidateNotNull]
+    public TvDbEpisodeInfo[] Episodes { get; set; } = Array.Empty<TvDbEpisodeInfo>();
 
     private readonly List<string> _allPaths = new();
     private ISeriesProcessingService? _seriesProcessingService;

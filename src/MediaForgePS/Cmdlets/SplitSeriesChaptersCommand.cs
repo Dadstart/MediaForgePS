@@ -19,25 +19,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string[]))]
 public class SplitSeriesChaptersCommand : CmdletBase
 {
-    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
-    [ValidateNotNullOrEmpty]
-    public string InputFile { get; set; } = string.Empty;
-
-    [Parameter(Mandatory = true, Position = 1)]
-    [ValidateNotNull]
-    public object[] ChapterRanges { get; set; } = [];
-
     [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
     public string Title { get; set; } = string.Empty;
-
-    [Parameter]
-    [ValidateNotNullOrEmpty]
-    public string? TvDbSeriesUrl { get; set; }
-
-    [Parameter]
-    [ValidateNotNullOrEmpty]
-    public string? TvDbSeasonUrl { get; set; }
 
     [Parameter(Mandatory = true)]
     [ValidateRange(1, 1000)]
@@ -47,8 +31,24 @@ public class SplitSeriesChaptersCommand : CmdletBase
     [ValidateRange(1, 1000)]
     public int EpisodeStart { get; set; } = 1;
 
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [ValidateNotNullOrEmpty]
+    public string InputFile { get; set; } = string.Empty;
+
+    [Parameter(Mandatory = true, Position = 1)]
+    [ValidateNotNull]
+    public object[] ChapterRanges { get; set; } = [];
+
     [Parameter]
     public string? OutputPath { get; set; }
+
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? TvDbSeriesUrl { get; set; }
+
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? TvDbSeasonUrl { get; set; }
 
     private readonly List<string> _inputFiles = [];
     private IMediaReaderService? _mediaReaderService;

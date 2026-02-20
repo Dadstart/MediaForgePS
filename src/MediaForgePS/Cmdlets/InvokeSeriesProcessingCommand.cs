@@ -14,6 +14,14 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     public string Title { get; set; } = string.Empty;
 
     [Parameter(Mandatory = true)]
+    [ValidateRange(1, 1000)]
+    public int Season { get; set; }
+
+    [Parameter]
+    [ValidateRange(1, 1000)]
+    public int EpisodeStart { get; set; } = 1;
+
+    [Parameter(Mandatory = true)]
     [ValidateNotNullOrEmpty]
     public string[] InputPath { get; set; } = Array.Empty<string>();
 
@@ -21,13 +29,14 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     [ValidateNotNullOrEmpty]
     public string[] FilePatterns { get; set; } = Array.Empty<string>();
 
-    [Parameter(Mandatory = true)]
-    [ValidateRange(1, 1000)]
-    public int Season { get; set; }
-
     [Parameter]
-    [ValidateRange(1, 1000)]
-    public int EpisodeStart { get; set; } = 1;
+    [ValidateRange(0, long.MaxValue)]
+    public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
+
+    /// <summary>Root output directory. When set, output is written to OutputPath\Title\Season XX.</summary>
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? OutputPath { get; set; }
 
     [Parameter]
     [ValidateNotNullOrEmpty]
@@ -42,15 +51,6 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
     [Parameter]
     public SwitchParameter SkipCaptionExtraction { get; set; }
-
-    [Parameter]
-    [ValidateRange(0, long.MaxValue)]
-    public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
-
-    /// <summary>Root output directory. When set, output is written to OutputPath\Title\Season XX.</summary>
-    [Parameter]
-    [ValidateNotNullOrEmpty]
-    public string? OutputPath { get; set; }
 
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
