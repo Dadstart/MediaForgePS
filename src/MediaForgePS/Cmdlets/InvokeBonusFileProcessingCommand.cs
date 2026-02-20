@@ -285,8 +285,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
             var eta = MediaConversionHelper.CalculateRemainingTime(totalBytes - completedBytes, _fileProcessingStats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
 
-            UpdateBonusConversionProgress(status, percent, eta, ProgressRecordType.Processing);
-            UpdateCurrentFileProgress(fileName, "Converting...", ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, eta, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", $"Converting... - {fileName}", recordType: ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
             var summary = ConvertSingleBonusFile(filePath, inputDirectory);
@@ -300,45 +300,13 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             }
 
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
-            UpdateBonusConversionProgress(status, percent, null, ProgressRecordType.Processing);
-            UpdateCurrentFileProgress(fileName, summary.Success ? "Completed" : "Failed", ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, null, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", $"{(summary.Success ? "Completed" : "Failed")} - {fileName}", recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Bonus file conversion",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteProgressCompleted(this, "Bonus file conversion", "Current file");
 
         return bonusFileCount;
-    }
-
-    private void UpdateBonusConversionProgress(string status, int percentComplete, TimeSpan? eta, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Bonus file conversion",
-            status,
-            percentComplete,
-            recordType: recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(eta.Value)}";
-        WriteProgress(progressRecord);
-    }
-
-    private void UpdateCurrentFileProgress(string fileName, string status, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            $"{status} - {fileName}",
-            recordType: recordType);
-        WriteProgress(progressRecord);
     }
 
     private void RecordFileProcessingStats(long fileSizeBytes, TimeSpan processingTime)
@@ -555,8 +523,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 completedBytes,
                 totalBytes);
 
-            UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
-            UpdateCurrentPlexMoveProgress(fileName, "Moving...", ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"Moving... - {fileName}", recordType: ProgressRecordType.Processing);
 
             var destinationPath = Path.Combine(destFolder, fileName);
             var currentFileStatus = "Completed";
@@ -608,21 +576,12 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     fileName,
                     completedBytes,
                     totalBytes);
-                UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
-                UpdateCurrentPlexMoveProgress(fileName, currentFileStatus, ProgressRecordType.Completed);
+                MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"{currentFileStatus} - {fileName}", recordType: ProgressRecordType.Completed);
             }
         }
 
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Plex file organization",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current move file",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteProgressCompleted(this, "Plex file organization", "Current move file");
 
         if (filesMoved == 0)
             WriteWarning($"No bonus content files found to move in source directory {sourceDirectory}");
@@ -641,27 +600,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         {
             return 0;
         }
-    }
-
-    private void UpdatePlexMoveProgress(string status, int percentComplete, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Plex file organization",
-            status,
-            percentComplete,
-            recordType: recordType);
-        WriteProgress(progressRecord);
-    }
-
-    private void UpdateCurrentPlexMoveProgress(string fileName, string status, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current move file",
-            $"{status} - {fileName}",
-            recordType: recordType);
-        WriteProgress(progressRecord);
     }
 
     private void RemovePlexEmptyFolders(string destinationDirectory)

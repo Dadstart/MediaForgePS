@@ -337,4 +337,70 @@ public static class MediaConversionHelper
 
         return progressRecord;
     }
+
+    /// <summary>
+    /// Writes the main (batch) progress record and optionally the current-item record.
+    /// Use with <see cref="BuildBatchProgressStatus"/> or <see cref="BuildCountBasedProgressStatus"/> for status and percent.
+    /// </summary>
+    public static void WriteMainProgress(
+        PSCmdlet cmdlet,
+        string mainActivity,
+        string status,
+        int? percentComplete = null,
+        TimeSpan? eta = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = CreateSimpleProgressRecord(
+            ProgressActivityIds.Main,
+            mainActivity,
+            status,
+            percentComplete,
+            recordType: recordType);
+        if (eta.HasValue)
+            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+        cmdlet.WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Writes the current-item (nested) progress record.
+    /// </summary>
+    public static void WriteCurrentItemProgress(
+        PSCmdlet cmdlet,
+        string currentActivity,
+        string status,
+        string? currentOperation = null,
+        int? percentComplete = null,
+        TimeSpan? eta = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = CreateNestedProgressRecord(
+            ProgressActivityIds.CurrentItem,
+            currentActivity,
+            status,
+            ProgressActivityIds.Main,
+            currentOperation,
+            percentComplete,
+            recordType);
+        if (eta.HasValue)
+            progressRecord.StatusDescription = $"File ETA: {FormatTimespan(eta.Value)}";
+        cmdlet.WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Writes both main and current-item progress records as completed.
+    /// Call once when the batch or phase is finished.
+    /// </summary>
+    public static void WriteProgressCompleted(PSCmdlet cmdlet, string mainActivity, string currentActivity)
+    {
+        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+            ProgressActivityIds.Main,
+            mainActivity,
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+            ProgressActivityIds.CurrentItem,
+            currentActivity,
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+    }
 }

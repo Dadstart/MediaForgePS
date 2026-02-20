@@ -329,9 +329,6 @@ public class SeriesProcessingService : ISeriesProcessingService
         return acceptedFiles.ToArray();
     }
 
-    private const int MainActivityId = 0;
-    private const int CurrentItemActivityId = 1;
-
     private string[] CopyVideoFilesWithMetadata(PSCmdlet cmdlet, VideoCopyRequest request)
     {
         var normalizedPatterns = NormalizeFilePatterns(request.FilePatterns);
@@ -383,10 +380,11 @@ public class SeriesProcessingService : ISeriesProcessingService
             var destinationPath = Path.Combine(request.Destination, destinationName);
 
             var currentFileIndex = fileIndex + 1;
-            var percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 0;
             var eta = CalculateCopyRemainingTime(completedBytes, totalBytes, copyStats);
-            WriteVideoCopyProgress(cmdlet, currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), totalBytes, completedBytes, eta, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, destinationName, "Copying...", ProgressRecordType.Processing);
+            var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), completedBytes, totalBytes);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Video copy", status, percent, eta, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Copying...", destinationName, recordType: ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
             File.Copy(inputFile, destinationPath, true);
@@ -396,67 +394,15 @@ public class SeriesProcessingService : ISeriesProcessingService
             completedBytes += fileSize;
             copyStats.Add(new FileCopyStats { FileSizeBytes = fileSize, ProcessingTime = stopwatch.Elapsed });
 
-            percent = totalBytes > 0 ? (int)((completedBytes * 100.0) / totalBytes) : 100;
-            WriteVideoCopyProgress(cmdlet, currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), totalBytes, completedBytes, null, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, destinationName, "Completed", ProgressRecordType.Completed);
+            (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), completedBytes, totalBytes);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Video copy", status, percent, null, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", destinationName, recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgressCompleted(cmdlet, "Video copy", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Video copy", "Current file");
 
         return copiedFiles.ToArray();
-    }
-
-    private static void WriteVideoCopyProgress(
-        PSCmdlet cmdlet,
-        int currentFileIndex,
-        int totalFiles,
-        string currentFileName,
-        long totalBytes,
-        long completedBytes,
-        TimeSpan? eta,
-        ProgressRecordType recordType)
-    {
-        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
-            currentFileIndex, totalFiles, currentFileName, completedBytes, totalBytes);
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Video copy",
-            status,
-            percent,
-            recordType: recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(eta.Value)}";
-        cmdlet.WriteProgress(progressRecord);
-    }
-
-    private static void WriteCurrentFileProgress(
-        PSCmdlet cmdlet,
-        string currentOperation,
-        string status,
-        ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            status,
-            MainActivityId,
-            currentOperation,
-            recordType: recordType);
-        cmdlet.WriteProgress(progressRecord);
-    }
-
-    private static void WriteProgressCompleted(PSCmdlet cmdlet, string mainActivity, string currentActivity)
-    {
-        cmdlet.WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            mainActivity,
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        cmdlet.WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            currentActivity,
-            "Completed",
-            recordType: ProgressRecordType.Completed));
     }
 
     private static TimeSpan? CalculateCopyRemainingTime(long completedBytes, long totalBytes, List<FileCopyStats> stats)
@@ -493,21 +439,22 @@ public class SeriesProcessingService : ISeriesProcessingService
         {
             var file = copiedFiles[i];
             var current = i + 1;
-            var percent = total > 0 ? (int)((i * 100.0) / total) : 0;
-            WritePhaseProgress(cmdlet, "Chapter extraction", current, total, Path.GetFileName(file), percent, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, Path.GetFileName(file), "Extracting chapter...", ProgressRecordType.Processing);
+            var fileName = Path.GetFileName(file);
+            var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
 
             if (TryExtractChapterClip(file, chapterDir, chapterNumber, chapterDurationSeconds))
                 processed++;
             else
                 failed++;
 
-            percent = total > 0 ? (int)((current * 100.0) / total) : 100;
-            WritePhaseProgress(cmdlet, "Chapter extraction", current, total, Path.GetFileName(file), percent, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, Path.GetFileName(file), "Completed", ProgressRecordType.Completed);
+            (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgressCompleted(cmdlet, "Chapter extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Chapter extraction", "Current file");
         return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
     }
 
@@ -558,41 +505,23 @@ public class SeriesProcessingService : ISeriesProcessingService
         {
             var file = copiedFiles[i];
             var current = i + 1;
-            var percent = total > 0 ? (int)((i * 100.0) / total) : 0;
-            WritePhaseProgress(cmdlet, "Caption extraction", current, total, Path.GetFileName(file), percent, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, Path.GetFileName(file), "Extracting captions...", ProgressRecordType.Processing);
+            var fileName = Path.GetFileName(file);
+            var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting captions...", fileName, recordType: ProgressRecordType.Processing);
 
             if (TryExtractCaptions(file, captionDir))
                 processed++;
             else
                 failed++;
 
-            percent = total > 0 ? (int)((current * 100.0) / total) : 100;
-            WritePhaseProgress(cmdlet, "Caption extraction", current, total, Path.GetFileName(file), percent, ProgressRecordType.Processing);
-            WriteCurrentFileProgress(cmdlet, Path.GetFileName(file), "Completed", ProgressRecordType.Completed);
+            (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
+            MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgressCompleted(cmdlet, "Caption extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Caption extraction", "Current file");
         return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
-    }
-
-    private static void WritePhaseProgress(
-        PSCmdlet cmdlet,
-        string activity,
-        int currentFileIndex,
-        int totalFiles,
-        string currentFileName,
-        int percentComplete,
-        ProgressRecordType recordType)
-    {
-        var status = $"File {currentFileIndex} of {totalFiles} ({percentComplete}%) — {currentFileName}";
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            activity,
-            status,
-            percentComplete,
-            recordType: recordType);
-        cmdlet.WriteProgress(progressRecord);
     }
 
     private bool TryExtractCaptions(string filePath, string captionDir)

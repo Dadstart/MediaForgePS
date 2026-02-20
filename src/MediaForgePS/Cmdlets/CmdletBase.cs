@@ -20,12 +20,12 @@ public abstract class CmdletBase : PSCmdlet
     /// <summary>
     /// Activity ID for the main operation in progress records (e.g. batch or top-level task).
     /// </summary>
-    protected const int MainActivityId = 0;
+    protected static int MainActivityId => ProgressActivityIds.Main;
 
     /// <summary>
     /// Activity ID for the current item in progress records (e.g. current file or stream).
     /// </summary>
-    protected const int CurrentItemActivityId = 1;
+    protected static int CurrentItemActivityId => ProgressActivityIds.CurrentItem;
 
     private IDebuggerService? _debugger;
     private ILogger? _logger;
