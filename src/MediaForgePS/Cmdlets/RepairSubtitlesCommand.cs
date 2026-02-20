@@ -78,12 +78,21 @@ public class RepairSubtitlesCommand : CmdletBase
 
         var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
         var writtenPaths = new List<string>();
+        var totalPaths = resolvedPairs.Count;
+        var pathIndex = 0;
 
         foreach (var (resolvedPath, isDirectory) in resolvedPairs)
         {
+            pathIndex++;
+            var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
+            var mainPercent = totalPaths > 0 ? (int)((pathIndex * 100.0) / totalPaths) : 0;
+            var mainStatus = $"Path {pathIndex} of {totalPaths} ({mainPercent}%) — {pathDisplayName}";
+            MediaConversionHelper.WriteMainProgress(this, "Repairing subtitles", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+
             if (isDirectory)
             {
-                foreach (var filePath in Directory.EnumerateFiles(resolvedPath, "*.srt", searchOption))
+                var files = Directory.EnumerateFiles(resolvedPath, "*.srt", searchOption).ToList();
+                foreach (var filePath in files)
                 {
                     if (ProcessFile(filePath, filePath))
                         writtenPaths.Add(filePath);
@@ -98,6 +107,8 @@ public class RepairSubtitlesCommand : CmdletBase
                     writtenPaths.Add(outputPath);
             }
         }
+
+        MediaConversionHelper.WriteProgressCompleted(this, "Repairing subtitles", "Current file");
 
         foreach (var path in writtenPaths)
             WriteObject(path);
