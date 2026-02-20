@@ -215,8 +215,8 @@ public class ExportSubtitlesCommand : CmdletBase
 
         var basePath = System.IO.Path.ChangeExtension(mediaFile.Path, null)?.TrimEnd('.') ?? mediaFile.Path;
         var newPath = totalSubtitleCount > 1
-            ? basePath + $".{stream.Index}.en.sdh.{ext}"
-            : basePath + $".en.sdh.{ext}";
+            ? basePath + $".{stream.Index}.eng.sdh.{ext}"
+            : basePath + $".eng.sdh.{ext}";
 
         if (!PathResolver.TryResolveOutputPath(newPath, out var resolvedOutput))
         {

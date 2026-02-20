@@ -548,8 +548,8 @@ public class SeriesProcessingService : ISeriesProcessingService
             {
                 var ext = _subtitleCodecExtensions.TryGetValue(stream.Codec ?? string.Empty, out var e) ? e : "bin";
                 var outputName = subtitles.Count > 1
-                    ? $"{fileBaseName}.{stream.Index}.en.sdh.{ext}"
-                    : $"{fileBaseName}.en.sdh.{ext}";
+                    ? $"{fileBaseName}.{stream.Index}.eng.sdh.{ext}"
+                    : $"{fileBaseName}.eng.sdh.{ext}";
                 var outputPath = Path.Combine(captionDir, outputName);
 
                 var arguments = new[] { "-i", filePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", outputPath };
