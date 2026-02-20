@@ -40,6 +40,12 @@ public class RepairSubtitlesCommand : CmdletBase
     [Parameter(HelpMessage = "When input is a directory, recurse into subdirectories.")]
     public SwitchParameter Recurse { get; set; }
 
+    /// <summary>
+    /// Directory to copy all SRT files to before repairing. Directory structure under each input path is preserved.
+    /// </summary>
+    [Parameter(HelpMessage = "Directory to copy all files to before repairing; preserves directory structure.")]
+    public string? BackupPath { get; set; }
+
     private readonly List<string> _inputPaths = new();
     private IPathResolver? _pathResolver;
 
@@ -80,6 +86,9 @@ public class RepairSubtitlesCommand : CmdletBase
         var writtenPaths = new List<string>();
         var totalPaths = resolvedPairs.Count;
         var pathIndex = 0;
+        string? resolvedBackupRoot = null;
+        if (!string.IsNullOrWhiteSpace(BackupPath) && !ResolveBackupPath(out resolvedBackupRoot))
+            return;
 
         foreach (var (resolvedPath, isDirectory) in resolvedPairs)
         {
@@ -92,19 +101,32 @@ public class RepairSubtitlesCommand : CmdletBase
             if (isDirectory)
             {
                 var files = Directory.EnumerateFiles(resolvedPath, "*.srt", searchOption).ToList();
+                var fileCount = files.Count;
+                var currentFileIndex = 0;
                 foreach (var filePath in files)
                 {
+                    currentFileIndex++;
+                    var filePercent = fileCount > 0 ? (int)((currentFileIndex * 100.0) / fileCount) : 0;
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Repairing...", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Processing);
+                    if (resolvedBackupRoot != null && !CopyToBackup(resolvedBackupRoot, resolvedPath, pathDisplayName, filePath, isDirectory))
+                        continue;
                     if (ProcessFile(filePath, filePath))
                         writtenPaths.Add(filePath);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Completed);
                 }
             }
             else
             {
-                var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
-                    ? ResolveOutputPath(OutputPath!)
-                    : resolvedPath;
-                if (outputPath != null && ProcessFile(resolvedPath, outputPath))
-                    writtenPaths.Add(outputPath);
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Repairing...", pathDisplayName, percentComplete: 100, recordType: ProgressRecordType.Processing);
+                if (resolvedBackupRoot == null || CopyToBackup(resolvedBackupRoot, resolvedPath, pathDisplayName, resolvedPath, isDirectory))
+                {
+                    var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
+                        ? ResolveOutputPath(OutputPath!)
+                        : resolvedPath;
+                    if (outputPath != null && ProcessFile(resolvedPath, outputPath))
+                        writtenPaths.Add(outputPath);
+                }
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
             }
         }
 
@@ -150,6 +172,44 @@ public class RepairSubtitlesCommand : CmdletBase
             return resolved;
         WriteError(CreateErrorRecord(new InvalidOperationException($"Failed to resolve output path: {outputPath}"), "OutputPathResolutionFailed", ErrorCategory.InvalidArgument, outputPath));
         return null;
+    }
+
+    private bool ResolveBackupPath(out string? resolvedBackupRoot)
+    {
+        resolvedBackupRoot = null;
+        if (string.IsNullOrWhiteSpace(BackupPath))
+            return true;
+        if (!PathResolver.TryResolveOutputPath(BackupPath, out var resolved))
+        {
+            WriteError(CreateErrorRecord(new InvalidOperationException($"Failed to resolve backup path: {BackupPath}"), "BackupPathResolutionFailed", ErrorCategory.InvalidArgument, BackupPath));
+            return false;
+        }
+        resolvedBackupRoot = resolved;
+        Directory.CreateDirectory(resolvedBackupRoot);
+        return true;
+    }
+
+    private bool CopyToBackup(string backupRoot, string resolvedPath, string pathDisplayName, string sourceFilePath, bool isDirectory)
+    {
+        try
+        {
+            var relativePath = isDirectory
+                ? Path.Combine(pathDisplayName, Path.GetRelativePath(resolvedPath, sourceFilePath))
+                : pathDisplayName;
+            var backupDest = Path.Combine(backupRoot, relativePath);
+            var backupDir = Path.GetDirectoryName(backupDest);
+            if (!string.IsNullOrEmpty(backupDir))
+                Directory.CreateDirectory(backupDir);
+            File.Copy(sourceFilePath, backupDest, overwrite: true);
+            WriteVerbose($"Backed up to: {backupDest}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to copy to backup: {Source} -> {BackupPath}", sourceFilePath, backupRoot);
+            WriteError(CreateErrorRecord(ex, "BackupFailed", ErrorCategory.WriteError, sourceFilePath));
+            return false;
+        }
     }
 
     private bool ProcessFile(string inputPath, string outputPath)
