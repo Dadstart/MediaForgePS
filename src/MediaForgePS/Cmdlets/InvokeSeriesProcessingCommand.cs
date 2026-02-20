@@ -47,6 +47,11 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     [ValidateRange(0, long.MaxValue)]
     public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
 
+    /// <summary>Root output directory. When set, output is written to OutputPath\Title\Season XX.</summary>
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? OutputPath { get; set; }
+
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
@@ -57,7 +62,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
         var seasonUrl = EnsureSeasonUrl(TvDbSeasonUrl, Season);
         WriteHostMessage("Step 1: Creating directory structure...", ConsoleColor.Cyan);
-        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season);
+        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season, basePath: OutputPath);
         if (string.IsNullOrWhiteSpace(directoryStructure.SeasonDir))
             return;
         WriteHostMessage($"  Season directory: {directoryStructure.SeasonDir}", ConsoleColor.Gray);
