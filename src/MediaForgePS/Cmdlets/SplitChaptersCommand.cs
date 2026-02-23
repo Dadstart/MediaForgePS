@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Uses ffprobe to read chapter information and ffmpeg to split by time ranges.
 /// Chapter indices in ranges are 1-based (e.g. Start=1, End=1 is the first chapter).
 /// </remarks>
-[Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByPath")]
+[Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByRanges")]
 [OutputType(typeof(string[]))]
 public class SplitChaptersCommand : CmdletBase
 {
@@ -32,9 +32,15 @@ public class SplitChaptersCommand : CmdletBase
     /// <summary>
     /// Chapter ranges. Each range has Start (1-based), End (1-based inclusive), and optional OutputName.
     /// </summary>
-    [Parameter(Mandatory = true, Position = 1)]
+    [Parameter(Mandatory = true, Position = 1, ParameterSetName = "ByRanges")]
     [ValidateNotNull]
     public object[] ChapterRanges { get; set; } = [];
+
+    /// <summary>
+    /// When specified, splits every chapter into its own file. Mutually exclusive with -ChapterRanges.
+    /// </summary>
+    [Parameter(Mandatory = true, ParameterSetName = "AllChapters")]
+    public SwitchParameter AllChapters { get; set; }
 
     /// <summary>
     /// Directory where output files are saved. Defaults to the input file's directory.
@@ -65,6 +71,23 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
+        if (ParameterSetName == "AllChapters")
+        {
+            foreach (var inputPath in _inputFiles)
+            {
+                try
+                {
+                    SplitAllChaptersForFile(inputPath);
+                }
+                catch (Exception ex)
+                {
+                    WriteError(new ErrorRecord(ex, "SplitChaptersFailed", ErrorCategory.OperationStopped, inputPath));
+                }
+            }
+
+            return;
+        }
+
         var normalizedRanges = ChapterRangeHelper.NormalizeChapterRanges(ChapterRanges);
         if (normalizedRanges.Count == 0)
         {
@@ -89,7 +112,35 @@ public class SplitChaptersCommand : CmdletBase
         }
     }
 
-    private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges)
+    private void SplitAllChaptersForFile(string inputPath)
+    {
+        if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
+            return;
+
+        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+
+        var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+            .ConfigureAwait(false).GetAwaiter().GetResult();
+
+        if (mediaFile?.Chapters == null || mediaFile.Chapters.Length == 0)
+        {
+            WriteError(new ErrorRecord(
+                new InvalidOperationException("No chapters found in video file."),
+                "NoChapters",
+                ErrorCategory.InvalidOperation,
+                resolvedInputPath));
+            return;
+        }
+
+        var chapterCount = mediaFile.Chapters.Length;
+        var ranges = new List<(int Start, int End, string? OutputName)>(chapterCount);
+        for (var i = 1; i <= chapterCount; i++)
+            ranges.Add((i, i, null));
+
+        SplitChaptersForFile(resolvedInputPath, ranges, mediaFile);
+    }
+
+    private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges, MediaFile? preFetchedMediaFile = null)
     {
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
@@ -105,12 +156,21 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
-        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+        MediaFile mediaFile;
+        if (preFetchedMediaFile != null)
+        {
+            mediaFile = preFetchedMediaFile;
+        }
+        else
+        {
+            WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
 
-        var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
-            .ConfigureAwait(false).GetAwaiter().GetResult();
+            mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+                .ConfigureAwait(false).GetAwaiter().GetResult()
+                ?? throw new InvalidOperationException("Could not read media file.");
+        }
 
-        if (mediaFile?.Chapters == null || mediaFile.Chapters.Length == 0)
+        if (mediaFile.Chapters == null || mediaFile.Chapters.Length == 0)
         {
             WriteError(new ErrorRecord(
                 new InvalidOperationException("No chapters found in video file."),
