@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="MediaForgePS.psd1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
