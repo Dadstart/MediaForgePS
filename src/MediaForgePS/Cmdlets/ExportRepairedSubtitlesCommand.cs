@@ -153,23 +153,40 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
                 return;
             }
 
+            // Ensure services are created on the pipeline thread before running parallel work.
             _ = ExecutableService;
             var totalConvert = imagePaths.Count;
-            var completedCount = 0;
+            var errors = new ConcurrentBag<(string InputPath, Exception Exception)>();
+
+            MediaConversionHelper.WriteMainProgress(
+                this,
+                "Converting image subtitles to SRT",
+                $"Converting {totalConvert} image subtitle file(s) to SRT...",
+                0,
+                recordType: ProgressRecordType.Processing);
 
             Parallel.ForEach(
                 imagePaths,
-                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) },
                 inputPath =>
                 {
-                    var currentIndex = Interlocked.Increment(ref completedCount);
-                    var displayName = Path.GetFileName(inputPath);
-                    var pct = totalConvert > 0 ? (int)((currentIndex * 100.0) / totalConvert) : 0;
-                    MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", $"File {currentIndex} of {totalConvert} — {displayName}", pct, recordType: ProgressRecordType.Processing);
                     var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
-                    if (ConvertImageToSrt(subtitleEditPath, inputPath, srtPath))
+                    try
+                    {
+                        ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputPath, srtPath);
+                        Logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
                         convertedSrtPaths.Add(srtPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputPath);
+                        errors.Add((inputPath, ex));
+                    }
                 });
+
+            foreach (var error in errors)
+                WriteError(CreateErrorRecord(error.Exception, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, error.InputPath));
+
             MediaConversionHelper.WriteProgressCompleted(this, "Converting image subtitles to SRT", "Current file");
         }
 
@@ -260,22 +277,6 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
         {
             Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
             WriteError(new ErrorRecord(ex, "SubtitleExportFailed", ErrorCategory.OperationStopped, mediaFile.Path));
-            return false;
-        }
-    }
-
-    private bool ConvertImageToSrt(string subtitleEditPath, string inputPath, string outputSrtPath)
-    {
-        try
-        {
-            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputPath, outputSrtPath);
-            WriteVerbose($"Converted to: {outputSrtPath}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputPath);
-            WriteError(CreateErrorRecord(ex, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, inputPath));
             return false;
         }
     }
