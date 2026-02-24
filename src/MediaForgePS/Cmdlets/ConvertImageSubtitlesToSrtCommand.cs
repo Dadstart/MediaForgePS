@@ -1,0 +1,240 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.System;
+using Microsoft.Extensions.Logging;
+using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
+
+namespace Dadstart.Labs.MediaForge.Cmdlets;
+
+/// <summary>
+/// Converts image-based subtitle files (SUP, SUB) to SRT (text) using Subtitle Edit with Tesseract OCR.
+/// </summary>
+/// <remarks>
+/// Requires Subtitle Edit installed in "%ProgramFiles%\\Subtitle Edit" and Tesseract OCR.
+/// Processes .sup and .sub files directly or directories containing these files. Output SRT files are written
+/// next to each input file unless -OutputPath is specified for a single file.
+/// </remarks>
+[Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt")]
+[Alias("Convert-SupToSrt")]
+[OutputType(typeof(string))]
+public class ConvertImageSubtitlesToSrtCommand : CmdletBase
+{
+    private const string SubtitleEditExeName = "SubtitleEdit.exe";
+    private const string SubtitleEditFolderName = "Subtitle Edit";
+
+    /// <summary>
+    /// Path to a .sup or .sub file, or directory containing .sup/.sub files. Pipeline accepts path strings.
+    /// </summary>
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Path to .sup/.sub file(s) or directory containing .sup/.sub files.")]
+    [Alias("Path")]
+    public string[] InputPath { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Output path for the SRT file. Only used when a single file is processed; ignored for directories or multiple paths.
+    /// </summary>
+    [Parameter(Position = 1, HelpMessage = "Output path when processing a single file. Omit to write .srt next to the source file.")]
+    public string? OutputPath { get; set; }
+
+    /// <summary>
+    /// When input is a directory, recurse into subdirectories to find .sup and .sub files.
+    /// </summary>
+    [Parameter(HelpMessage = "When input is a directory, recurse into subdirectories.")]
+    public SwitchParameter Recurse { get; set; }
+
+    private readonly List<string> _inputPaths = new();
+    private IExecutableService? _executableService;
+    private IPathResolver? _pathResolver;
+
+    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
+
+    protected override void Begin()
+    {
+        Logger.LogDebug("Convert-ImageSubtitlesToSrt Begin");
+    }
+
+    protected override void Process()
+    {
+        if (InputPath == null || InputPath.Length == 0)
+            return;
+        foreach (var p in InputPath)
+        {
+            if (!string.IsNullOrWhiteSpace(p))
+                _inputPaths.Add(p.Trim());
+        }
+    }
+
+    protected override void End()
+    {
+        if (_inputPaths.Count == 0)
+        {
+            WriteWarning("No input path(s) provided.");
+            return;
+        }
+
+        var subtitleEditPath = GetSubtitleEditPath();
+        if (string.IsNullOrEmpty(subtitleEditPath))
+        {
+            WriteError(CreateErrorRecord(
+                new FileNotFoundException($"Subtitle Edit not found. Expected: {GetSubtitleEditExpectedPath()}"),
+                "SubtitleEditNotFound",
+                ErrorCategory.ObjectNotFound,
+                null));
+            return;
+        }
+
+        var resolvedPairs = ResolveInputPaths();
+        if (resolvedPairs.Count == 0)
+        {
+            WriteWarning("No existing file or directory paths could be resolved.");
+            return;
+        }
+
+        var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var writtenPaths = new List<string>();
+        var totalPaths = resolvedPairs.Count;
+        var pathIndex = 0;
+
+        foreach (var (resolvedPath, isDirectory) in resolvedPairs)
+        {
+            pathIndex++;
+            var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
+            var mainPercent = totalPaths > 0 ? (int)((pathIndex * 100.0) / totalPaths) : 0;
+            var mainStatus = $"Path {pathIndex} of {totalPaths} ({mainPercent}%) — {pathDisplayName}";
+            MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+
+            if (isDirectory)
+            {
+                var files = Directory
+                    .EnumerateFiles(resolvedPath, "*.*", searchOption)
+                    .Where(f =>
+                    {
+                        var ext = Path.GetExtension(f);
+                        return ext.Equals(".sup", StringComparison.OrdinalIgnoreCase)
+                            || ext.Equals(".sub", StringComparison.OrdinalIgnoreCase);
+                    })
+                    .ToList();
+                var fileCount = files.Count;
+                var currentFileIndex = 0;
+                foreach (var filePath in files)
+                {
+                    currentFileIndex++;
+                    var filePercent = fileCount > 0 ? (int)((currentFileIndex * 100.0) / fileCount) : 0;
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Processing);
+                    var srtPath = Path.ChangeExtension(filePath, "srt") ?? filePath + ".srt";
+                    if (ConvertFile(subtitleEditPath, filePath, srtPath))
+                        writtenPaths.Add(srtPath);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Completed);
+                }
+            }
+            else
+            {
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", pathDisplayName, percentComplete: 100, recordType: ProgressRecordType.Processing);
+                var defaultOutput = Path.ChangeExtension(resolvedPath, "srt") ?? resolvedPath + ".srt";
+                var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
+                    ? ResolveOutputPath(OutputPath!)
+                    : defaultOutput;
+                if (outputPath != null && ConvertFile(subtitleEditPath, resolvedPath, outputPath))
+                    writtenPaths.Add(outputPath);
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
+            }
+        }
+
+        MediaConversionHelper.WriteProgressCompleted(this, "Converting image subtitles to SRT", "Current file");
+
+        foreach (var path in writtenPaths)
+            WriteObject(path);
+    }
+
+    private List<(string ResolvedPath, bool IsDirectory)> ResolveInputPaths()
+    {
+        var result = new List<(string, bool)>();
+        foreach (var path in _inputPaths)
+        {
+            if (PathResolverImpl.TryResolveProviderPath(this, path, out var resolved))
+            {
+                if (Directory.Exists(resolved))
+                    result.Add((resolved!, true));
+                else if (File.Exists(resolved))
+                    result.Add((resolved!, false));
+                else
+                    Logger.LogDebug("Resolved path does not exist: {Path}", resolved);
+            }
+            else if (PathResolverImpl.TryGetUnresolvedProviderPath(this, path, out var unresolved))
+            {
+                if (Directory.Exists(unresolved))
+                    result.Add((unresolved!, true));
+                else if (File.Exists(unresolved))
+                    result.Add((unresolved!, false));
+                else
+                    WriteError(CreateErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
+            }
+            else
+                WriteError(CreateErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
+        }
+
+        return result;
+    }
+
+    private string? ResolveOutputPath(string outputPath)
+    {
+        if (PathResolver.TryResolveOutputPath(outputPath, out var resolved))
+            return resolved;
+        WriteError(CreateErrorRecord(new InvalidOperationException($"Failed to resolve output path: {outputPath}"), "OutputPathResolutionFailed", ErrorCategory.InvalidArgument, outputPath));
+        return null;
+    }
+
+    private bool ConvertFile(string subtitleEditPath, string inputSubtitlePath, string outputSrtPath)
+    {
+        try
+        {
+            var args = new List<string>
+            {
+                "/convert",
+                inputSubtitlePath,
+                "srt",
+                "/ocrengine:tesseract"
+            };
+
+            var result = ExecutableService.ExecuteAsync(subtitleEditPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (result.ExitCode != 0)
+                throw new InvalidOperationException($"Subtitle Edit failed with exit code {result.ExitCode}. {result.ErrorOutput}");
+
+            var defaultSrt = Path.ChangeExtension(inputSubtitlePath, "srt") ?? inputSubtitlePath + ".srt";
+            if (!string.Equals(defaultSrt, outputSrtPath, StringComparison.OrdinalIgnoreCase) && File.Exists(defaultSrt))
+            {
+                var dir = Path.GetDirectoryName(outputSrtPath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                File.Move(defaultSrt, outputSrtPath, overwrite: true);
+            }
+
+            WriteVerbose($"Converted to: {outputSrtPath}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputSubtitlePath);
+            WriteError(CreateErrorRecord(ex, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, inputSubtitlePath));
+            return false;
+        }
+    }
+
+    private static string? GetSubtitleEditPath()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        var path = GetSubtitleEditExpectedPath();
+        return File.Exists(path) ? path : null;
+    }
+
+    private static string GetSubtitleEditExpectedPath()
+    {
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        return Path.Combine(programFiles, SubtitleEditFolderName, SubtitleEditExeName);
+    }
+}
