@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -10,6 +11,18 @@ namespace Dadstart.Labs.MediaForge.Services;
 public static class SrtOcrFixHelper
 {
     private const char MusicNote = '♪';
+
+    /// <summary>
+    /// Reads an SRT file, applies OCR fixes, and writes the result to outputPath. Uses UTF-8 encoding.
+    /// </summary>
+    /// <param name="inputPath">Path to the source SRT file.</param>
+    /// <param name="outputPath">Path to write the repaired SRT file.</param>
+    public static void RepairFile(string inputPath, string outputPath)
+    {
+        var content = File.ReadAllText(inputPath).Replace("\r\n", "\n").Replace("\r", "\n");
+        var fixedContent = FixMusicNoteOcrErrors(content);
+        File.WriteAllText(outputPath, fixedContent, Encoding.UTF8);
+    }
 
     /// <summary>
     /// Parses SRT content and fixes OCR misreads of ♪ (often detected as J, 3, S, or trailing I) in subtitle text only.

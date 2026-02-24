@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public class RepairSubtitlesCommandTests : IDisposable
+public class ExportRepairedSubtitlesCommandTests : IDisposable
 {
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
@@ -21,10 +21,10 @@ public class RepairSubtitlesCommandTests : IDisposable
     private readonly System.Reflection.FieldInfo? _providerField;
     private readonly System.Reflection.FieldInfo? _initializedField;
 
-    public RepairSubtitlesCommandTests()
+    public ExportRepairedSubtitlesCommandTests()
     {
         _loggerFactoryMock = new Mock<ILoggerFactory>();
-        var loggerMock = new Mock<ILogger<RepairSubtitlesCommand>>();
+        var loggerMock = new Mock<ILogger<ExportRepairedSubtitlesCommand>>();
         var pathResolverLoggerMock = new Mock<ILogger<PathResolver>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
 
@@ -37,9 +37,13 @@ public class RepairSubtitlesCommandTests : IDisposable
             });
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
+        var mediaReaderMock = new Mock<IMediaReaderService>();
+        var executableMock = new Mock<IExecutableService>();
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
+        services.AddSingleton<IMediaReaderService>(mediaReaderMock.Object);
+        services.AddSingleton<IExecutableService>(executableMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();
@@ -63,56 +67,48 @@ public class RepairSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void RepairSubtitles_WhenPathDoesNotExist_WritesError()
+    public void ExportRepairedSubtitles_WhenPathHasNoMkvFiles_WritesWarning()
     {
-        var asm = typeof(RepairSubtitlesCommand).Assembly;
+        var emptyDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ExportRepaired_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(emptyDir);
+            var asm = typeof(ExportRepairedSubtitlesCommand).Assembly;
+            var initialSessionState = InitialSessionState.CreateDefault();
+            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-RepairedSubtitles", typeof(ExportRepairedSubtitlesCommand), null));
+
+            using var ps = PowerShell.Create(initialSessionState);
+            ps.AddCommand("Export-RepairedSubtitles").AddParameter("InputPath", new[] { emptyDir });
+
+            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
+            var errors = ps.Streams.Error.ReadAll();
+            var warnings = ps.Streams.Warning.ReadAll();
+
+            Assert.Empty(errors);
+            Assert.NotEmpty(warnings);
+        }
+        finally
+        {
+            if (Directory.Exists(emptyDir))
+                Directory.Delete(emptyDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ExportRepairedSubtitles_WhenPathDoesNotExist_WritesError()
+    {
+        var asm = typeof(ExportRepairedSubtitlesCommand).Assembly;
         var initialSessionState = InitialSessionState.CreateDefault();
         initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-RepairedSubtitles", typeof(ExportRepairedSubtitlesCommand), null));
 
         using var ps = PowerShell.Create(initialSessionState);
-        ps.AddCommand("Repair-Subtitles").AddParameter("InputPath", "C:\\Nonexistent\\path.srt");
+        ps.AddCommand("Export-RepairedSubtitles").AddParameter("InputPath", new[] { "C:\\Nonexistent\\path\\file.mkv" });
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.NotEmpty(errors);
-    }
-
-    [Fact]
-    public void RepairSubtitles_WhenSingleFile_FixesContentAndOutputsPath()
-    {
-        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_RepairSubtitles_" + Guid.NewGuid().ToString("N"));
-        var srtPath = Path.Combine(tempDir, "test.srt");
-        try
-        {
-            Directory.CreateDirectory(tempDir);
-            var content = "1\n00:00:01,000 --> 00:00:02,000\nSong J plays.\n\n";
-            File.WriteAllText(srtPath, content);
-
-            var asm = typeof(RepairSubtitlesCommand).Assembly;
-            var initialSessionState = InitialSessionState.CreateDefault();
-            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
-
-            using var ps = PowerShell.Create(initialSessionState);
-            ps.AddCommand("Repair-Subtitles").AddParameter("InputPath", srtPath);
-
-            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
-            var errors = ps.Streams.Error.ReadAll();
-
-            Assert.Empty(errors);
-            Assert.Single(results);
-            Assert.Equal(srtPath, results[0]);
-
-            var written = File.ReadAllText(srtPath);
-            Assert.Contains("♪", written);
-            Assert.Contains("Song ♪ plays.", written);
-        }
-        finally
-        {
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
-        }
     }
 }

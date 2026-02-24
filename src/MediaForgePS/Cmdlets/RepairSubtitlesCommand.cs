@@ -75,7 +75,7 @@ public class RepairSubtitlesCommand : CmdletBase
             return;
         }
 
-        var resolvedPairs = ResolveInputPaths();
+        var resolvedPairs = PathResolverImpl.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, e => WriteError(e));
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -86,13 +86,13 @@ public class RepairSubtitlesCommand : CmdletBase
         var writtenPaths = new List<string>();
         var totalPaths = resolvedPairs.Count;
         var pathIndex = 0;
-        string? resolvedBackupRoot = null;
-        if (!string.IsNullOrWhiteSpace(BackupPath) && !ResolveBackupPath(out resolvedBackupRoot))
+        if (!PathResolverImpl.ResolveBackupPath(PathResolver, BackupPath, e => WriteError(e), out var resolvedBackupRoot))
             return;
 
-        foreach (var (resolvedPath, isDirectory) in resolvedPairs)
+        foreach (var pair in resolvedPairs)
         {
             pathIndex++;
+            var (resolvedPath, isDirectory) = pair;
             var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
             var mainPercent = totalPaths > 0 ? (int)((pathIndex * 100.0) / totalPaths) : 0;
             var mainStatus = $"Path {pathIndex} of {totalPaths} ({mainPercent}%) — {pathDisplayName}";
@@ -121,7 +121,7 @@ public class RepairSubtitlesCommand : CmdletBase
                 if (resolvedBackupRoot == null || CopyToBackup(resolvedBackupRoot, resolvedPath, pathDisplayName, resolvedPath, isDirectory))
                 {
                     var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
-                        ? ResolveOutputPath(OutputPath!)
+                        ? PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, e => WriteError(e))
                         : resolvedPath;
                     if (outputPath != null && ProcessFile(resolvedPath, outputPath))
                         writtenPaths.Add(outputPath);
@@ -136,59 +136,6 @@ public class RepairSubtitlesCommand : CmdletBase
             WriteObject(path);
     }
 
-    private List<(string ResolvedPath, bool IsDirectory)> ResolveInputPaths()
-    {
-        var result = new List<(string, bool)>();
-        foreach (var path in _inputPaths)
-        {
-            if (PathResolverImpl.TryResolveProviderPath(this, path, out var resolved))
-            {
-                if (Directory.Exists(resolved))
-                    result.Add((resolved!, true));
-                else if (File.Exists(resolved))
-                    result.Add((resolved!, false));
-                else
-                    Logger.LogDebug("Resolved path does not exist: {Path}", resolved);
-            }
-            else if (PathResolverImpl.TryGetUnresolvedProviderPath(this, path, out var unresolved))
-            {
-                if (Directory.Exists(unresolved))
-                    result.Add((unresolved!, true));
-                else if (File.Exists(unresolved))
-                    result.Add((unresolved!, false));
-                else
-                    WriteError(CreateErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
-            }
-            else
-                WriteError(CreateErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
-        }
-
-        return result;
-    }
-
-    private string? ResolveOutputPath(string outputPath)
-    {
-        if (PathResolver.TryResolveOutputPath(outputPath, out var resolved))
-            return resolved;
-        WriteError(CreateErrorRecord(new InvalidOperationException($"Failed to resolve output path: {outputPath}"), "OutputPathResolutionFailed", ErrorCategory.InvalidArgument, outputPath));
-        return null;
-    }
-
-    private bool ResolveBackupPath(out string? resolvedBackupRoot)
-    {
-        resolvedBackupRoot = null;
-        if (string.IsNullOrWhiteSpace(BackupPath))
-            return true;
-        if (!PathResolver.TryResolveOutputPath(BackupPath, out var resolved))
-        {
-            WriteError(CreateErrorRecord(new InvalidOperationException($"Failed to resolve backup path: {BackupPath}"), "BackupPathResolutionFailed", ErrorCategory.InvalidArgument, BackupPath));
-            return false;
-        }
-        resolvedBackupRoot = resolved;
-        Directory.CreateDirectory(resolvedBackupRoot);
-        return true;
-    }
-
     private bool CopyToBackup(string backupRoot, string resolvedPath, string pathDisplayName, string sourceFilePath, bool isDirectory)
     {
         try
@@ -196,12 +143,8 @@ public class RepairSubtitlesCommand : CmdletBase
             var relativePath = isDirectory
                 ? Path.Combine(pathDisplayName, Path.GetRelativePath(resolvedPath, sourceFilePath))
                 : pathDisplayName;
-            var backupDest = Path.Combine(backupRoot, relativePath);
-            var backupDir = Path.GetDirectoryName(backupDest);
-            if (!string.IsNullOrEmpty(backupDir))
-                Directory.CreateDirectory(backupDir);
-            File.Copy(sourceFilePath, backupDest, overwrite: true);
-            WriteVerbose($"Backed up to: {backupDest}");
+            PathResolverImpl.CopyFileToBackup(backupRoot, sourceFilePath, relativePath);
+            WriteVerbose($"Backed up to: {Path.Combine(backupRoot, relativePath)}");
             return true;
         }
         catch (Exception ex)
@@ -216,9 +159,7 @@ public class RepairSubtitlesCommand : CmdletBase
     {
         try
         {
-            var content = File.ReadAllText(inputPath).Replace("\r\n", "\n").Replace("\r", "\n");
-            var fixedContent = SrtOcrFixHelper.FixMusicNoteOcrErrors(content);
-            File.WriteAllText(outputPath, fixedContent, System.Text.Encoding.UTF8);
+            SrtOcrFixHelper.RepairFile(inputPath, outputPath);
             WriteVerbose($"Wrote fixed subtitles to: {outputPath}");
             return true;
         }

@@ -28,13 +28,18 @@ public class ExportSubtitlesCommandTests : IDisposable
         _loggerMock = new Mock<ILogger<ExportSubtitlesCommand>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
 
+        var pathResolverLoggerMock = new Mock<ILogger<PathResolver>>();
         _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<string>()))
-            .Returns(_loggerMock.Object);
+            .Returns((string name) => name?.Contains("PathResolver") == true ? pathResolverLoggerMock.Object : _loggerMock.Object);
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
+        var mediaReaderMock = new Mock<IMediaReaderService>();
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
+        services.AddSingleton<IMediaReaderService>(mediaReaderMock.Object);
+        services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
+        services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();
 
         var moduleServicesType = typeof(ModuleServices);

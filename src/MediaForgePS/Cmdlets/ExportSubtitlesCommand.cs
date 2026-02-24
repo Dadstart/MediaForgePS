@@ -23,16 +23,6 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(void))]
 public class ExportSubtitlesCommand : CmdletBase
 {
-    private static readonly Dictionary<string, string> _codecToExtension = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["subrip"] = "srt",
-        ["ass"] = "srt",
-        ["ssa"] = "srt",
-        ["webvtt"] = "vtt",
-        ["dvd_subtitle"] = "sub",
-        ["hdmv_pgs_subtitle"] = "sup"
-    };
-
     /// <summary>
     /// Media file path(s) or folder path(s). For folders, all .mkv files are processed. Pipeline accepts path strings or MediaFile objects from Get-MediaFile.
     /// </summary>
@@ -73,7 +63,7 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var mediaFiles = ResolveMediaFiles().ToList();
+        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, this, MediaReaderService, Logger, e => WriteError(e)).ToList();
         if (mediaFiles.Count == 0)
         {
             WriteWarning("No media files to process.");
@@ -110,7 +100,7 @@ public class ExportSubtitlesCommand : CmdletBase
         {
             var (mf, fileSize) = filesWithSize[i];
             var fileIndex = i + 1;
-            var fileName = System.IO.Path.GetFileName(mf.Path);
+            var fileName = Path.GetFileName(mf.Path);
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
             MediaConversionHelper.WriteMainProgress(this, "Extracting subtitles", status, percent, recordType: ProgressRecordType.Processing);
             MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Extracting...", fileName, recordType: ProgressRecordType.Processing);
@@ -128,58 +118,9 @@ public class ExportSubtitlesCommand : CmdletBase
         WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
     }
 
-    private IEnumerable<MediaFile> ResolveMediaFiles()
-    {
-        var filePaths = new List<string>();
-        foreach (var item in _pathOrMediaFiles)
-        {
-            var unwrapped = item is PSObject ps ? ps.BaseObject : item;
-            if (unwrapped is MediaFile mf)
-            {
-                yield return mf;
-                continue;
-            }
-            var path = unwrapped?.ToString()?.Trim();
-            if (string.IsNullOrEmpty(path))
-                continue;
-            try
-            {
-                var resolved = GetResolvedProviderPathFromPSPath(path, out _);
-                foreach (var r in resolved)
-                {
-                    if (File.Exists(r))
-                        filePaths.Add(r);
-                    else if (Directory.Exists(r))
-                        filePaths.AddRange(Directory.GetFiles(r, "*.mkv"));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Could not resolve path: {Path}", path);
-                WriteError(new ErrorRecord(new FileNotFoundException("Path does not exist.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
-            }
-        }
-
-        foreach (var filePath in filePaths)
-        {
-            MediaFile? mf = null;
-            try
-            {
-                mf = MediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Could not read media file: {Path}", filePath);
-                WriteError(new ErrorRecord(ex, "MediaFileReadFailed", ErrorCategory.ReadError, filePath));
-            }
-            if (mf != null)
-                yield return mf;
-        }
-    }
-
     private void ExportSubtitlesForMediaFile(MediaFile mediaFile, int totalFiles, int fileIndex)
     {
-        var fileName = System.IO.Path.GetFileNameWithoutExtension(mediaFile.Path);
+        var fileName = Path.GetFileNameWithoutExtension(mediaFile.Path);
         WriteVerbose($"[{fileIndex}/{totalFiles}] Processing: {fileName}");
 
         var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
@@ -199,25 +140,21 @@ public class ExportSubtitlesCommand : CmdletBase
             subIndex++;
             var percent = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0);
             MediaConversionHelper.WriteCurrentItemProgress(this, fileName, $"Stream {sub.Index} ({sub.Codec})", percentComplete: percent);
-            ExportSingleSubtitle(sub, mediaFile, subIndex, subtitles.Count);
+            ExportSingleSubtitle(sub, mediaFile, subtitles.Count);
         }
 
         MediaConversionHelper.WriteCurrentItemProgress(this, fileName, "Complete", recordType: ProgressRecordType.Completed);
     }
 
-    private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int subtitleIndex, int totalSubtitleCount)
+    private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount)
     {
-        if (!_codecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
+        if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
         {
             WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension");
             ext = "bin";
         }
 
-        var basePath = System.IO.Path.ChangeExtension(mediaFile.Path, null)?.TrimEnd('.') ?? mediaFile.Path;
-        var newPath = totalSubtitleCount > 1
-            ? basePath + $".{stream.Index}.eng.sdh.{ext}"
-            : basePath + $".eng.sdh.{ext}";
-
+        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
         if (!PathResolver.TryResolveOutputPath(newPath, out var resolvedOutput))
         {
             WriteError(new ErrorRecord(new InvalidOperationException($"Failed to resolve output path: {newPath}"), "OutputPathFailed", ErrorCategory.InvalidArgument, newPath));
@@ -226,42 +163,18 @@ public class ExportSubtitlesCommand : CmdletBase
 
         try
         {
-            if (string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase))
-            {
-                var mkvextract = GetMkvextractPath();
-                if (mkvextract == null)
-                {
-                    WriteError(new ErrorRecord(new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec."), "MkvextractNotFound", ErrorCategory.ObjectNotFound, null));
-                    return;
-                }
-                var args = new[] { "tracks", mediaFile.Path, $"{stream.Index}:{resolvedOutput}" };
-                var result = ExecutableService.ExecuteAsync(mkvextract, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-                if (result.ExitCode != 0)
-                    throw new InvalidOperationException($"mkvextract failed with exit code {result.ExitCode}. {result.ErrorOutput}");
-            }
-            else
-            {
-                var ffmpegArgs = new List<string> { "-i", mediaFile.Path, "-map", $"0:{stream.Index}", "-c", "copy", "-y", resolvedOutput };
-                var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-                if (result.ExitCode != 0)
-                    throw new InvalidOperationException($"FFmpeg failed with exit code {result.ExitCode}. {result.ErrorOutput}");
-            }
-
-            WriteVerbose($"Extracted {System.IO.Path.GetFileName(resolvedOutput)}");
+            SubtitleExportHelper.ExtractSubtitle(
+                ExecutableService,
+                stream,
+                mediaFile.Path,
+                resolvedOutput,
+                WindowsExecutablePathHelper.GetMkvextractPath());
+            WriteVerbose($"Extracted {Path.GetFileName(resolvedOutput)}");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
             WriteError(new ErrorRecord(ex, "SubtitleExportFailed", ErrorCategory.OperationStopped, mediaFile.Path));
         }
-    }
-
-    private static string? GetMkvextractPath()
-    {
-        if (!OperatingSystem.IsWindows())
-            return null;
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var path = System.IO.Path.Combine(programFiles, "mkvtoolnix", "mkvextract.exe");
-        return File.Exists(path) ? path : null;
     }
 }
