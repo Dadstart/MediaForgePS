@@ -24,7 +24,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$targetFramework = 'net10.0' # matches csproj
+$targetFramework = 'net9.0' # matches csproj
 $moduleBaseName = 'MediaForgePS'
 
 # Determine repository root using git (relative to this script's location)

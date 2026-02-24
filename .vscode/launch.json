@@ -12,7 +12,7 @@
             "justMyCode": false,
             "symbolOptions": {
                 "searchPaths": [
-                    "${workspaceFolder}/src/MediaForgePS/bin/Debug/net10.0"
+                    "${workspaceFolder}/src/MediaForgePS/bin/Debug/net9.0"
                 ],
                 "searchMicrosoftSymbolServer": false,
                 "searchNuGetOrgSymbolServer": false
@@ -27,7 +27,7 @@
             "justMyCode": false,
             "symbolOptions": {
                 "searchPaths": [
-                    "${workspaceFolder}/src/MediaForgePS/bin/Release/net10.0"
+                    "${workspaceFolder}/src/MediaForgePS/bin/Release/net9.0"
                 ],
                 "searchMicrosoftSymbolServer": false,
                 "searchNuGetOrgSymbolServer": false
