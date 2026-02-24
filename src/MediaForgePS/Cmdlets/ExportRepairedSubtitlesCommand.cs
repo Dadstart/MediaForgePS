@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -136,7 +139,7 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
             .Where(p => Path.GetExtension(p).Equals(".srt", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        var convertedSrtPaths = new List<string>();
+        var convertedSrtPaths = new ConcurrentBag<string>();
         if (imagePaths.Count > 0)
         {
             var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
@@ -150,17 +153,23 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
                 return;
             }
 
+            _ = ExecutableService;
             var totalConvert = imagePaths.Count;
-            for (var idx = 0; idx < imagePaths.Count; idx++)
-            {
-                var inputPath = imagePaths[idx];
-                var displayName = Path.GetFileName(inputPath);
-                var pct = totalConvert > 0 ? (int)(((idx + 1) * 100.0) / totalConvert) : 0;
-                MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", $"File {idx + 1} of {totalConvert} — {displayName}", pct, recordType: ProgressRecordType.Processing);
-                var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
-                if (ConvertImageToSrt(subtitleEditPath, inputPath, srtPath))
-                    convertedSrtPaths.Add(srtPath);
-            }
+            var completedCount = 0;
+
+            Parallel.ForEach(
+                imagePaths,
+                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                inputPath =>
+                {
+                    var currentIndex = Interlocked.Increment(ref completedCount);
+                    var displayName = Path.GetFileName(inputPath);
+                    var pct = totalConvert > 0 ? (int)((currentIndex * 100.0) / totalConvert) : 0;
+                    MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", $"File {currentIndex} of {totalConvert} — {displayName}", pct, recordType: ProgressRecordType.Processing);
+                    var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
+                    if (ConvertImageToSrt(subtitleEditPath, inputPath, srtPath))
+                        convertedSrtPaths.Add(srtPath);
+                });
             MediaConversionHelper.WriteProgressCompleted(this, "Converting image subtitles to SRT", "Current file");
         }
 
