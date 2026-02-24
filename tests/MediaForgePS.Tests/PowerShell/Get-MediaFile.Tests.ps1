@@ -1,6 +1,6 @@
 BeforeAll {
     # Import the module for testing
-    $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net9.0\MediaForgePS.dll'
+    $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net10.0\MediaForgePS.dll'
 
     # Build the module if it doesn't exist
     if (-not (Test-Path $modulePath)) {

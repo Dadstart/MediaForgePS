@@ -152,7 +152,7 @@ Test-Command -CommandName 'git'
 Test-Command -CommandName 'dotnet'
 
 # Target framework version (matches MediaForgePS.csproj)
-$targetFramework = 'net9.0'
+$targetFramework = 'net10.0'
 
 # Determine repository root using git
 $repoRoot = git rev-parse --show-toplevel

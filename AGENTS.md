@@ -17,12 +17,12 @@
 
 ### dotnet
 
-- Use dotnet 9
+- Use dotnet 10
 
 ### C#
 
 #### General
-- Use C# 13
+- Use C# 14
 - Root C# namespace is Dadstart.Labs.MediaForge
 - Do not add copyright file headers to C# files
 - Do not use StyleCop
