@@ -34,10 +34,12 @@ public class ExportSubtitlesCommandTests : IDisposable
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
         var mediaReaderMock = new Mock<IMediaReaderService>();
+        var executableMock = new Mock<IExecutableService>();
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         services.AddSingleton<IMediaReaderService>(mediaReaderMock.Object);
+        services.AddSingleton<IExecutableService>(executableMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();
@@ -70,10 +72,10 @@ public class ExportSubtitlesCommandTests : IDisposable
             var asm = typeof(ExportSubtitlesCommand).Assembly;
             var initialSessionState = InitialSessionState.CreateDefault();
             initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-AllSubtitles", typeof(ExportSubtitlesCommand), null));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
 
             using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
-            ps.AddCommand("Export-AllSubtitles").AddParameter("InputPath", new[] { emptyDir });
+            ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { emptyDir });
 
             var results = ps.Invoke();
             var errors = ps.Streams.Error.ReadAll();
@@ -91,18 +93,19 @@ public class ExportSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ExportSubtitles_Alias_ResolvesToExportAllSubtitles()
+    public void ExportSubtitles_WhenPathDoesNotExist_WritesError()
     {
         var asm = typeof(ExportSubtitlesCommand).Assembly;
         var initialSessionState = InitialSessionState.CreateDefault();
         initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-AllSubtitles", typeof(ExportSubtitlesCommand), null));
-        initialSessionState.Commands.Add(new SessionStateAliasEntry("Export-Subtitles", "Export-AllSubtitles"));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
 
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
-        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { "C:\\NonexistentFolder" });
+        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { "C:\\Nonexistent\\path\\file.mkv" });
 
-        // Should not throw; may write error for invalid path
         ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.NotEmpty(errors);
     }
 }
