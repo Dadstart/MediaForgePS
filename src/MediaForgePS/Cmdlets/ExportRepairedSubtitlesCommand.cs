@@ -38,6 +38,24 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
     [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
     public string? BackupPath { get; set; }
 
+    /// <summary>
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10.
+    /// </summary>
+    [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
+    public int ThrottleLimit { get; set; } = 10;
+
+    /// <summary>
+    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR and repairs SRT files (unless -NoRepair is also specified).
+    /// </summary>
+    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
+
+    /// <summary>
+    /// When specified with -Ocr, skips the SRT repair step. Has no effect without -Ocr.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip SRT repair when used with -Ocr.")]
+    public SwitchParameter NoRepair { get; set; }
+
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
     private IExecutableService? _executableService;
@@ -140,7 +158,7 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
             .ToList();
 
         var convertedSrtPaths = new ConcurrentBag<string>();
-        if (imagePaths.Count > 0)
+        if (Ocr.IsPresent && imagePaths.Count > 0)
         {
             var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
             if (string.IsNullOrEmpty(subtitleEditPath))
@@ -157,6 +175,7 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
             _ = ExecutableService;
             var totalConvert = imagePaths.Count;
             var errors = new ConcurrentBag<(string InputPath, Exception Exception)>();
+            var completedCount = 0;
 
             MediaConversionHelper.WriteMainProgress(
                 this,
@@ -165,24 +184,61 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
                 0,
                 recordType: ProgressRecordType.Processing);
 
-            Parallel.ForEach(
-                imagePaths,
-                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(Environment.ProcessorCount / 2, 1) },
-                inputPath =>
+            var maxParallel = Math.Max(1, ThrottleLimit);
+            using var throttle = new SemaphoreSlim(maxParallel, maxParallel);
+            var tasks = imagePaths
+                .Select(inputPath => Task.Run(() =>
                 {
-                    var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
+                    throttle.Wait();
                     try
                     {
-                        ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputPath, srtPath);
-                        Logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
-                        convertedSrtPaths.Add(srtPath);
+                        var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
+                        try
+                        {
+                            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputPath, srtPath);
+                            Logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
+                            convertedSrtPaths.Add(srtPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputPath);
+                            errors.Add((inputPath, ex));
+                        }
+                        finally
+                        {
+                            Interlocked.Increment(ref completedCount);
+                        }
                     }
-                    catch (Exception ex)
+                    finally
                     {
-                        Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputPath);
-                        errors.Add((inputPath, ex));
+                        throttle.Release();
                     }
-                });
+                }))
+                .ToArray();
+
+            while (Volatile.Read(ref completedCount) < totalConvert)
+            {
+                var current = Volatile.Read(ref completedCount);
+                var percent = totalConvert > 0 ? (int)((current * 100.0) / totalConvert) : 0;
+
+                MediaConversionHelper.WriteMainProgress(
+                    this,
+                    "Converting image subtitles to SRT",
+                    $"Converted {current} of {totalConvert} image subtitle file(s) to SRT...",
+                    percent,
+                    recordType: ProgressRecordType.Processing);
+
+                Thread.Sleep(200);
+            }
+
+            Task.WaitAll(tasks);
+
+            MediaConversionHelper.WriteMainProgress(
+                this,
+                "Converting image subtitles to SRT",
+                $"Converted {totalConvert} of {totalConvert} image subtitle file(s) to SRT...",
+                100,
+                recordType: ProgressRecordType.Processing);
 
             foreach (var error in errors)
                 WriteError(CreateErrorRecord(error.Exception, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, error.InputPath));
@@ -197,9 +253,10 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
             return;
         }
 
-        if (!PathResolverImpl.ResolveBackupPath(PathResolver, BackupPath, e => WriteError(e), out var resolvedBackupRoot))
+        var shouldRepair = Ocr.IsPresent && !NoRepair.IsPresent;
+        string? resolvedBackupRoot = null;
+        if (shouldRepair && !PathResolverImpl.ResolveBackupPath(PathResolver, BackupPath, e => WriteError(e), out resolvedBackupRoot))
             return;
-
         var totalRepair = allSrtPaths.Count;
         for (var idx = 0; idx < allSrtPaths.Count; idx++)
         {
@@ -207,9 +264,14 @@ public class ExportRepairedSubtitlesCommand : CmdletBase
             var displayName = Path.GetFileName(srtPath);
             var pct = totalRepair > 0 ? (int)(((idx + 1) * 100.0) / totalRepair) : 0;
             MediaConversionHelper.WriteMainProgress(this, "Repairing subtitles", $"File {idx + 1} of {totalRepair} — {displayName}", pct, recordType: ProgressRecordType.Processing);
-            if (resolvedBackupRoot != null && !CopyToBackup(resolvedBackupRoot, srtPath))
-                continue;
-            if (RepairSrtFile(srtPath, srtPath))
+            if (shouldRepair)
+            {
+                if (resolvedBackupRoot != null && !CopyToBackup(resolvedBackupRoot, srtPath))
+                    continue;
+                if (RepairSrtFile(srtPath, srtPath))
+                    WriteObject(srtPath);
+            }
+            else
                 WriteObject(srtPath);
         }
         MediaConversionHelper.WriteProgressCompleted(this, "Repairing subtitles", "Current file");
