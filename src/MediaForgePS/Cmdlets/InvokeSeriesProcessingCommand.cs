@@ -14,20 +14,29 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     public string Title { get; set; } = string.Empty;
 
     [Parameter(Mandatory = true)]
-    [ValidateNotNullOrEmpty]
-    public string[] Path { get; set; } = Array.Empty<string>();
-
-    [Parameter(Mandatory = true)]
-    [ValidateNotNullOrEmpty]
-    public string[] FilePatterns { get; set; } = Array.Empty<string>();
-
-    [Parameter(Mandatory = true)]
     [ValidateRange(1, 1000)]
     public int Season { get; set; }
 
     [Parameter]
     [ValidateRange(1, 1000)]
     public int EpisodeStart { get; set; } = 1;
+
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string[] InputPath { get; set; } = Array.Empty<string>();
+
+    [Parameter(Mandatory = true)]
+    [ValidateNotNullOrEmpty]
+    public string[] FilePatterns { get; set; } = Array.Empty<string>();
+
+    [Parameter]
+    [ValidateRange(0, long.MaxValue)]
+    public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
+
+    /// <summary>Root output directory. When set, output is written to OutputPath\Title\Season XX.</summary>
+    [Parameter]
+    [ValidateNotNullOrEmpty]
+    public string? OutputPath { get; set; }
 
     [Parameter]
     [ValidateNotNullOrEmpty]
@@ -43,10 +52,6 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     [Parameter]
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
-    [Parameter]
-    [ValidateRange(0, long.MaxValue)]
-    public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
-
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
@@ -57,7 +62,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
         var seasonUrl = EnsureSeasonUrl(TvDbSeasonUrl, Season);
         WriteHostMessage("Step 1: Creating directory structure...", ConsoleColor.Cyan);
-        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season);
+        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season, basePath: OutputPath);
         if (string.IsNullOrWhiteSpace(directoryStructure.SeasonDir))
             return;
         WriteHostMessage($"  Season directory: {directoryStructure.SeasonDir}", ConsoleColor.Gray);
@@ -81,7 +86,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
         var copiedFiles = SeriesProcessingService.InvokeVideoCopy(
             this,
             new VideoCopyRequest(
-                Path,
+                InputPath,
                 directoryStructure.SeasonDir,
                 Title,
                 Season,
@@ -97,7 +102,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                 : string.Empty;
             WriteError(new ErrorRecord(
                 new InvalidOperationException(
-                    "Video copying failed. No files were copied. Check that Path contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
+                    "Video copying failed. No files were copied. Check that InputPath contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
                 "VideoCopyFailed",
                 ErrorCategory.InvalidData,
                 null));

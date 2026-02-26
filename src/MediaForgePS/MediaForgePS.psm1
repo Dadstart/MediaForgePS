@@ -3,7 +3,7 @@ if (-not (Test-Path $dllPath)) {
     throw "Module not found at $dllPath"
 }
 
-# Import the binary module directly (no .psd1 manifest needed)
+# Import the binary module directly
 $importedModule = Import-Module $dllPath -PassThru
 
 # Initialize dependency injection container

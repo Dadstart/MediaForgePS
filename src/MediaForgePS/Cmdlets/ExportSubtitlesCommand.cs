@@ -11,34 +11,47 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Extracts English subtitle streams from one or more media files to separate subtitle files.
+/// Exports English subtitle streams from media files. With -Ocr, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
 /// </summary>
 /// <remarks>
-/// Processes media files to extract subtitle tracks matching English language (Language -like 'en*').
-/// Output files follow the naming pattern: [originalname].[streamindex].en.sdh.[ext] or [originalname].en.sdh.[ext].
-/// Supports SubRip (SRT), ASS, SSA, WebVTT, DVD subtitle, and HDMV PGS. For dvd_subtitle codec uses mkvextract when available.
+/// Always extracts subtitle tracks matching English language. With -Ocr: converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -NoRepair is specified.
+/// Output SRT paths are written to the pipeline when -Ocr is used (and for repaired/native SRT when applicable).
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
-[Alias("Export-Subtitles")]
-[OutputType(typeof(void))]
+[Alias("Export-RepairedSubtitles")]
+[OutputType(typeof(string))]
 public class ExportSubtitlesCommand : CmdletBase
 {
-    private static readonly Dictionary<string, string> _codecToExtension = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["subrip"] = "srt",
-        ["ass"] = "srt",
-        ["ssa"] = "srt",
-        ["webvtt"] = "vtt",
-        ["dvd_subtitle"] = "sub",
-        ["hdmv_pgs_subtitle"] = "sup"
-    };
-
     /// <summary>
     /// Media file path(s) or folder path(s). For folders, all .mkv files are processed. Pipeline accepts path strings or MediaFile objects from Get-MediaFile.
     /// </summary>
     [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Path(s) to media file(s) or folder(s) containing .mkv files.")]
     [Alias("Path")]
     public object[]? InputPath { get; set; }
+
+    /// <summary>
+    /// Directory to copy all SRT files to before repairing. Directory structure is preserved under this root. Only used when -Ocr is specified and repair runs.
+    /// </summary>
+    [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
+    public string? BackupPath { get; set; }
+
+    /// <summary>
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is specified.
+    /// </summary>
+    [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
+    public int ThrottleLimit { get; set; } = 10;
+
+    /// <summary>
+    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR and repairs SRT files (unless -NoRepair is also specified).
+    /// </summary>
+    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
+
+    /// <summary>
+    /// When specified with -Ocr, skips the SRT repair step. Has no effect without -Ocr.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip SRT repair when used with -Ocr.")]
+    public SwitchParameter NoRepair { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
@@ -73,145 +86,78 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var mediaFiles = ResolveMediaFiles().ToList();
+        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, this, MediaReaderService, Logger, e => WriteError(e)).ToList();
         if (mediaFiles.Count == 0)
         {
             WriteWarning("No media files to process.");
             return;
         }
 
-        var filesWithSize = new List<(MediaFile Mf, long Size)>();
-        long totalBytes = 0;
-        foreach (var mf in mediaFiles)
-        {
-            long size = 0;
-            try
-            {
-                var fi = new FileInfo(mf.Path);
-                if (fi.Exists)
-                {
-                    size = fi.Length;
-                    totalBytes += size;
-                }
-            }
-            catch
-            {
-                // Use 0 for this file
-            }
+        var filesWithSize = MediaConversionHelper.BuildItemsWithSizes(mediaFiles, mf => mf.Path, out var totalBytes)
+            .Select(entry => (Mf: entry.Item, entry.Size))
+            .ToList();
 
-            filesWithSize.Add((mf, size));
-        }
+        WriteHostMessage($"Exporting subtitles from {mediaFiles.Count} file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
-        WriteHostMessage($"Extracting subtitles from {mediaFiles.Count} file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
-
+        var exportedPaths = new List<string>();
         long completedBytes = 0;
         var totalFiles = filesWithSize.Count;
         for (var i = 0; i < filesWithSize.Count; i++)
         {
             var (mf, fileSize) = filesWithSize[i];
             var fileIndex = i + 1;
-            var fileName = System.IO.Path.GetFileName(mf.Path);
+            var fileName = Path.GetFileName(mf.Path);
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
-            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
-            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
-                CurrentItemActivityId,
-                "Current file",
-                "Extracting...",
-                MainActivityId,
-                fileName,
-                recordType: ProgressRecordType.Processing));
+            MediaConversionHelper.WriteMainProgress(this, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Exporting...", fileName, recordType: ProgressRecordType.Processing);
 
-            ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex);
+            ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex, exportedPaths);
 
             completedBytes += fileSize;
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
-            UpdateSubtitleExtractionProgress(status, percent, ProgressRecordType.Processing);
-            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
-                CurrentItemActivityId,
-                "Current file",
-                "Completed",
-                MainActivityId,
-                fileName,
-                recordType: ProgressRecordType.Completed));
+            MediaConversionHelper.WriteMainProgress(this, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Extracting subtitles",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteProgressCompleted(this, "Exporting subtitles", "Current file");
 
-        WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
-    }
-
-    private void UpdateSubtitleExtractionProgress(string status, int percentComplete, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Extracting subtitles",
-            status,
-            percentComplete,
-            recordType: recordType);
-        WriteProgress(progressRecord);
-    }
-
-    private IEnumerable<MediaFile> ResolveMediaFiles()
-    {
-        var filePaths = new List<string>();
-        foreach (var item in _pathOrMediaFiles)
+        if (exportedPaths.Count == 0)
         {
-            var unwrapped = item is PSObject ps ? ps.BaseObject : item;
-            if (unwrapped is MediaFile mf)
-            {
-                yield return mf;
-                continue;
-            }
-            var path = unwrapped?.ToString()?.Trim();
-            if (string.IsNullOrEmpty(path))
-                continue;
-            try
-            {
-                var resolved = GetResolvedProviderPathFromPSPath(path, out _);
-                foreach (var r in resolved)
-                {
-                    if (File.Exists(r))
-                        filePaths.Add(r);
-                    else if (Directory.Exists(r))
-                        filePaths.AddRange(Directory.GetFiles(r, "*.mkv"));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Could not resolve path: {Path}", path);
-                WriteError(new ErrorRecord(new FileNotFoundException("Path does not exist.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
-            }
+            WriteHostMessage("No subtitle files exported.", ConsoleColor.Green);
+            return;
         }
 
-        foreach (var filePath in filePaths)
+        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
+        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+
+        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+            this,
+            Logger,
+            ExecutableService,
+            PathResolver,
+            imagePaths,
+            srtPathsFromExport,
+            performOcr: Ocr.IsPresent,
+            ThrottleLimit,
+            shouldRepair: Ocr.IsPresent && !NoRepair.IsPresent,
+            BackupPath,
+            WriteObject);
+
+        if (allSrtPaths == null)
+            return;
+
+        if (allSrtPaths.Count == 0)
         {
-            MediaFile? mf = null;
-            try
-            {
-                mf = MediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Could not read media file: {Path}", filePath);
-                WriteError(new ErrorRecord(ex, "MediaFileReadFailed", ErrorCategory.ReadError, filePath));
-            }
-            if (mf != null)
-                yield return mf;
+            WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
+            return;
         }
+
+        WriteHostMessage("Export completed.", ConsoleColor.Green);
     }
 
-    private void ExportSubtitlesForMediaFile(MediaFile mediaFile, int totalFiles, int fileIndex)
+    private void ExportSubtitlesForMediaFile(MediaFile mediaFile, int totalFiles, int fileIndex, List<string> exportedPaths)
     {
-        var fileName = System.IO.Path.GetFileNameWithoutExtension(mediaFile.Path);
+        var fileName = Path.GetFileNameWithoutExtension(mediaFile.Path);
         WriteVerbose($"[{fileIndex}/{totalFiles}] Processing: {fileName}");
 
         var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
@@ -229,80 +175,48 @@ public class ExportSubtitlesCommand : CmdletBase
         foreach (var sub in subtitles)
         {
             subIndex++;
-            WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
-                CurrentItemActivityId,
-                fileName,
-                $"Stream {sub.Index} ({sub.Codec})",
-                MainActivityId,
-                percentComplete: (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0)));
-            ExportSingleSubtitle(sub, mediaFile, subIndex, subtitles.Count);
+            var percent = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0);
+            MediaConversionHelper.WriteCurrentItemProgress(this, fileName, $"Stream {sub.Index} ({sub.Codec})", percentComplete: percent);
+            if (ExportSingleSubtitle(sub, mediaFile, subtitles.Count, out var path))
+                exportedPaths.Add(path);
         }
-
-        WriteProgress(MediaConversionHelper.CreateNestedProgressRecord(
-            CurrentItemActivityId,
-            fileName,
-            "Complete",
-            MainActivityId,
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteCurrentItemProgress(this, fileName, "Complete", recordType: ProgressRecordType.Completed);
     }
 
-    private void ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int subtitleIndex, int totalSubtitleCount)
+    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount, out string resolvedOutput)
     {
-        if (!_codecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
+        resolvedOutput = string.Empty;
+        if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
         {
             WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension");
             ext = "bin";
         }
 
-        var basePath = System.IO.Path.ChangeExtension(mediaFile.Path, null)?.TrimEnd('.') ?? mediaFile.Path;
-        var newPath = totalSubtitleCount > 1
-            ? basePath + $".{stream.Index}.en.sdh.{ext}"
-            : basePath + $".en.sdh.{ext}";
-
-        if (!PathResolver.TryResolveOutputPath(newPath, out var resolvedOutput))
+        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
+        if (!PathResolver.TryResolveOutputPath(newPath, out var resolved))
         {
             WriteError(new ErrorRecord(new InvalidOperationException($"Failed to resolve output path: {newPath}"), "OutputPathFailed", ErrorCategory.InvalidArgument, newPath));
-            return;
+            return false;
         }
+        resolvedOutput = resolved;
 
         try
         {
-            if (string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase))
-            {
-                var mkvextract = GetMkvextractPath();
-                if (mkvextract == null)
-                {
-                    WriteError(new ErrorRecord(new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec."), "MkvextractNotFound", ErrorCategory.ObjectNotFound, null));
-                    return;
-                }
-                var args = new[] { "tracks", mediaFile.Path, $"{stream.Index}:{resolvedOutput}" };
-                var result = ExecutableService.ExecuteAsync(mkvextract, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-                if (result.ExitCode != 0)
-                    throw new InvalidOperationException($"mkvextract failed with exit code {result.ExitCode}. {result.ErrorOutput}");
-            }
-            else
-            {
-                var ffmpegArgs = new List<string> { "-i", mediaFile.Path, "-map", $"0:{stream.Index}", "-c", "copy", "-y", resolvedOutput };
-                var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-                if (result.ExitCode != 0)
-                    throw new InvalidOperationException($"FFmpeg failed with exit code {result.ExitCode}. {result.ErrorOutput}");
-            }
-
-            WriteVerbose($"Extracted {System.IO.Path.GetFileName(resolvedOutput)}");
+            SubtitleExportHelper.ExtractSubtitle(
+                ExecutableService,
+                stream,
+                mediaFile.Path,
+                resolved,
+                WindowsExecutablePathHelper.GetMkvextractPath());
+            WriteVerbose($"Extracted {Path.GetFileName(resolved)}");
+            return true;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
             WriteError(new ErrorRecord(ex, "SubtitleExportFailed", ErrorCategory.OperationStopped, mediaFile.Path));
+            return false;
         }
     }
 
-    private static string? GetMkvextractPath()
-    {
-        if (!OperatingSystem.IsWindows())
-            return null;
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var path = System.IO.Path.Combine(programFiles, "mkvtoolnix", "mkvextract.exe");
-        return File.Exists(path) ? path : null;
-    }
 }

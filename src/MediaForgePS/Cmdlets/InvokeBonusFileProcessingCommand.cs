@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
@@ -84,8 +85,25 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         if (string.IsNullOrWhiteSpace(InputPath) || string.IsNullOrWhiteSpace(OutputPath))
             return;
 
-        var inputFullPath = Path.GetFullPath(InputPath);
-        var outputFullPath = Path.GetFullPath(OutputPath);
+        if (!TryResolveDirectoryPath(InputPath, requireExists: true, out var inputFullPath))
+        {
+            WriteError(CreateErrorRecord(
+                new DirectoryNotFoundException($"Input path does not exist or could not be resolved: '{InputPath}'"),
+                "InputPathNotFound",
+                ErrorCategory.InvalidArgument,
+                InputPath));
+            return;
+        }
+
+        if (!TryResolveDirectoryPath(OutputPath, requireExists: false, out var outputFullPath))
+        {
+            WriteError(CreateErrorRecord(
+                new InvalidOperationException($"Failed to resolve output path: {OutputPath}"),
+                "OutputPathResolutionFailed",
+                ErrorCategory.InvalidArgument,
+                OutputPath));
+            return;
+        }
 
         WriteHostMessage("Starting Bonus File Processing", ConsoleColor.Cyan);
         WriteHostMessage($"  Input:  {inputFullPath}", ConsoleColor.Gray);
@@ -159,6 +177,32 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         WriteHostMessage($"  Bonus files processed: {bonusFileCount}", ConsoleColor.Gray);
     }
 
+    /// <summary>
+    /// Resolves a directory path using the PowerShell session's current location.
+    /// </summary>
+    /// <param name="path">The path to resolve (e.g. ".", "P:\Movies\...").</param>
+    /// <param name="requireExists">If true, resolved path must exist as a directory (used for input).</param>
+    /// <param name="resolvedPath">The resolved full path.</param>
+    /// <returns>True if resolution succeeded and, when requireExists is true, the directory exists.</returns>
+    private bool TryResolveDirectoryPath(string path, bool requireExists, out string resolvedPath)
+    {
+        resolvedPath = string.Empty;
+
+        if (PathResolver.TryResolveProviderPath(this, path, out var fromProvider))
+        {
+            resolvedPath = fromProvider!;
+            return !requireExists || Directory.Exists(resolvedPath);
+        }
+
+        if (PathResolver.TryGetUnresolvedProviderPath(this, path, out var unresolved))
+        {
+            resolvedPath = unresolved!;
+            return !requireExists || Directory.Exists(resolvedPath);
+        }
+
+        return false;
+    }
+
     private bool ValidatePlexOutputPath(string outputFullPath)
     {
         // Match original script behavior on Windows: enforce P:\ drive
@@ -206,27 +250,9 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             return 0;
         }
 
-        var bonusFilesWithSize = new List<(string Path, long Size)>();
-        long totalBytes = 0;
-        foreach (var path in bonusFiles)
-        {
-            long size = 0;
-            try
-            {
-                var fi = new FileInfo(path);
-                if (fi.Exists)
-                {
-                    size = fi.Length;
-                    totalBytes += size;
-                }
-            }
-            catch
-            {
-                // Use 0 for this file; total progress still reflects the rest
-            }
-
-            bonusFilesWithSize.Add((path, size));
-        }
+        var bonusFilesWithSize = MediaConversionHelper.BuildItemsWithSizes(bonusFiles, static path => path, out var totalBytes)
+            .Select(entry => (Path: entry.Item, entry.Size))
+            .ToList();
 
         WriteHostMessage($"Converting {bonusFileCount} bonus file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
@@ -241,8 +267,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
             var eta = MediaConversionHelper.CalculateRemainingTime(totalBytes - completedBytes, _fileProcessingStats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
 
-            UpdateBonusConversionProgress(status, percent, eta, ProgressRecordType.Processing);
-            UpdateCurrentFileProgress(fileName, "Converting...", ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, eta, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", $"Converting... - {fileName}", recordType: ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
             var summary = ConvertSingleBonusFile(filePath, inputDirectory);
@@ -256,45 +282,13 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             }
 
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(currentFileIndex, bonusFileCount, fileName, completedBytes, totalBytes);
-            UpdateBonusConversionProgress(status, percent, null, ProgressRecordType.Processing);
-            UpdateCurrentFileProgress(fileName, summary.Success ? "Completed" : "Failed", ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, null, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", $"{(summary.Success ? "Completed" : "Failed")} - {fileName}", recordType: ProgressRecordType.Completed);
         }
 
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Bonus file conversion",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteProgressCompleted(this, "Bonus file conversion", "Current file");
 
         return bonusFileCount;
-    }
-
-    private void UpdateBonusConversionProgress(string status, int percentComplete, TimeSpan? eta, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Bonus file conversion",
-            status,
-            percentComplete,
-            recordType: recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(eta.Value)}";
-        WriteProgress(progressRecord);
-    }
-
-    private void UpdateCurrentFileProgress(string fileName, string status, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current file",
-            $"{status} - {fileName}",
-            recordType: recordType);
-        WriteProgress(progressRecord);
     }
 
     private void RecordFileProcessingStats(long fileSizeBytes, TimeSpan processingTime)
@@ -323,28 +317,21 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 return new ConversionSummary(inputFilePath, false, StatusMessage);
             }
 
-            var audioStreams = mediaFile.Streams
-                .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
             AudioTrackMapping[] audioMappings;
-
-            if (audioStreams.Count == 0)
+            var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
+            if (audioSelection.TotalAudioStreamCount == 0)
             {
                 Logger.LogInformation("No audio streams found in bonus file: {InputFilePath}, processing as video-only", inputFilePath);
                 audioMappings = Array.Empty<AudioTrackMapping>();
             }
             else
             {
-                var englishAudioStreams = audioStreams
-                    .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                var streamsToUse = englishAudioStreams.Count == 0 ? audioStreams : englishAudioStreams;
+                if (audioSelection.EnglishAudioStreamCount == 0)
+                    Logger.LogInformation("No English audio streams found in bonus file: {InputFilePath}, using all audio streams", inputFilePath);
 
                 try
                 {
-                    audioMappings = CreateAudioTrackMappings(streamsToUse);
+                    audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(audioSelection.SelectedStreams);
                 }
                 catch (Exception ex)
                 {
@@ -355,7 +342,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 }
             }
 
-            var videoSettings = CreateDefaultVideoEncodingSettings();
+            var videoSettings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
             var x265Arguments = MediaConversionHelper.BuildX265Arguments(null, videoSettings.Codec);
 
             var outputFileName = Path.GetFileNameWithoutExtension(inputFilePath) + ".mp4";
@@ -389,7 +376,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     inputFilePath,
                     outputFilePath);
 
-                var statusMessage = BuildStatusMessage(ex);
+                var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
                 return new ConversionSummary(inputFilePath, false, statusMessage);
             }
             catch (Exception ex)
@@ -511,8 +498,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 completedBytes,
                 totalBytes);
 
-            UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
-            UpdateCurrentPlexMoveProgress(fileName, "Moving...", ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"Moving... - {fileName}", recordType: ProgressRecordType.Processing);
 
             var destinationPath = Path.Combine(destFolder, fileName);
             var currentFileStatus = "Completed";
@@ -564,21 +551,12 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                     fileName,
                     completedBytes,
                     totalBytes);
-                UpdatePlexMoveProgress(status, percent, ProgressRecordType.Processing);
-                UpdateCurrentPlexMoveProgress(fileName, currentFileStatus, ProgressRecordType.Completed);
+                MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"{currentFileStatus} - {fileName}", recordType: ProgressRecordType.Completed);
             }
         }
 
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Plex file organization",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
-        WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current move file",
-            "Completed",
-            recordType: ProgressRecordType.Completed));
+        MediaConversionHelper.WriteProgressCompleted(this, "Plex file organization", "Current move file");
 
         if (filesMoved == 0)
             WriteWarning($"No bonus content files found to move in source directory {sourceDirectory}");
@@ -597,27 +575,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         {
             return 0;
         }
-    }
-
-    private void UpdatePlexMoveProgress(string status, int percentComplete, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Plex file organization",
-            status,
-            percentComplete,
-            recordType: recordType);
-        WriteProgress(progressRecord);
-    }
-
-    private void UpdateCurrentPlexMoveProgress(string fileName, string status, ProgressRecordType recordType)
-    {
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            CurrentItemActivityId,
-            "Current move file",
-            $"{status} - {fileName}",
-            recordType: recordType);
-        WriteProgress(progressRecord);
     }
 
     private void RemovePlexEmptyFolders(string destinationDirectory)
@@ -654,115 +611,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             WriteWarning($"No empty Plex folders found to remove in '{destinationDirectory}'");
         else
             WriteVerbose($"{foldersDeleted} empty Plex folders deleted");
-    }
-
-    private static AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> streams)
-    {
-        var mappings = new List<AudioTrackMapping>();
-        var destinationIndex = 0;
-
-        foreach (var stream in streams)
-        {
-            var channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
-
-            AudioTrackMapping mapping;
-            var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") &&
-                channels >= 6 &&
-                !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
-            {
-                mapping = new CopyAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex);
-            }
-            else
-            {
-                mapping = new EncodeAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex,
-                    "aac",
-                    0,
-                    channels);
-            }
-
-            mappings.Add(mapping);
-            destinationIndex++;
-        }
-
-        if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping copyMapping &&
-            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
-            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6 &&
-            copyMapping.SourceIndex < encodeMapping.SourceIndex)
-        {
-            mappings[0] = new EncodeAudioTrackMapping(
-                encodeMapping.Title,
-                encodeMapping.SourceStream,
-                encodeMapping.SourceIndex,
-                copyMapping.DestinationIndex,
-                encodeMapping.DestinationCodec,
-                encodeMapping.DestinationBitrate,
-                encodeMapping.DestinationChannels);
-
-            mappings[1] = new CopyAudioTrackMapping(
-                copyMapping.Title,
-                copyMapping.SourceStream,
-                copyMapping.SourceIndex,
-                encodeMapping.DestinationIndex);
-        }
-
-        return mappings.ToArray();
-    }
-
-    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
-    {
-        var encoder = DefaultVideoEncoder?.Trim();
-        var codec = encoder?.ToLowerInvariant() switch
-        {
-            "nvenc" => "nvenc",
-            "x264" => "libx264",
-            _ => "libx265"
-        };
-
-        if (codec == "nvenc")
-        {
-            return new NvencVideoEncodingSettings(
-                "p5",
-                18);
-        }
-
-        return new ConstantRateVideoEncodingSettings(
-            codec,
-            "medium",
-            "high",
-            "film",
-            18,
-            VideoEncodingSettings.GetDefaultPixelFormat(codec));
-    }
-
-    private static string BuildStatusMessage(FfmpegConversionException ex)
-    {
-        var message = "Conversion failed";
-        if (ex.ExitCode.HasValue)
-            message += $" (exit code: {ex.ExitCode.Value})";
-        if (!string.IsNullOrWhiteSpace(ex.ErrorOutput))
-        {
-            var errorLines = ex.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (errorLines.Length > 0)
-            {
-                var firstErrorLine = errorLines[0].Trim();
-                if (firstErrorLine.Length > 0)
-                    message += $": {firstErrorLine}";
-            }
-        }
-
-        return message;
     }
 
     private readonly struct ConversionSummary

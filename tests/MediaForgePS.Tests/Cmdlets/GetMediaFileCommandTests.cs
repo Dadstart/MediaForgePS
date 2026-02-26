@@ -15,25 +15,23 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public class GetAudioTrackMappingsCommandTests : IDisposable
+public class GetMediaFileCommandTests : IDisposable
 {
     private readonly Mock<IPathResolver> _pathResolverMock;
     private readonly Mock<IMediaReaderService> _mediaReaderServiceMock;
-    private readonly Mock<IAudioTrackMappingService> _audioTrackMappingServiceMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
-    private readonly Mock<ILogger<GetAudioTrackMappingsCommand>> _loggerMock;
+    private readonly Mock<ILogger<GetMediaFileCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
     private readonly IServiceProvider _serviceProvider;
     private readonly System.Reflection.FieldInfo? _providerField;
     private readonly System.Reflection.FieldInfo? _initializedField;
 
-    public GetAudioTrackMappingsCommandTests()
+    public GetMediaFileCommandTests()
     {
         _pathResolverMock = new Mock<IPathResolver>();
         _mediaReaderServiceMock = new Mock<IMediaReaderService>();
-        _audioTrackMappingServiceMock = new Mock<IAudioTrackMappingService>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
-        _loggerMock = new Mock<ILogger<GetAudioTrackMappingsCommand>>();
+        _loggerMock = new Mock<ILogger<GetMediaFileCommand>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
 
         _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<string>()))
@@ -43,7 +41,6 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton(_pathResolverMock.Object);
         services.AddSingleton(_mediaReaderServiceMock.Object);
-        services.AddSingleton(_audioTrackMappingServiceMock.Object);
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         _serviceProvider = services.BuildServiceProvider();
@@ -63,7 +60,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
     }
 
     [Fact]
-    public void GetAudioStreams_WhenInputPathNotResolved_WritesError()
+    public void GetMediaFile_WhenPathNotResolved_WritesError()
     {
         var inputPath = "C:\\missing.mkv";
         string? resolvedPath = null;
@@ -71,8 +68,8 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
             .Returns(false);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Get-AudioStreams")
-            .AddParameter("InputPath", inputPath);
+        ps.AddCommand("Get-MediaFile")
+            .AddParameter("Path", inputPath);
 
         var results = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
@@ -80,33 +77,31 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
         Assert.Empty(results);
         Assert.NotEmpty(errors);
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _audioTrackMappingServiceMock.Verify(s => s.CreateMappings(It.IsAny<MediaFile>()), Times.Never);
     }
 
     [Fact]
-    public void GetAudioStreams_WhenMediaFileReadReturnsNull_WritesError()
+    public void GetMediaFile_WhenMediaReadFails_WritesError()
     {
         var inputPath = "C:\\test.mkv";
         var resolvedPath = "C:\\test.mkv";
         _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedPath))
             .Returns(true);
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((MediaFile?)null);
+            .ThrowsAsync(new InvalidOperationException("ffprobe failed"));
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Get-AudioStreams")
-            .AddParameter("InputPath", inputPath);
+        ps.AddCommand("Get-MediaFile")
+            .AddParameter("Path", inputPath);
 
         var results = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(results);
         Assert.NotEmpty(errors);
-        _audioTrackMappingServiceMock.Verify(s => s.CreateMappings(It.IsAny<MediaFile>()), Times.Never);
     }
 
     [Fact]
-    public void GetAudioStreams_WithValidMediaFile_ReturnsMappings()
+    public void GetMediaFile_WithValidPath_ReturnsMediaFile()
     {
         var inputPath = "C:\\test.mkv";
         var resolvedPath = "C:\\test.mkv";
@@ -120,28 +115,20 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
             Array.Empty<MediaStream>(),
             "{}");
 
-        var expectedMappings = new AudioTrackMapping[]
-        {
-            new CopyAudioTrackMapping("eng", 0, 0, 0)
-        };
-
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);
-        _audioTrackMappingServiceMock.Setup(s => s.CreateMappings(mediaFile))
-            .Returns(expectedMappings);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Get-AudioStreams")
-            .AddParameter("InputPath", inputPath);
+        ps.AddCommand("Get-MediaFile")
+            .AddParameter("Path", inputPath);
 
         var results = ps.Invoke().ToList();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
         Assert.Single(results);
-        Assert.Same(expectedMappings, results[0].BaseObject);
+        Assert.Same(mediaFile, results[0].BaseObject);
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()), Times.Once);
-        _audioTrackMappingServiceMock.Verify(s => s.CreateMappings(mediaFile), Times.Once);
     }
 
     private void InjectServiceProvider()
@@ -154,10 +141,10 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
 
     private static PowerShell CreatePowerShell()
     {
-        var asm = typeof(GetAudioTrackMappingsCommand).Assembly;
+        var asm = typeof(GetMediaFileCommand).Assembly;
         var initialSessionState = InitialSessionState.CreateDefault();
         initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Get-AudioStreams", typeof(GetAudioTrackMappingsCommand), null));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Get-MediaFile", typeof(GetMediaFileCommand), null));
         return PowerShell.Create(initialSessionState);
     }
 }

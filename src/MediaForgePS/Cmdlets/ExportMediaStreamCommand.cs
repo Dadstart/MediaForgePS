@@ -90,30 +90,14 @@ public class ExportMediaStreamCommand : CmdletBase
         Logger.LogInformation("Processing Export-MediaStream request. InputPath: {InputPath}, OutputPath: {OutputPath}, Type: {Type}, Index: {Index}", InputPath, OutputPath, Type, Index);
 
         // Resolve input path
-        if (!PathResolver.TryResolveInputPath(InputPath, out var resolvedInputPath))
-        {
-            var errorRecord = new ErrorRecord(
-                new FileNotFoundException($"Media file not found: {InputPath}"),
-                "FileNotFound",
-                ErrorCategory.ObjectNotFound,
-                InputPath);
-            WriteError(errorRecord);
+        if (!TryResolveInputPath(PathResolver, InputPath, out var resolvedInputPath))
             return;
-        }
 
         Logger.LogDebug("Resolved input path: {ResolvedInputPath}", resolvedInputPath);
 
         // Resolve output path
-        if (!PathResolver.TryResolveOutputPath(OutputPath, out var resolvedOutputPath))
-        {
-            var errorRecord = new ErrorRecord(
-                new Exception($"Failed to resolve output path: {OutputPath}"),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidArgument,
-                OutputPath);
-            WriteError(errorRecord);
+        if (!TryResolveOutputPath(PathResolver, OutputPath, out var resolvedOutputPath))
             return;
-        }
 
         Logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedOutputPath);
 

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
 namespace Dadstart.Labs.MediaForge.Services;
 
@@ -10,6 +13,14 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class MediaConversionHelper
 {
+    /// <summary>
+    /// Result of selecting preferred audio streams for automatic mapping.
+    /// </summary>
+    public readonly record struct AudioStreamSelection(
+        IReadOnlyList<MediaStream> SelectedStreams,
+        int TotalAudioStreamCount,
+        int EnglishAudioStreamCount);
+
     /// <summary>
     /// Formats a byte count as a human-readable string (B, KB, MB, GB).
     /// </summary>
@@ -120,6 +131,59 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Builds a list of items paired with file size and computes total bytes.
+    /// </summary>
+    public static IReadOnlyList<(T Item, long Size)> BuildItemsWithSizes<T>(
+        IEnumerable<T> items,
+        Func<T, string> pathSelector,
+        out long totalBytes)
+    {
+        totalBytes = 0;
+        var sizedItems = new List<(T Item, long Size)>();
+        foreach (var item in items)
+        {
+            long size = 0;
+            try
+            {
+                var fileInfo = new FileInfo(pathSelector(item));
+                if (fileInfo.Exists)
+                {
+                    size = fileInfo.Length;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // Use 0 for this item.
+            }
+
+            sizedItems.Add((item, size));
+        }
+
+        return sizedItems;
+    }
+
+    /// <summary>
+    /// Selects preferred audio streams: English audio streams when present, otherwise all audio streams.
+    /// </summary>
+    public static AudioStreamSelection SelectPreferredAudioStreams(IEnumerable<MediaStream> streams)
+    {
+        var audioStreams = streams
+            .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (audioStreams.Count == 0)
+            return new AudioStreamSelection(Array.Empty<MediaStream>(), 0, 0);
+
+        var englishAudioStreams = audioStreams
+            .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return englishAudioStreams.Count > 0
+            ? new AudioStreamSelection(englishAudioStreams, audioStreams.Count, englishAudioStreams.Count)
+            : new AudioStreamSelection(audioStreams, audioStreams.Count, 0);
+    }
+
+    /// <summary>
     /// Builds x265 parameters for Ffmpeg when applicable.
     /// </summary>
     /// <param name="x265Params">Raw x265 params string (passed via -x265-params).</param>
@@ -131,6 +195,128 @@ public static class MediaConversionHelper
             return ["-x265-params", x265Params];
 
         return null;
+    }
+
+    /// <summary>
+    /// Creates default video encoding settings for a default encoder value.
+    /// </summary>
+    /// <param name="defaultVideoEncoder">Default encoder name (x264, x265, nvenc).</param>
+    /// <returns>Video encoding settings instance.</returns>
+    public static VideoEncodingSettings CreateDefaultVideoEncodingSettings(string? defaultVideoEncoder)
+    {
+        var encoder = defaultVideoEncoder?.Trim();
+        var codec = encoder?.ToLowerInvariant() switch
+        {
+            "nvenc" => "nvenc",
+            "x264" => "libx264",
+            _ => "libx265"
+        };
+
+        if (codec == "nvenc")
+        {
+            return new NvencVideoEncodingSettings(
+                "p5",
+                18);
+        }
+
+        return new ConstantRateVideoEncodingSettings(
+            codec,
+            "medium",
+            "high",
+            "film",
+            18,
+            VideoEncodingSettings.GetDefaultPixelFormat(codec));
+    }
+
+    /// <summary>
+    /// Creates automatic audio track mappings for conversion from selected streams.
+    /// </summary>
+    /// <param name="streams">Selected audio streams to map.</param>
+    /// <returns>Array of conversion mappings.</returns>
+    public static AudioTrackMapping[] CreateAutomaticAudioTrackMappings(IEnumerable<MediaStream> streams)
+    {
+        var mappings = new List<AudioTrackMapping>();
+        var destinationIndex = 0;
+
+        foreach (var stream in streams)
+        {
+            var channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
+            stream.Tags.TryGetValue("title", out var title);
+
+            AudioTrackMapping mapping;
+            var codecLower = stream.Codec.ToLowerInvariant();
+            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
+            {
+                mapping = new CopyAudioTrackMapping(
+                    title,
+                    0,
+                    stream.Index - 1,
+                    destinationIndex);
+            }
+            else
+            {
+                mapping = new EncodeAudioTrackMapping(
+                    title,
+                    0,
+                    stream.Index - 1,
+                    destinationIndex,
+                    "aac",
+                    0,
+                    channels);
+            }
+
+            mappings.Add(mapping);
+            destinationIndex++;
+        }
+
+        if (mappings.Count >= 2 &&
+            mappings[0] is CopyAudioTrackMapping copyMapping &&
+            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
+            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
+            encodeMapping.DestinationChannels >= 6 &&
+            copyMapping.SourceIndex < encodeMapping.SourceIndex)
+        {
+            mappings[0] = new EncodeAudioTrackMapping(
+                encodeMapping.Title,
+                encodeMapping.SourceStream,
+                encodeMapping.SourceIndex,
+                copyMapping.DestinationIndex,
+                encodeMapping.DestinationCodec,
+                encodeMapping.DestinationBitrate,
+                encodeMapping.DestinationChannels);
+
+            mappings[1] = new CopyAudioTrackMapping(
+                copyMapping.Title,
+                copyMapping.SourceStream,
+                copyMapping.SourceIndex,
+                encodeMapping.DestinationIndex);
+        }
+
+        return mappings.ToArray();
+    }
+
+    /// <summary>
+    /// Builds a user-facing status message from an FFmpeg conversion exception.
+    /// </summary>
+    /// <param name="exception">Conversion exception instance.</param>
+    /// <returns>Short status message with exit code and first error line when available.</returns>
+    public static string BuildConversionFailureStatusMessage(FfmpegConversionException exception)
+    {
+        var message = "Conversion failed";
+        if (exception.ExitCode.HasValue)
+            message += $" (exit code: {exception.ExitCode.Value})";
+        if (!string.IsNullOrWhiteSpace(exception.ErrorOutput))
+        {
+            var errorLines = exception.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (errorLines.Length > 0)
+            {
+                var firstErrorLine = errorLines[0].Trim();
+                if (firstErrorLine.Length > 0)
+                    message += $": {firstErrorLine}";
+            }
+        }
+
+        return message;
     }
 
     /// <summary>
@@ -212,5 +398,71 @@ public static class MediaConversionHelper
             progressRecord.CurrentOperation = currentOperation;
 
         return progressRecord;
+    }
+
+    /// <summary>
+    /// Writes the main (batch) progress record and optionally the current-item record.
+    /// Use with <see cref="BuildBatchProgressStatus"/> or <see cref="BuildCountBasedProgressStatus"/> for status and percent.
+    /// </summary>
+    public static void WriteMainProgress(
+        PSCmdlet cmdlet,
+        string mainActivity,
+        string status,
+        int? percentComplete = null,
+        TimeSpan? eta = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = CreateSimpleProgressRecord(
+            ProgressActivityIds.Main,
+            mainActivity,
+            status,
+            percentComplete,
+            recordType: recordType);
+        if (eta.HasValue)
+            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+        cmdlet.WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Writes the current-item (nested) progress record.
+    /// </summary>
+    public static void WriteCurrentItemProgress(
+        PSCmdlet cmdlet,
+        string currentActivity,
+        string status,
+        string? currentOperation = null,
+        int? percentComplete = null,
+        TimeSpan? eta = null,
+        ProgressRecordType recordType = ProgressRecordType.Processing)
+    {
+        var progressRecord = CreateNestedProgressRecord(
+            ProgressActivityIds.CurrentItem,
+            currentActivity,
+            status,
+            ProgressActivityIds.Main,
+            currentOperation,
+            percentComplete,
+            recordType);
+        if (eta.HasValue)
+            progressRecord.StatusDescription = $"File ETA: {FormatTimespan(eta.Value)}";
+        cmdlet.WriteProgress(progressRecord);
+    }
+
+    /// <summary>
+    /// Writes both main and current-item progress records as completed.
+    /// Call once when the batch or phase is finished.
+    /// </summary>
+    public static void WriteProgressCompleted(PSCmdlet cmdlet, string mainActivity, string currentActivity)
+    {
+        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+            ProgressActivityIds.Main,
+            mainActivity,
+            "Completed",
+            recordType: ProgressRecordType.Completed));
+        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+            ProgressActivityIds.CurrentItem,
+            currentActivity,
+            "Completed",
+            recordType: ProgressRecordType.Completed));
     }
 }

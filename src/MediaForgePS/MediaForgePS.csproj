@@ -1,14 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <LangVersion>13</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Dadstart.Labs.MediaForge</RootNamespace>
     <AssemblyName>MediaForgePS</AssemblyName>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <SatelliteResourceLanguages>none</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="MediaForgePS.psd1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

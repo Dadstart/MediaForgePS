@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -90,67 +89,17 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
 
 
     /// <summary>
-    /// Creates an error record for a file not found error.
-    /// </summary>
-    /// <param name="path">The path that was not found.</param>
-    /// <param name="message">The error message.</param>
-    /// <returns>An ErrorRecord for the file not found error.</returns>
-    private ErrorRecord CreateFileNotFoundErrorRecord(string path, string message)
-    {
-        return new ErrorRecord(
-            new FileNotFoundException(message),
-            "FileNotFound",
-            ErrorCategory.ObjectNotFound,
-            path);
-    }
-
-    private void WriteFileNotFoundErrorRecord(string path, string message)
-    {
-        WriteError(CreateFileNotFoundErrorRecord(path, message));
-    }
-
-    /// <summary>
-    /// Creates an error record for a path resolution error.
-    /// </summary>
-    /// <param name="exception">The exception that occurred.</param>
-    /// <param name="errorId">The error ID.</param>
-    /// <param name="errorCategory">The error category.</param>
-    /// <param name="targetObject">The target object that caused the error.</param>
-    /// <returns>An ErrorRecord for the path resolution error.</returns>
-    private ErrorRecord CreatePathErrorRecord(Exception exception, string errorId, ErrorCategory errorCategory, object targetObject)
-    {
-        return new ErrorRecord(
-            exception,
-            errorId,
-            errorCategory,
-            targetObject);
-    }
-
-    private void WritePathErrorRecord(string path, string message)
-    {
-        WriteError(CreatePathErrorRecord(new Exception(message), "PathError", ErrorCategory.InvalidArgument, path));
-    }
-
-    /// <summary>
     /// Processes the media file conversion request.
     /// </summary>
     protected override void Process()
     {
         Logger.LogInformation("Processing Convert-MediaFileAdvanced request: {InputPath} -> {OutputPath}", InputPath, OutputPath);
 
-        string resolvedInputPath;
-        if (!PathResolver.TryResolveInputPath(InputPath, out resolvedInputPath))
-        {
-            WriteFileNotFoundErrorRecord(InputPath, $"Input media file not found: {InputPath}");
+        if (!TryResolveInputPath(PathResolver, InputPath, out var resolvedInputPath))
             return;
-        }
 
-        string resolvedOutputPath;
-        if (!PathResolver.TryResolveOutputPath(OutputPath, out resolvedOutputPath))
-        {
-            WritePathErrorRecord(OutputPath, $"Failed to resolve output path: {OutputPath}");
+        if (!TryResolveOutputPath(PathResolver, OutputPath, out var resolvedOutputPath))
             return;
-        }
 
         try
         {
@@ -173,13 +122,13 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         catch (FfmpegConversionException ex)
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            WriteError(CreatePathErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            WriteError(CreateErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
             return;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            WriteError(CreatePathErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            WriteError(CreateErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
             return;
         }
     }

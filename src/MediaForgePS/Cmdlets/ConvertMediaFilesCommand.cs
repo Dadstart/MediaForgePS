@@ -216,27 +216,10 @@ public class ConvertMediaFilesCommand : CmdletBase
         // Process all collected files
         if (_uniqueInputPaths.Count > 0)
         {
-            _inputPathsWithSize = new List<(string Path, long Size)>();
-            _batchTotalBytes = 0;
-            foreach (var path in _uniqueInputPaths)
-            {
-                long size = 0;
-                try
-                {
-                    var fi = new FileInfo(path);
-                    if (fi.Exists)
-                    {
-                        size = fi.Length;
-                        _batchTotalBytes += size;
-                    }
-                }
-                catch
-                {
-                    // Use 0 for this file
-                }
-
-                _inputPathsWithSize.Add((path, size));
-            }
+            var sizedPaths = MediaConversionHelper.BuildItemsWithSizes(_uniqueInputPaths, static path => path, out _batchTotalBytes);
+            _inputPathsWithSize = sizedPaths
+                .Select(entry => (Path: entry.Item, entry.Size))
+                .ToList();
 
             var totalFiles = _inputPathsWithSize.Count;
             _currentFileIndex = 0;
@@ -250,7 +233,10 @@ public class ConvertMediaFilesCommand : CmdletBase
             foreach (var (inputPath, fileSize) in _inputPathsWithSize)
             {
                 _currentFileIndex++;
-                UpdateOverallProgress(_currentFileIndex, totalFiles, inputPath);
+                var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                    _currentFileIndex, totalFiles, Path.GetFileName(inputPath), _batchCompletedBytes, _batchTotalBytes);
+                var batchEta = CalculateRemainingTime(inputPath, totalFiles - _currentFileIndex);
+                MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
                 ProcessFile(inputPath);
                 if (_conversionResults.Count > 0 && _conversionResults[^1].Success)
                     _batchCompletedBytes += fileSize;
@@ -258,16 +244,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
             _batchStopwatch.Stop();
 
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                MainActivityId,
-                "Batch Conversion",
-                "Completed",
-                recordType: ProgressRecordType.Completed));
-            WriteProgress(MediaConversionHelper.CreateSimpleProgressRecord(
-                CurrentItemActivityId,
-                "File Conversion",
-                "Completed",
-                recordType: ProgressRecordType.Completed));
+            MediaConversionHelper.WriteProgressCompleted(this, "Batch Conversion", "File Conversion");
 
             WriteHostMessage("Batch conversion completed", ConsoleColor.Green);
         }
@@ -285,60 +262,6 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         // Output all results as objects for further processing
         WriteObject(_conversionResults, false);
-    }
-
-    /// <summary>
-    /// Updates the overall progress for batch conversion using size-based percent.
-    /// </summary>
-    /// <param name="currentFile">Current file number (1-based).</param>
-    /// <param name="totalFiles">Total number of files to process.</param>
-    /// <param name="currentFilePath">Path of the current file being processed.</param>
-    private void UpdateOverallProgress(int currentFile, int totalFiles, string currentFilePath)
-    {
-        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
-            currentFile, totalFiles, Path.GetFileName(currentFilePath), _batchCompletedBytes, _batchTotalBytes);
-
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Batch Conversion",
-            status,
-            percent);
-
-        var remainingFiles = totalFiles - currentFile;
-        if (remainingFiles > 0)
-        {
-            var batchEtaTimespan = CalculateRemainingTime(currentFilePath, remainingFiles);
-            if (batchEtaTimespan.HasValue)
-                progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(batchEtaTimespan.Value)}";
-        }
-
-        WriteProgress(progressRecord);
-    }
-
-    /// <summary>
-    /// Updates batch progress with current countdown ETA during file processing.
-    /// </summary>
-    private void UpdateBatchProgressWithCountdown(int currentFile, int totalFiles, string currentFilePath, TimeSpan? originalEta)
-    {
-        if (!originalEta.HasValue || _batchStopwatch == null)
-            return;
-
-        var elapsedTime = _batchStopwatch.Elapsed;
-        var remainingTime = originalEta.Value - elapsedTime;
-        if (remainingTime.TotalSeconds <= 0)
-            return;
-
-        var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
-            currentFile, totalFiles, Path.GetFileName(currentFilePath), _batchCompletedBytes, _batchTotalBytes);
-
-        var progressRecord = MediaConversionHelper.CreateSimpleProgressRecord(
-            MainActivityId,
-            "Batch Conversion",
-            status,
-            percent);
-        progressRecord.StatusDescription = $"ETA: {MediaConversionHelper.FormatTimespan(remainingTime)}";
-
-        WriteProgress(progressRecord);
     }
 
     /// <summary>
@@ -458,22 +381,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         string? currentOperation = null,
         int? percentComplete = null,
         ProgressRecordType recordType = ProgressRecordType.Processing,
-        TimeSpan? eta = null)
-    {
-        var progressRecord = MediaConversionHelper.CreateNestedProgressRecord(
-            CurrentItemActivityId,
-            "File Conversion",
-            status,
-            MainActivityId,
-            currentOperation,
-            percentComplete,
-            recordType);
-
-        if (eta.HasValue)
-            progressRecord.StatusDescription += $" (File ETA: {MediaConversionHelper.FormatTimespan(eta.Value)})";
-
-        WriteProgress(progressRecord);
-    }
+        TimeSpan? eta = null) =>
+        MediaConversionHelper.WriteCurrentItemProgress(this, "File Conversion", status, currentOperation, percentComplete, eta, recordType);
 
     private void ProcessFile(string inputPath)
     {
@@ -543,14 +452,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         else
         {
             UpdateFileProgress("Detecting audio mappings", fileName);
-            // Auto-detect and create mappings
-            // Check for audio streams
-            var audioStreams = mediaFile.Streams
-                .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            // If no audio streams at all, process with empty mappings (video-only)
-            if (audioStreams.Count == 0)
+            var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
+            if (audioSelection.TotalAudioStreamCount == 0)
             {
                 Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
                 UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
@@ -562,27 +465,12 @@ public class ConvertMediaFilesCommand : CmdletBase
                 }
                 return;
             }
-
-            // Filter for English streams only
-            var englishAudioStreams = audioStreams
-                .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            // If no English streams but other audio streams exist, use all audio streams
-            List<MediaStream> streamsToUse;
-            if (englishAudioStreams.Count == 0)
-            {
+            if (audioSelection.EnglishAudioStreamCount == 0)
                 Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
-                streamsToUse = audioStreams;
-            }
-            else
-            {
-                streamsToUse = englishAudioStreams;
-            }
 
             try
             {
-                audioMappings = CreateAudioTrackMappings(streamsToUse);
+                audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(audioSelection.SelectedStreams);
                 UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             }
             catch (Exception ex)
@@ -608,78 +496,12 @@ public class ConvertMediaFilesCommand : CmdletBase
         }
     }
 
-    private AudioTrackMapping[] CreateAudioTrackMappings(List<MediaStream> englishAudioStreams)
-    {
-        var mappings = new List<AudioTrackMapping>();
-        int destinationIndex = 0;
-
-        foreach (var stream in englishAudioStreams)
-        {
-            int channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
-
-            AudioTrackMapping mapping;
-            var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
-            {
-                // DTS-HD MA or TrueHD: copy without re-encoding
-                mapping = new CopyAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex);
-            }
-            else
-            {
-                // Other streams: encode as AAC, preserving channel count
-                mapping = new EncodeAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex,
-                    "aac",
-                    0, // Bitrate 0 means use default based on channel count
-                    channels);
-            }
-
-            mappings.Add(mapping);
-            destinationIndex++;
-        }
-
-        // Apply swap logic: if first is DTS/TrueHD (copy) and second is multi-channel (6+ channels), swap destination indices
-        if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping copyMapping &&
-            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
-            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6 && copyMapping.SourceIndex < encodeMapping.SourceIndex)
-        {
-            // Swap by creating new instances with swapped destination indices
-            Logger.LogDebug("Applying swap logic: swapping destination indices for DTS/TrueHD and 6+ channel AAC");
-            mappings[0] = new EncodeAudioTrackMapping(
-                encodeMapping.Title,
-                encodeMapping.SourceStream,
-                encodeMapping.SourceIndex,
-                copyMapping.DestinationIndex,
-                encodeMapping.DestinationCodec,
-                encodeMapping.DestinationBitrate,
-                encodeMapping.DestinationChannels);
-
-            mappings[1] = new CopyAudioTrackMapping(
-                copyMapping.Title,
-                copyMapping.SourceStream,
-                copyMapping.SourceIndex,
-                encodeMapping.DestinationIndex);
-        }
-
-        return mappings.ToArray();
-    }
-
     private bool ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
     {
         try
         {
             // Get or create video encoding settings
-            var videoSettings = VideoEncodingSettings ?? CreateDefaultVideoEncodingSettings();
+            var videoSettings = VideoEncodingSettings ?? MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
             var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
@@ -715,9 +537,15 @@ public class ConvertMediaFilesCommand : CmdletBase
 
                 // Update batch progress with countdown every second
                 var now = DateTime.UtcNow;
-                if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue)
+                if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue && _batchStopwatch != null)
                 {
-                    UpdateBatchProgressWithCountdown(_currentFileIndex, _batchTotalFiles, resolvedInputPath, initialBatchEta.Value);
+                    var remaining = initialBatchEta.Value - _batchStopwatch.Elapsed;
+                    if (remaining.TotalSeconds > 0)
+                    {
+                        var (batchStatus, batchPercent) = MediaConversionHelper.BuildBatchProgressStatus(
+                            _currentFileIndex, _batchTotalFiles, Path.GetFileName(resolvedInputPath), _batchCompletedBytes, _batchTotalBytes);
+                        MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", batchStatus, batchPercent, remaining, ProgressRecordType.Processing);
+                    }
                     lastBatchUpdateTime = now;
                 }
             }
@@ -732,7 +560,7 @@ public class ConvertMediaFilesCommand : CmdletBase
         catch (FfmpegConversionException ex)
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            var statusMessage = BuildStatusMessage(ex);
+            var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
         }
         catch (Exception ex)
@@ -743,54 +571,6 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         return false;
     }
-
-    private static string BuildStatusMessage(FfmpegConversionException ex)
-    {
-        var message = "Conversion failed";
-        if (ex.ExitCode.HasValue)
-            message += $" (exit code: {ex.ExitCode.Value})";
-        if (!string.IsNullOrWhiteSpace(ex.ErrorOutput))
-        {
-            var errorLines = ex.ErrorOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (errorLines.Length > 0)
-            {
-                var firstErrorLine = errorLines[0].Trim();
-                if (firstErrorLine.Length > 0)
-                    message += $": {firstErrorLine}";
-            }
-        }
-        return message;
-    }
-
-
-    private VideoEncodingSettings CreateDefaultVideoEncodingSettings()
-    {
-        var encoder = DefaultVideoEncoder?.Trim();
-        var codec = encoder?.ToLowerInvariant() switch
-        {
-            "nvenc" => "nvenc",
-            "x264" => "libx264",
-            _ => "libx265"
-        };
-
-        if (codec == "nvenc")
-        {
-            return new NvencVideoEncodingSettings(
-                "p5",
-                18);
-        }
-        else
-        {
-            return new ConstantRateVideoEncodingSettings(
-                codec,
-                "medium",
-                "high",
-                "film",
-                18,
-                VideoEncodingSettings.GetDefaultPixelFormat(codec));
-        }
-    }
-
 
     /// <summary>
     /// Represents the result of a conversion operation.

@@ -121,6 +121,7 @@ public class PathResolver : IPathResolver
 
     /// <summary>
     /// Attempts to resolve a PowerShell path using the provider path resolution.
+    /// Requires the path to exist.
     /// </summary>
     /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
     /// <param name="path">The path to resolve.</param>
@@ -131,9 +132,7 @@ public class PathResolver : IPathResolver
         resolvedPath = null;
         try
         {
-            // Escape PowerShell wildcard characters to handle literal brackets and other special characters
-            // in filenames (e.g., "[Blu-ray]" should be treated as literal, not a wildcard pattern)
-            var escapedPath = WildcardPattern.Escape(path);
+            var escapedPath = EscapePath(path);
             var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(escapedPath, out _);
             if (providerPaths.Count > 0)
             {
@@ -146,6 +145,111 @@ public class PathResolver : IPathResolver
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Resolves a PowerShell path using the session's current location without requiring the path to exist.
+    /// Use for directory paths that may not yet exist (e.g. output directory).
+    /// </summary>
+    /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
+    /// <param name="path">The path to resolve.</param>
+    /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
+    /// <returns>True if the path was successfully resolved, false otherwise.</returns>
+    public static bool TryGetUnresolvedProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
+    {
+        resolvedPath = null;
+        try
+        {
+            var escapedPath = EscapePath(path);
+            resolvedPath = cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(escapedPath);
+            return !string.IsNullOrEmpty(resolvedPath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves each path to a file or directory that exists. Used by subtitle cmdlets that accept file/directory paths.
+    /// </summary>
+    public static List<(string ResolvedPath, bool IsDirectory)> ResolveFileOrDirectoryPaths(
+        PSCmdlet cmdlet,
+        IEnumerable<string> paths,
+        ILogger? logger,
+        Action<ErrorRecord> writeError)
+    {
+        var result = new List<(string, bool)>();
+        foreach (var path in paths)
+        {
+            if (TryResolveProviderPath(cmdlet, path, out var resolved))
+            {
+                if (Directory.Exists(resolved))
+                    result.Add((resolved!, true));
+                else if (File.Exists(resolved))
+                    result.Add((resolved!, false));
+                else
+                    logger?.LogDebug("Resolved path does not exist: {Path}", resolved);
+            }
+            else if (TryGetUnresolvedProviderPath(cmdlet, path, out var unresolved))
+            {
+                if (Directory.Exists(unresolved))
+                    result.Add((unresolved!, true));
+                else if (File.Exists(unresolved))
+                    result.Add((unresolved!, false));
+                else
+                    writeError(new ErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
+            }
+            else
+                writeError(new ErrorRecord(new FileNotFoundException("File or directory not found.", path), "PathNotFound", ErrorCategory.ObjectNotFound, path));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Resolves an output path; on failure writes an error via writeError and returns null.
+    /// </summary>
+    public static string? ResolveOutputPathOrNull(IPathResolver pathResolver, string path, Action<ErrorRecord> writeError)
+    {
+        if (pathResolver.TryResolveOutputPath(path, out var resolved))
+            return resolved;
+        writeError(new ErrorRecord(new InvalidOperationException($"Failed to resolve output path: {path}"), "OutputPathResolutionFailed", ErrorCategory.InvalidArgument, path));
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves a backup directory path; creates the directory. On failure writes an error and returns false.
+    /// </summary>
+    public static bool ResolveBackupPath(IPathResolver pathResolver, string? backupPath, Action<ErrorRecord> writeError, out string? resolvedBackupRoot)
+    {
+        resolvedBackupRoot = null;
+        if (string.IsNullOrWhiteSpace(backupPath))
+            return true;
+        if (!pathResolver.TryResolveOutputPath(backupPath, out var resolved))
+        {
+            writeError(new ErrorRecord(new InvalidOperationException($"Failed to resolve backup path: {backupPath}"), "BackupPathResolutionFailed", ErrorCategory.InvalidArgument, backupPath));
+            return false;
+        }
+        resolvedBackupRoot = resolved;
+        Directory.CreateDirectory(resolvedBackupRoot);
+        return true;
+    }
+
+    /// <summary>
+    /// Copies a file to a backup location under backupRoot using the given relative path. Creates parent directories as needed.
+    /// </summary>
+    public static void CopyFileToBackup(string backupRoot, string sourceFilePath, string relativePath)
+    {
+        var backupDest = Path.Combine(backupRoot, relativePath);
+        var backupDir = Path.GetDirectoryName(backupDest);
+        if (!string.IsNullOrEmpty(backupDir))
+            Directory.CreateDirectory(backupDir);
+        File.Copy(sourceFilePath, backupDest, overwrite: true);
+    }
+
+    private static string EscapePath(string path)
+    {
+        return WildcardPattern.Escape(path);
     }
 }
 

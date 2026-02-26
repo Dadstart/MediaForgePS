@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Services;
@@ -251,5 +256,145 @@ public class MediaConversionHelperTests
             ProgressRecordType.Processing);
 
         Assert.True(string.IsNullOrWhiteSpace(record.CurrentOperation));
+    }
+
+    [Theory]
+    [InlineData("nvenc", "hevc_nvenc")]
+    [InlineData("x264", "libx264")]
+    [InlineData(null, "libx265")]
+    public void CreateDefaultVideoEncodingSettings_ReturnsExpectedCodec(string? encoder, string expectedCodec)
+    {
+        var settings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(encoder);
+
+        Assert.Equal(expectedCodec, settings.Codec);
+    }
+
+    [Fact]
+    public void CreateAutomaticAudioTrackMappings_WithDtsAndSixChannelAac_SwapsOrder()
+    {
+        var mappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(
+        [
+            CreateAudioStream(1, "dts", 6, "DTS 5.1"),
+            CreateAudioStream(2, "aac", 6, "AAC 5.1")
+        ]);
+
+        Assert.Equal(2, mappings.Length);
+        var first = Assert.IsType<EncodeAudioTrackMapping>(mappings[0]);
+        var second = Assert.IsType<CopyAudioTrackMapping>(mappings[1]);
+
+        Assert.Equal(0, first.DestinationIndex);
+        Assert.Equal(1, second.DestinationIndex);
+    }
+
+    [Fact]
+    public void BuildItemsWithSizes_WithExistingAndMissingFiles_ComputesTotalBytes()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_MediaConversionHelper_" + Guid.NewGuid().ToString("N"));
+        var existingPath = Path.Combine(tempDir, "existing.txt");
+        var missingPath = Path.Combine(tempDir, "missing.txt");
+
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            File.WriteAllBytes(existingPath, [1, 2, 3, 4]);
+
+            var entries = MediaConversionHelper.BuildItemsWithSizes(
+                [existingPath, missingPath],
+                static path => path,
+                out var totalBytes);
+
+            Assert.Equal(4, totalBytes);
+            Assert.Equal(2, entries.Count);
+            Assert.Equal(existingPath, entries[0].Item);
+            Assert.Equal(4, entries[0].Size);
+            Assert.Equal(missingPath, entries[1].Item);
+            Assert.Equal(0, entries[1].Size);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SelectPreferredAudioStreams_WithEnglishAudio_PrefersEnglishOnly()
+    {
+        var selection = MediaConversionHelper.SelectPreferredAudioStreams(
+        [
+            CreateAudioStream(1, "aac", 2, language: "spa"),
+            CreateAudioStream(2, "aac", 2, language: "eng"),
+            CreateAudioStream(3, "aac", 6, language: "eng")
+        ]);
+
+        Assert.Equal(3, selection.TotalAudioStreamCount);
+        Assert.Equal(2, selection.EnglishAudioStreamCount);
+        Assert.Equal(2, selection.SelectedStreams.Count);
+        Assert.All(selection.SelectedStreams, stream => Assert.Equal("eng", stream.Language));
+    }
+
+    [Fact]
+    public void SelectPreferredAudioStreams_WithoutEnglishAudio_UsesAllAudio()
+    {
+        var selection = MediaConversionHelper.SelectPreferredAudioStreams(
+        [
+            CreateAudioStream(1, "aac", 2, language: "spa"),
+            CreateAudioStream(2, "aac", 6, language: "fra")
+        ]);
+
+        Assert.Equal(2, selection.TotalAudioStreamCount);
+        Assert.Equal(0, selection.EnglishAudioStreamCount);
+        Assert.Equal(2, selection.SelectedStreams.Count);
+    }
+
+    [Fact]
+    public void SelectPreferredAudioStreams_WithNoAudio_ReturnsEmptySelection()
+    {
+        var selection = MediaConversionHelper.SelectPreferredAudioStreams(Array.Empty<MediaStream>());
+
+        Assert.Equal(0, selection.TotalAudioStreamCount);
+        Assert.Equal(0, selection.EnglishAudioStreamCount);
+        Assert.Empty(selection.SelectedStreams);
+    }
+
+    [Fact]
+    public void BuildConversionFailureStatusMessage_WithExitCodeAndErrorOutput_ReturnsExpectedMessage()
+    {
+        var ex = new FfmpegConversionException(
+            "failed",
+            "in.mkv",
+            "out.mp4",
+            1,
+            "first line\nsecond line");
+
+        var message = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
+
+        Assert.Equal("Conversion failed (exit code: 1): first line", message);
+    }
+
+    private static MediaStream CreateAudioStream(int index, string codec, int channels, string? title = null, string language = "eng")
+    {
+        var tags = new Dictionary<string, string>();
+        if (!string.IsNullOrWhiteSpace(title))
+            tags["title"] = title;
+
+        var rawJson = $@"{{
+            ""index"": {index},
+            ""codec_name"": ""{codec}"",
+            ""codec_type"": ""audio"",
+            ""channels"": {channels},
+            ""tags"": {{}}
+        }}";
+
+        return new MediaStream(
+            "audio",
+            index,
+            codec,
+            string.Empty,
+            string.Empty,
+            tags,
+            TimeSpan.Zero,
+            language,
+            rawJson);
     }
 }

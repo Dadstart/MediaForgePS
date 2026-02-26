@@ -186,6 +186,71 @@ public class SplitChaptersCommandTests : IDisposable
         }
     }
 
+    [Fact]
+    public void SplitChapters_WithAllChapters_SplitsEveryChapterIntoOwnFile()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_SplitChapters_" + Guid.NewGuid().ToString("N"));
+        var inputPath = Path.Combine(tempDir, "input.mkv");
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            File.WriteAllText(inputPath, "placeholder");
+
+            string? resolvedPath = inputPath;
+            _pathResolverMock.Setup(p => p.TryResolveInputPath(It.IsAny<string>(), out resolvedPath))
+                .Callback(new TryResolveInputPathCallback((string p, out string r) => r = p))
+                .Returns(true);
+
+            var chapters = new[]
+            {
+                new MediaChapter(0, 0, 100, new Dictionary<string, string>(), null, ""),
+                new MediaChapter(1, 100, 200, new Dictionary<string, string>(), null, ""),
+                new MediaChapter(2, 200, 300, new Dictionary<string, string>(), null, "")
+            };
+            var mediaFile = new MediaFile(
+                inputPath,
+                new MediaFormat(inputPath, 1, "matroska", "Matroska", 0, 300, 1000, 1000, new Dictionary<string, string>()),
+                chapters,
+                Array.Empty<MediaStream>(),
+                "{}");
+            _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(mediaFile);
+
+            InjectServiceProvider();
+
+            var asm = typeof(SplitChaptersCommand).Assembly;
+            var initialSessionState = InitialSessionState.CreateDefault();
+            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-Chapters", typeof(SplitChaptersCommand), null));
+
+            using var ps = PowerShell.Create(initialSessionState);
+            ps.AddCommand("Split-Chapters")
+                .AddParameter("InputFile", inputPath)
+                .AddParameter("AllChapters", true);
+
+            var results = ps.Invoke().ToList();
+            var errors = ps.Streams.Error.ReadAll();
+
+            Assert.Empty(errors);
+            Assert.Equal(3, results.Count);
+            Assert.Equal(Path.Combine(tempDir, "input.split-01.mkv"), results[0].BaseObject);
+            Assert.Equal(Path.Combine(tempDir, "input.split-02.mkv"), results[1].BaseObject);
+            Assert.Equal(Path.Combine(tempDir, "input.split-03.mkv"), results[2].BaseObject);
+
+            _executableServiceMock.Verify(
+                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Exactly(3));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                try { File.Delete(inputPath); } catch { }
+                try { Directory.Delete(tempDir); } catch { }
+            }
+        }
+    }
+
     private void InjectServiceProvider()
     {
         if (_providerField != null)
