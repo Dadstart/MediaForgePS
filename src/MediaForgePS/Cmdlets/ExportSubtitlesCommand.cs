@@ -93,24 +93,9 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var filesWithSize = new List<(MediaFile Mf, long Size)>();
-        long totalBytes = 0;
-        foreach (var mf in mediaFiles)
-        {
-            long size = 0;
-            try
-            {
-                var fi = new FileInfo(mf.Path);
-                if (fi.Exists)
-                    size = fi.Length;
-                totalBytes += size;
-            }
-            catch
-            {
-                // Use 0 for this file
-            }
-            filesWithSize.Add((mf, size));
-        }
+        var filesWithSize = MediaConversionHelper.BuildItemsWithSizes(mediaFiles, mf => mf.Path, out var totalBytes)
+            .Select(entry => (Mf: entry.Item, entry.Size))
+            .ToList();
 
         WriteHostMessage($"Exporting subtitles from {mediaFiles.Count} file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
@@ -145,33 +130,27 @@ public class ExportSubtitlesCommand : CmdletBase
         var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
         var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
 
-        IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
-        if (Ocr.IsPresent && imagePaths.Count > 0)
-        {
-            var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
-            if (string.IsNullOrEmpty(subtitleEditPath))
-            {
-                WriteError(CreateErrorRecord(
-                    new FileNotFoundException($"Subtitle Edit not found (required to convert {imagePaths.Count} image subtitle(s)). Expected: {WindowsExecutablePathHelper.GetSubtitleEditExpectedPath()}"),
-                    "SubtitleEditNotFound",
-                    ErrorCategory.ObjectNotFound,
-                    null));
-                return;
-            }
-            _ = ExecutableService;
-            convertedSrtPaths = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
-                this, ExecutableService, Logger, subtitleEditPath, imagePaths, Math.Max(1, ThrottleLimit), WriteError);
-        }
+        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+            this,
+            Logger,
+            ExecutableService,
+            PathResolver,
+            imagePaths,
+            srtPathsFromExport,
+            performOcr: Ocr.IsPresent,
+            ThrottleLimit,
+            shouldRepair: Ocr.IsPresent && !NoRepair.IsPresent,
+            BackupPath,
+            WriteObject);
 
-        var allSrtPaths = srtPathsFromExport.Concat(convertedSrtPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (allSrtPaths == null)
+            return;
+
         if (allSrtPaths.Count == 0)
         {
             WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
             return;
         }
-
-        var shouldRepair = Ocr.IsPresent && !NoRepair.IsPresent;
-        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolver, allSrtPaths, shouldRepair, BackupPath, WriteObject);
 
         WriteHostMessage("Export completed.", ConsoleColor.Green);
     }

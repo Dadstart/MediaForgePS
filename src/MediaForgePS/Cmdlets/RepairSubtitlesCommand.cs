@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -58,13 +57,7 @@ public class RepairSubtitlesCommand : CmdletBase
 
     protected override void Process()
     {
-        if (InputPath == null || InputPath.Length == 0)
-            return;
-        foreach (var p in InputPath)
-        {
-            if (!string.IsNullOrWhiteSpace(p))
-                _inputPaths.Add(p.Trim());
-        }
+        SubtitlePathResolutionHelper.CollectInputPaths(InputPath, _inputPaths);
     }
 
     protected override void End()
@@ -75,99 +68,69 @@ public class RepairSubtitlesCommand : CmdletBase
             return;
         }
 
-        var resolvedPairs = PathResolverImpl.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, e => WriteError(e));
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
             return;
         }
 
-        var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var writtenPaths = new List<string>();
-        var totalPaths = resolvedPairs.Count;
-        var pathIndex = 0;
-        if (!PathResolverImpl.ResolveBackupPath(PathResolver, BackupPath, e => WriteError(e), out var resolvedBackupRoot))
-            return;
-
-        foreach (var pair in resolvedPairs)
+        string? singleOutputPath = null;
+        if (resolvedPairs.Count == 1 &&
+            !resolvedPairs[0].IsDirectory &&
+            _inputPaths.Count == 1 &&
+            !string.IsNullOrWhiteSpace(OutputPath))
         {
-            pathIndex++;
-            var (resolvedPath, isDirectory) = pair;
-            var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
-            var mainPercent = totalPaths > 0 ? (int)((pathIndex * 100.0) / totalPaths) : 0;
-            var mainStatus = $"Path {pathIndex} of {totalPaths} ({mainPercent}%) — {pathDisplayName}";
-            MediaConversionHelper.WriteMainProgress(this, "Repairing subtitles", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+            singleOutputPath = PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, WriteError);
+            if (singleOutputPath == null)
+                return;
+        }
 
+        var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var repairItems = new List<SrtRepairHelper.SrtRepairItem>();
+
+        foreach (var (resolvedPath, isDirectory) in resolvedPairs)
+        {
+            var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
             if (isDirectory)
             {
-                var files = Directory.EnumerateFiles(resolvedPath, "*.srt", searchOption).ToList();
-                var fileCount = files.Count;
-                var currentFileIndex = 0;
+                var files = SubtitlePathResolutionHelper.EnumerateMatchingPaths(
+                    [(resolvedPath, true)],
+                    searchOption,
+                    "*.srt",
+                    SubtitlePathHelper.IsSrtPath);
+
                 foreach (var filePath in files)
                 {
-                    currentFileIndex++;
-                    var filePercent = fileCount > 0 ? (int)((currentFileIndex * 100.0) / fileCount) : 0;
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Repairing...", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Processing);
-                    if (resolvedBackupRoot != null && !CopyToBackup(resolvedBackupRoot, resolvedPath, pathDisplayName, filePath, isDirectory))
-                        continue;
-                    if (ProcessFile(filePath, filePath))
-                        writtenPaths.Add(filePath);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Completed);
+                    var relativePath = Path.Combine(pathDisplayName, Path.GetRelativePath(resolvedPath, filePath));
+                    repairItems.Add(new SrtRepairHelper.SrtRepairItem(filePath, filePath, relativePath));
                 }
             }
             else
             {
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Repairing...", pathDisplayName, percentComplete: 100, recordType: ProgressRecordType.Processing);
-                if (resolvedBackupRoot == null || CopyToBackup(resolvedBackupRoot, resolvedPath, pathDisplayName, resolvedPath, isDirectory))
-                {
-                    var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
-                        ? PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, e => WriteError(e))
-                        : resolvedPath;
-                    if (outputPath != null && ProcessFile(resolvedPath, outputPath))
-                        writtenPaths.Add(outputPath);
-                }
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
+                if (!SubtitlePathHelper.IsSrtPath(resolvedPath))
+                    continue;
+
+                repairItems.Add(new SrtRepairHelper.SrtRepairItem(
+                    resolvedPath,
+                    singleOutputPath ?? resolvedPath,
+                    pathDisplayName));
             }
         }
 
-        MediaConversionHelper.WriteProgressCompleted(this, "Repairing subtitles", "Current file");
+        if (repairItems.Count == 0)
+        {
+            WriteWarning("No SRT files found at the given path(s).");
+            return;
+        }
 
-        foreach (var path in writtenPaths)
-            WriteObject(path);
-    }
-
-    private bool CopyToBackup(string backupRoot, string resolvedPath, string pathDisplayName, string sourceFilePath, bool isDirectory)
-    {
-        try
-        {
-            var relativePath = isDirectory
-                ? Path.Combine(pathDisplayName, Path.GetRelativePath(resolvedPath, sourceFilePath))
-                : pathDisplayName;
-            PathResolverImpl.CopyFileToBackup(backupRoot, sourceFilePath, relativePath);
-            WriteVerbose($"Backed up to: {Path.Combine(backupRoot, relativePath)}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to copy to backup: {Source} -> {BackupPath}", sourceFilePath, backupRoot);
-            WriteError(CreateErrorRecord(ex, "BackupFailed", ErrorCategory.WriteError, sourceFilePath));
-            return false;
-        }
-    }
-
-    private bool ProcessFile(string inputPath, string outputPath)
-    {
-        try
-        {
-            SrtOcrFixHelper.RepairFile(inputPath, outputPath);
-            WriteVerbose($"Wrote fixed subtitles to: {outputPath}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to repair subtitles: {Path}", inputPath);
-            WriteError(CreateErrorRecord(ex, "RepairSubtitlesFailed", ErrorCategory.WriteError, inputPath));
-            return false;
-        }
+        SrtRepairHelper.RunRepairLoop(
+            this,
+            Logger,
+            PathResolver,
+            repairItems,
+            shouldRepair: true,
+            BackupPath,
+            WriteObject);
     }
 }

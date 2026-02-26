@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
-using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -65,13 +62,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
 
     protected override void Process()
     {
-        if (InputPath == null || InputPath.Length == 0)
-            return;
-        foreach (var p in InputPath)
-        {
-            if (!string.IsNullOrWhiteSpace(p))
-                _inputPaths.Add(p.Trim());
-        }
+        SubtitlePathResolutionHelper.CollectInputPaths(InputPath, _inputPaths);
     }
 
     protected override void End()
@@ -82,7 +73,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
             return;
         }
 
-        var resolvedPairs = PathResolverImpl.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, e => WriteError(e));
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -90,20 +81,11 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
         }
 
         var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var allSubtitlePaths = new List<string>();
-        foreach (var (resolvedPath, isDirectory) in resolvedPairs)
-        {
-            if (isDirectory)
-            {
-                var files = Directory
-                    .EnumerateFiles(resolvedPath, "*.*", searchOption)
-                    .Where(f => SubtitlePathHelper.IsImageSubtitlePath(f) || SubtitlePathHelper.IsSrtPath(f))
-                    .ToList();
-                allSubtitlePaths.AddRange(files);
-            }
-            else if (SubtitlePathHelper.IsImageSubtitlePath(resolvedPath) || SubtitlePathHelper.IsSrtPath(resolvedPath))
-                allSubtitlePaths.Add(resolvedPath);
-        }
+        var allSubtitlePaths = SubtitlePathResolutionHelper.EnumerateMatchingPaths(
+            resolvedPairs,
+            searchOption,
+            "*.*",
+            path => SubtitlePathHelper.IsImageSubtitlePath(path) || SubtitlePathHelper.IsSrtPath(path));
 
         var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(allSubtitlePaths);
         var srtPathsFromInput = SubtitlePathHelper.GetSrtPaths(allSubtitlePaths);
@@ -116,33 +98,27 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
 
         WriteHostMessage($"Processing {imagePaths.Count} image subtitle(s) and {srtPathsFromInput.Count} SRT file(s).", ConsoleColor.Cyan);
 
-        IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
-        if (imagePaths.Count > 0)
-        {
-            var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
-            if (string.IsNullOrEmpty(subtitleEditPath))
-            {
-                WriteError(CreateErrorRecord(
-                    new FileNotFoundException($"Subtitle Edit not found (required to convert {imagePaths.Count} image subtitle(s)). Expected: {WindowsExecutablePathHelper.GetSubtitleEditExpectedPath()}"),
-                    "SubtitleEditNotFound",
-                    ErrorCategory.ObjectNotFound,
-                    null));
-                return;
-            }
-            _ = ExecutableService;
-            convertedSrtPaths = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
-                this, ExecutableService, Logger, subtitleEditPath, imagePaths, Math.Max(1, ThrottleLimit), WriteError);
-        }
+        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+            this,
+            Logger,
+            ExecutableService,
+            PathResolver,
+            imagePaths,
+            srtPathsFromInput,
+            performOcr: true,
+            ThrottleLimit,
+            shouldRepair: !NoRepair.IsPresent,
+            BackupPath,
+            WriteObject);
 
-        var allSrtPaths = srtPathsFromInput.Concat(convertedSrtPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (allSrtPaths == null)
+            return;
+
         if (allSrtPaths.Count == 0)
         {
             WriteHostMessage("No SRT files to repair.", ConsoleColor.Green);
             return;
         }
-
-        var shouldRepair = !NoRepair.IsPresent;
-        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolver, allSrtPaths, shouldRepair, BackupPath, WriteObject);
 
         WriteHostMessage("OCR and repair completed.", ConsoleColor.Green);
     }

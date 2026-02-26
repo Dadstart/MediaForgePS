@@ -115,4 +115,43 @@ public class RepairSubtitlesCommandTests : IDisposable
                 Directory.Delete(tempDir, recursive: true);
         }
     }
+
+    [Fact]
+    public void RepairSubtitles_WhenSingleFileWithOutputPath_WritesToOutputPath()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_RepairSubtitles_" + Guid.NewGuid().ToString("N"));
+        var inputPath = Path.Combine(tempDir, "input.srt");
+        var outputPath = Path.Combine(tempDir, "output.srt");
+
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nSong J plays.\n\n";
+            File.WriteAllText(inputPath, content);
+
+            var asm = typeof(RepairSubtitlesCommand).Assembly;
+            var initialSessionState = InitialSessionState.CreateDefault();
+            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
+
+            using var ps = PowerShell.Create(initialSessionState);
+            ps.AddCommand("Repair-Subtitles")
+                .AddParameter("InputPath", inputPath)
+                .AddParameter("OutputPath", outputPath);
+
+            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
+            var errors = ps.Streams.Error.ReadAll();
+
+            Assert.Empty(errors);
+            Assert.Single(results);
+            Assert.Equal(outputPath, results[0]);
+            Assert.True(File.Exists(outputPath));
+            Assert.Contains("Song ♪ plays.", File.ReadAllText(outputPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
-using System.Threading;
-using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -117,35 +114,11 @@ public class SplitChaptersCommand : CmdletBase
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
 
-        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-
-        var mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
-            .ConfigureAwait(false).GetAwaiter().GetResult();
-
-        if (mediaFile?.Chapters == null || mediaFile.Chapters.Length == 0)
-        {
-            WriteError(new ErrorRecord(
-                new InvalidOperationException("No chapters found in video file."),
-                "NoChapters",
-                ErrorCategory.InvalidOperation,
-                resolvedInputPath));
-            return;
-        }
-
-        var chapterCount = mediaFile.Chapters.Length;
-        var ranges = new List<(int Start, int End, string? OutputName)>(chapterCount);
-        for (var i = 1; i <= chapterCount; i++)
-            ranges.Add((i, i, null));
-
-        SplitChaptersForFile(resolvedInputPath, ranges, mediaFile);
-    }
-
-    private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges, MediaFile? preFetchedMediaFile = null)
-    {
-        if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
-            return;
-
-        var outputDir = ResolveOutputDirectory(resolvedInputPath);
+        var outputDir = ChapterSplitHelper.ResolveOutputDirectory(
+            PathResolver,
+            OutputPath,
+            resolvedInputPath,
+            SessionState.Path.CurrentLocation.Path);
         if (string.IsNullOrEmpty(outputDir))
         {
             WriteError(new ErrorRecord(
@@ -156,31 +129,65 @@ public class SplitChaptersCommand : CmdletBase
             return;
         }
 
-        MediaFile mediaFile;
-        if (preFetchedMediaFile != null)
-        {
-            mediaFile = preFetchedMediaFile;
-        }
-        else
-        {
-            WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
+        if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
+            return;
 
-            mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
-                .ConfigureAwait(false).GetAwaiter().GetResult()
-                ?? throw new InvalidOperationException("Could not read media file.");
-        }
+        WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
 
-        if (mediaFile.Chapters == null || mediaFile.Chapters.Length == 0)
+        var chapterCount = chapters.Length;
+        var ranges = new List<(int Start, int End, string? OutputName)>(chapterCount);
+        for (var i = 1; i <= chapterCount; i++)
+            ranges.Add((i, i, null));
+
+        var inputExtension = Path.GetExtension(resolvedInputPath);
+        if (string.IsNullOrWhiteSpace(inputExtension))
+            inputExtension = ".mkv";
+        var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
+
+        var outputFiles = ChapterSplitHelper.SplitChapterRanges(
+            this,
+            Logger,
+            ExecutableService,
+            resolvedInputPath,
+            outputDir,
+            ranges,
+            chapters,
+            (rangeIndex, range) => !string.IsNullOrWhiteSpace(range.OutputName)
+                ? range.OutputName + inputExtension
+                : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
+            WriteHostMessage);
+
+        foreach (var path in outputFiles)
+            WriteObject(path);
+    }
+
+    private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges)
+    {
+        if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
+            return;
+
+        var outputDir = ChapterSplitHelper.ResolveOutputDirectory(
+            PathResolver,
+            OutputPath,
+            resolvedInputPath,
+            SessionState.Path.CurrentLocation.Path);
+        if (string.IsNullOrEmpty(outputDir))
         {
             WriteError(new ErrorRecord(
-                new InvalidOperationException("No chapters found in video file."),
-                "NoChapters",
+                new InvalidOperationException("Could not resolve output directory."),
+                "OutputPathResolutionFailed",
                 ErrorCategory.InvalidOperation,
-                resolvedInputPath));
+                OutputPath));
             return;
         }
 
-        var chapters = mediaFile.Chapters;
+        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
+        if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
+            return;
+
         WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
 
         var inputExtension = Path.GetExtension(resolvedInputPath);
@@ -188,98 +195,20 @@ public class SplitChaptersCommand : CmdletBase
             inputExtension = ".mkv";
 
         var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
-        var outputFiles = new List<string>();
-
-        for (var i = 0; i < ranges.Count; i++)
-        {
-            var (startOneBased, endOneBased, outputName) = ranges[i];
-            var chapterStart = startOneBased - 1;
-            var chapterEnd = endOneBased - 1;
-
-            if (chapterStart < 0 || chapterEnd < 0)
-            {
-                throw new ArgumentException(
-                    $"Chapter indices must be positive. Range at index {i} has Start={startOneBased}, End={endOneBased}.");
-            }
-
-            if (chapterStart >= chapters.Length || chapterEnd >= chapters.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(ChapterRanges),
-                    $"Chapter range out of bounds. Available chapters: 1-{chapters.Length}. Range at index {i}: {startOneBased}-{endOneBased}.");
-            }
-
-            if (chapterStart > chapterEnd)
-            {
-                throw new ArgumentException(
-                    $"Start ({startOneBased}) must be less than or equal to End ({endOneBased}) for range at index {i}.");
-            }
-
-            var outputFileName = !string.IsNullOrWhiteSpace(outputName)
-                ? outputName + inputExtension
-                : $"{baseName}.split-{(i + 1):D2}{inputExtension}";
-            var outputFile = Path.Combine(outputDir, outputFileName);
-
-            if (File.Exists(outputFile))
-            {
-                WriteWarning($"Output file already exists: {outputFile}. Skipping...");
-                outputFiles.Add(outputFile);
-                continue;
-            }
-
-            var startChapter = chapters[chapterStart];
-            var endChapter = chapters[chapterEnd];
-            var startTime = (double)startChapter.StartTime;
-            var endTime = (double)endChapter.EndTime;
-            var duration = endTime - startTime;
-
-            var startTimeCode = MediaConversionHelper.FormatTimeCode(startTime);
-            var durationTimeCode = MediaConversionHelper.FormatTimeCode(duration);
-
-            WriteHostMessage(
-                $"Splitting chapters {chapterStart + 1}-{chapterEnd + 1} ({startTimeCode} - {durationTimeCode}) -> {outputFileName}",
-                ConsoleColor.Yellow);
-
-            var ffmpegArgs = new List<string>
-            {
-                "-i", resolvedInputPath,
-                "-ss", startTimeCode,
-                "-t", durationTimeCode,
-                "-map", "0",
-                "-c", "copy",
-                "-avoid_negative_ts", "make_zero",
-                outputFile
-            };
-
-            Logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
-
-            var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
-
-            if (result.ExitCode != 0)
-            {
-                var msg = $"ffmpeg failed with exit code {result.ExitCode} for output file: {outputFile}";
-                if (!string.IsNullOrWhiteSpace(result.ErrorOutput))
-                    msg += ". " + result.ErrorOutput.Trim();
-                throw new InvalidOperationException(msg);
-            }
-
-            WriteHostMessage($"Successfully created: {outputFile}", ConsoleColor.Green);
-            outputFiles.Add(outputFile);
-        }
+        var outputFiles = ChapterSplitHelper.SplitChapterRanges(
+            this,
+            Logger,
+            ExecutableService,
+            resolvedInputPath,
+            outputDir,
+            ranges,
+            chapters,
+            (rangeIndex, range) => !string.IsNullOrWhiteSpace(range.OutputName)
+                ? range.OutputName + inputExtension
+                : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
+            WriteHostMessage);
 
         foreach (var path in outputFiles)
             WriteObject(path);
     }
-
-    private string? ResolveOutputDirectory(string resolvedInputPath) =>
-        PathHelper.ResolveOutputDirectory(
-            OutputPath,
-            resolvedInputPath,
-            SessionState.Path.CurrentLocation.Path,
-            path =>
-            {
-                var ok = PathResolver.TryResolveOutputPath(path, out var r);
-                return (ok, r);
-            });
-
 }

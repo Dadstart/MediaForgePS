@@ -216,27 +216,10 @@ public class ConvertMediaFilesCommand : CmdletBase
         // Process all collected files
         if (_uniqueInputPaths.Count > 0)
         {
-            _inputPathsWithSize = new List<(string Path, long Size)>();
-            _batchTotalBytes = 0;
-            foreach (var path in _uniqueInputPaths)
-            {
-                long size = 0;
-                try
-                {
-                    var fi = new FileInfo(path);
-                    if (fi.Exists)
-                    {
-                        size = fi.Length;
-                        _batchTotalBytes += size;
-                    }
-                }
-                catch
-                {
-                    // Use 0 for this file
-                }
-
-                _inputPathsWithSize.Add((path, size));
-            }
+            var sizedPaths = MediaConversionHelper.BuildItemsWithSizes(_uniqueInputPaths, static path => path, out _batchTotalBytes);
+            _inputPathsWithSize = sizedPaths
+                .Select(entry => (Path: entry.Item, entry.Size))
+                .ToList();
 
             var totalFiles = _inputPathsWithSize.Count;
             _currentFileIndex = 0;
@@ -469,14 +452,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         else
         {
             UpdateFileProgress("Detecting audio mappings", fileName);
-            // Auto-detect and create mappings
-            // Check for audio streams
-            var audioStreams = mediaFile.Streams
-                .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            // If no audio streams at all, process with empty mappings (video-only)
-            if (audioStreams.Count == 0)
+            var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
+            if (audioSelection.TotalAudioStreamCount == 0)
             {
                 Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
                 UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
@@ -488,27 +465,12 @@ public class ConvertMediaFilesCommand : CmdletBase
                 }
                 return;
             }
-
-            // Filter for English streams only
-            var englishAudioStreams = audioStreams
-                .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            // If no English streams but other audio streams exist, use all audio streams
-            List<MediaStream> streamsToUse;
-            if (englishAudioStreams.Count == 0)
-            {
+            if (audioSelection.EnglishAudioStreamCount == 0)
                 Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
-                streamsToUse = audioStreams;
-            }
-            else
-            {
-                streamsToUse = englishAudioStreams;
-            }
 
             try
             {
-                audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streamsToUse);
+                audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(audioSelection.SelectedStreams);
                 UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             }
             catch (Exception ex)

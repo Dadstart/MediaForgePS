@@ -327,27 +327,9 @@ public class SeriesProcessingService : ISeriesProcessingService
         if (acceptedFiles.Count == 0)
             return Array.Empty<string>();
 
-        var filesWithSize = new List<(string Path, long Size)>();
-        long totalBytes = 0;
-        foreach (var path in acceptedFiles)
-        {
-            long size = 0;
-            try
-            {
-                var fi = new FileInfo(path);
-                if (fi.Exists)
-                {
-                    size = fi.Length;
-                    totalBytes += size;
-                }
-            }
-            catch
-            {
-                // Use 0 for this file
-            }
-
-            filesWithSize.Add((path, size));
-        }
+        var filesWithSize = MediaConversionHelper.BuildItemsWithSizes(acceptedFiles, static path => path, out var totalBytes)
+            .Select(entry => (Path: entry.Item, entry.Size))
+            .ToList();
 
         var copiedFiles = new List<string>();
         var sortedEpisodes = request.Episodes.OrderBy(e => e.EpisodeNumber).ToList();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
@@ -12,6 +13,14 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class MediaConversionHelper
 {
+    /// <summary>
+    /// Result of selecting preferred audio streams for automatic mapping.
+    /// </summary>
+    public readonly record struct AudioStreamSelection(
+        IReadOnlyList<MediaStream> SelectedStreams,
+        int TotalAudioStreamCount,
+        int EnglishAudioStreamCount);
+
     /// <summary>
     /// Formats a byte count as a human-readable string (B, KB, MB, GB).
     /// </summary>
@@ -119,6 +128,59 @@ public static class MediaConversionHelper
 
         var averageBytesPerSecond = totalBytes / totalSeconds;
         return TimeSpan.FromSeconds(remainingBytes / averageBytesPerSecond);
+    }
+
+    /// <summary>
+    /// Builds a list of items paired with file size and computes total bytes.
+    /// </summary>
+    public static IReadOnlyList<(T Item, long Size)> BuildItemsWithSizes<T>(
+        IEnumerable<T> items,
+        Func<T, string> pathSelector,
+        out long totalBytes)
+    {
+        totalBytes = 0;
+        var sizedItems = new List<(T Item, long Size)>();
+        foreach (var item in items)
+        {
+            long size = 0;
+            try
+            {
+                var fileInfo = new FileInfo(pathSelector(item));
+                if (fileInfo.Exists)
+                {
+                    size = fileInfo.Length;
+                    totalBytes += size;
+                }
+            }
+            catch
+            {
+                // Use 0 for this item.
+            }
+
+            sizedItems.Add((item, size));
+        }
+
+        return sizedItems;
+    }
+
+    /// <summary>
+    /// Selects preferred audio streams: English audio streams when present, otherwise all audio streams.
+    /// </summary>
+    public static AudioStreamSelection SelectPreferredAudioStreams(IEnumerable<MediaStream> streams)
+    {
+        var audioStreams = streams
+            .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (audioStreams.Count == 0)
+            return new AudioStreamSelection(Array.Empty<MediaStream>(), 0, 0);
+
+        var englishAudioStreams = audioStreams
+            .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return englishAudioStreams.Count > 0
+            ? new AudioStreamSelection(englishAudioStreams, audioStreams.Count, englishAudioStreams.Count)
+            : new AudioStreamSelection(audioStreams, audioStreams.Count, 0);
     }
 
     /// <summary>

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -56,13 +55,7 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
 
     protected override void Process()
     {
-        if (InputPath == null || InputPath.Length == 0)
-            return;
-        foreach (var p in InputPath)
-        {
-            if (!string.IsNullOrWhiteSpace(p))
-                _inputPaths.Add(p.Trim());
-        }
+        SubtitlePathResolutionHelper.CollectInputPaths(InputPath, _inputPaths);
     }
 
     protected override void End()
@@ -84,7 +77,7 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
             return;
         }
 
-        var resolvedPairs = PathResolverImpl.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, e => WriteError(e));
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -107,10 +100,11 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
 
             if (isDirectory)
             {
-                var files = Directory
-                    .EnumerateFiles(resolvedPath, "*.*", searchOption)
-                    .Where(SubtitlePathHelper.IsImageSubtitlePath)
-                    .ToList();
+                var files = SubtitlePathResolutionHelper.EnumerateMatchingPaths(
+                    [pair],
+                    searchOption,
+                    "*.*",
+                    SubtitlePathHelper.IsImageSubtitlePath);
                 var fileCount = files.Count;
                 var currentFileIndex = 0;
                 foreach (var filePath in files)

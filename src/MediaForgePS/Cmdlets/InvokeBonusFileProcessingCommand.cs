@@ -250,27 +250,9 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             return 0;
         }
 
-        var bonusFilesWithSize = new List<(string Path, long Size)>();
-        long totalBytes = 0;
-        foreach (var path in bonusFiles)
-        {
-            long size = 0;
-            try
-            {
-                var fi = new FileInfo(path);
-                if (fi.Exists)
-                {
-                    size = fi.Length;
-                    totalBytes += size;
-                }
-            }
-            catch
-            {
-                // Use 0 for this file; total progress still reflects the rest
-            }
-
-            bonusFilesWithSize.Add((path, size));
-        }
+        var bonusFilesWithSize = MediaConversionHelper.BuildItemsWithSizes(bonusFiles, static path => path, out var totalBytes)
+            .Select(entry => (Path: entry.Item, entry.Size))
+            .ToList();
 
         WriteHostMessage($"Converting {bonusFileCount} bonus file(s) (total size: {MediaConversionHelper.FormatByteCount(totalBytes)})", ConsoleColor.Cyan);
 
@@ -335,28 +317,21 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 return new ConversionSummary(inputFilePath, false, StatusMessage);
             }
 
-            var audioStreams = mediaFile.Streams
-                .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
             AudioTrackMapping[] audioMappings;
-
-            if (audioStreams.Count == 0)
+            var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
+            if (audioSelection.TotalAudioStreamCount == 0)
             {
                 Logger.LogInformation("No audio streams found in bonus file: {InputFilePath}, processing as video-only", inputFilePath);
                 audioMappings = Array.Empty<AudioTrackMapping>();
             }
             else
             {
-                var englishAudioStreams = audioStreams
-                    .Where(s => string.Equals(s.Language, "eng", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                var streamsToUse = englishAudioStreams.Count == 0 ? audioStreams : englishAudioStreams;
+                if (audioSelection.EnglishAudioStreamCount == 0)
+                    Logger.LogInformation("No English audio streams found in bonus file: {InputFilePath}, using all audio streams", inputFilePath);
 
                 try
                 {
-                    audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(streamsToUse);
+                    audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(audioSelection.SelectedStreams);
                 }
                 catch (Exception ex)
                 {
