@@ -1,16 +1,12 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Threading;
-using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
-using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -146,19 +142,10 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var imagePaths = exportedPaths
-            .Where(p =>
-            {
-                var ext = Path.GetExtension(p);
-                return ext.Equals(".sup", StringComparison.OrdinalIgnoreCase) || ext.Equals(".sub", StringComparison.OrdinalIgnoreCase);
-            })
-            .ToList();
+        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
+        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
 
-        var srtPathsFromExport = exportedPaths
-            .Where(p => Path.GetExtension(p).Equals(".srt", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        var convertedSrtPaths = new ConcurrentBag<string>();
+        IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (Ocr.IsPresent && imagePaths.Count > 0)
         {
             var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
@@ -171,80 +158,9 @@ public class ExportSubtitlesCommand : CmdletBase
                     null));
                 return;
             }
-
-            // Ensure services are created on the pipeline thread before running parallel work.
             _ = ExecutableService;
-            var totalConvert = imagePaths.Count;
-            var errors = new ConcurrentBag<(string InputPath, Exception Exception)>();
-            var completedCount = 0;
-
-            MediaConversionHelper.WriteMainProgress(
-                this,
-                "Converting image subtitles to SRT",
-                $"Converting {totalConvert} image subtitle file(s) to SRT...",
-                0,
-                recordType: ProgressRecordType.Processing);
-
-            var maxParallel = Math.Max(1, ThrottleLimit);
-            using var throttle = new SemaphoreSlim(maxParallel, maxParallel);
-            var tasks = imagePaths
-                .Select(inputPath => Task.Run(() =>
-                {
-                    throttle.Wait();
-                    try
-                    {
-                        var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
-                        try
-                        {
-                            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputPath, srtPath);
-                            Logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
-                            convertedSrtPaths.Add(srtPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.LogError(ex, "Failed to convert image subtitles to SRT: {Path}", inputPath);
-                            errors.Add((inputPath, ex));
-                        }
-                        finally
-                        {
-                            Interlocked.Increment(ref completedCount);
-                        }
-                    }
-                    finally
-                    {
-                        throttle.Release();
-                    }
-                }))
-                .ToArray();
-
-            while (Volatile.Read(ref completedCount) < totalConvert)
-            {
-                var current = Volatile.Read(ref completedCount);
-                var percent = totalConvert > 0 ? (int)((current * 100.0) / totalConvert) : 0;
-
-                MediaConversionHelper.WriteMainProgress(
-                    this,
-                    "Converting image subtitles to SRT",
-                    $"Converted {current} of {totalConvert} image subtitle file(s) to SRT...",
-                    percent,
-                    recordType: ProgressRecordType.Processing);
-
-                Thread.Sleep(200);
-            }
-
-            Task.WaitAll(tasks);
-
-            MediaConversionHelper.WriteMainProgress(
-                this,
-                "Converting image subtitles to SRT",
-                $"Converted {totalConvert} of {totalConvert} image subtitle file(s) to SRT...",
-                100,
-                recordType: ProgressRecordType.Processing);
-
-            foreach (var error in errors)
-                WriteError(CreateErrorRecord(error.Exception, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, error.InputPath));
-
-            MediaConversionHelper.WriteProgressCompleted(this, "Converting image subtitles to SRT", "Current file");
+            convertedSrtPaths = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
+                this, ExecutableService, Logger, subtitleEditPath, imagePaths, Math.Max(1, ThrottleLimit), WriteError);
         }
 
         var allSrtPaths = srtPathsFromExport.Concat(convertedSrtPaths).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -255,27 +171,7 @@ public class ExportSubtitlesCommand : CmdletBase
         }
 
         var shouldRepair = Ocr.IsPresent && !NoRepair.IsPresent;
-        string? resolvedBackupRoot = null;
-        if (shouldRepair && !PathResolverImpl.ResolveBackupPath(PathResolver, BackupPath, e => WriteError(e), out resolvedBackupRoot))
-            return;
-        var totalRepair = allSrtPaths.Count;
-        for (var idx = 0; idx < allSrtPaths.Count; idx++)
-        {
-            var srtPath = allSrtPaths[idx];
-            var displayName = Path.GetFileName(srtPath);
-            var pct = totalRepair > 0 ? (int)(((idx + 1) * 100.0) / totalRepair) : 0;
-            MediaConversionHelper.WriteMainProgress(this, "Repairing subtitles", $"File {idx + 1} of {totalRepair} — {displayName}", pct, recordType: ProgressRecordType.Processing);
-            if (shouldRepair)
-            {
-                if (resolvedBackupRoot != null && !CopyToBackup(resolvedBackupRoot, srtPath))
-                    continue;
-                if (RepairSrtFile(srtPath, srtPath))
-                    WriteObject(srtPath);
-            }
-            else
-                WriteObject(srtPath);
-        }
-        MediaConversionHelper.WriteProgressCompleted(this, "Repairing subtitles", "Current file");
+        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolver, allSrtPaths, shouldRepair, BackupPath, WriteObject);
 
         WriteHostMessage("Export completed.", ConsoleColor.Green);
     }
@@ -344,38 +240,4 @@ public class ExportSubtitlesCommand : CmdletBase
         }
     }
 
-    private bool CopyToBackup(string backupRoot, string sourceFilePath)
-    {
-        try
-        {
-            var fullPath = Path.GetFullPath(sourceFilePath);
-            var pathRoot = Path.GetPathRoot(fullPath);
-            var relative = string.IsNullOrEmpty(pathRoot) ? Path.GetFileName(sourceFilePath) : Path.GetRelativePath(pathRoot, fullPath).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            PathResolverImpl.CopyFileToBackup(backupRoot, sourceFilePath, relative);
-            WriteVerbose($"Backed up to: {Path.Combine(backupRoot, relative)}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to copy to backup: {Source} -> {BackupPath}", sourceFilePath, backupRoot);
-            WriteError(CreateErrorRecord(ex, "BackupFailed", ErrorCategory.WriteError, sourceFilePath));
-            return false;
-        }
-    }
-
-    private bool RepairSrtFile(string inputPath, string outputPath)
-    {
-        try
-        {
-            SrtOcrFixHelper.RepairFile(inputPath, outputPath);
-            WriteVerbose($"Repaired: {outputPath}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to repair subtitles: {Path}", inputPath);
-            WriteError(CreateErrorRecord(ex, "RepairSubtitlesFailed", ErrorCategory.WriteError, inputPath));
-            return false;
-        }
-    }
 }

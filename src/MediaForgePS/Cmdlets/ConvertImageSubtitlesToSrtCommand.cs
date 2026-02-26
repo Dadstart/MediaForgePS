@@ -109,12 +109,7 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
             {
                 var files = Directory
                     .EnumerateFiles(resolvedPath, "*.*", searchOption)
-                    .Where(f =>
-                    {
-                        var ext = Path.GetExtension(f);
-                        return ext.Equals(".sup", StringComparison.OrdinalIgnoreCase)
-                            || ext.Equals(".sub", StringComparison.OrdinalIgnoreCase);
-                    })
+                    .Where(SubtitlePathHelper.IsImageSubtitlePath)
                     .ToList();
                 var fileCount = files.Count;
                 var currentFileIndex = 0;
