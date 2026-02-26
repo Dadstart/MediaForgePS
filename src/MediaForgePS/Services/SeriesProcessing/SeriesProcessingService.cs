@@ -26,16 +26,7 @@ public class SeriesProcessingService : ISeriesProcessingService
 
     private static readonly Regex _episodeIdRegex = new(@"/series/[^/]+/episodes/(\d+)", RegexOptions.Compiled);
 
-    private static readonly string[] _defaultSubDirectories = ["HandBrake", "Remux", "Topaz", "Bonus"];
-    private static readonly Dictionary<string, string> _subtitleCodecExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["subrip"] = "srt",
-        ["ass"] = "srt",
-        ["ssa"] = "srt",
-        ["webvtt"] = "vtt",
-        ["dvd_subtitle"] = "sub",
-        ["hdmv_pgs_subtitle"] = "sup"
-    };
+    private static readonly string[] _defaultSubDirectories = ["Bonus"];
 
     private readonly ILogger<SeriesProcessingService> _logger;
     private readonly IMediaReaderService _mediaReaderService;
@@ -533,36 +524,45 @@ public class SeriesProcessingService : ISeriesProcessingService
             if (media == null)
                 return false;
 
-            var subtitles = media.Streams
-                .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase))
-                .Where(s => (s.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase))
+            var subtitles = (media.Streams ?? Array.Empty<MediaStream>())
+                .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
+                    (s.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (subtitles.Count == 0)
                 return false;
 
+            var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
             var anyExtracted = false;
-            var fileBaseName = Path.GetFileNameWithoutExtension(filePath);
 
             foreach (var stream in subtitles)
             {
-                var ext = _subtitleCodecExtensions.TryGetValue(stream.Codec ?? string.Empty, out var e) ? e : "bin";
-                var outputName = subtitles.Count > 1
-                    ? $"{fileBaseName}.{stream.Index}.eng.sdh.{ext}"
-                    : $"{fileBaseName}.eng.sdh.{ext}";
-                var outputPath = Path.Combine(captionDir, outputName);
+                if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext))
+                    ext = "bin";
+                var outputPathSameNaming = SubtitleExportHelper.GetOutputPath(filePath, stream.Index, subtitles.Count, ext);
+                var outputPath = Path.Combine(captionDir, Path.GetFileName(outputPathSameNaming));
 
-                var arguments = new[] { "-i", filePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", outputPath };
-                var result = _executableService.ExecuteAsync("ffmpeg", arguments, CancellationToken.None)
-                    .ConfigureAwait(false).GetAwaiter().GetResult();
-                if (result.ExitCode == 0)
+                try
+                {
+                    SubtitleExportHelper.ExtractSubtitle(
+                        _executableService,
+                        stream,
+                        filePath,
+                        outputPath,
+                        mkvextractPath);
                     anyExtracted = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, filePath);
+                }
             }
 
             return anyExtracted;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to extract captions from {Path}", filePath);
             return false;
         }
     }
