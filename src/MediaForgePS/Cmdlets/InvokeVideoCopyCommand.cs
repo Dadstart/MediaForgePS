@@ -7,39 +7,71 @@ using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
+/// <summary>
+/// Copies episode video files for a season into a destination directory using TVDb episode metadata.
+/// </summary>
+/// <remarks>
+/// This cmdlet is a lower-level building block used by Invoke-SeriesProcessing.
+/// It matches video files under one or more input paths using file patterns, associates them with TVDb episodes,
+/// and copies them into a structured season folder, enforcing a minimum file size when desired.
+/// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "VideoCopy")]
 [OutputType(typeof(string))]
 public class InvokeVideoCopyCommand : CmdletBase
 {
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Series title used for destination file naming.
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Series title used for destination file naming.")]
     [ValidateNotNullOrEmpty]
     public string Title { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Season number to copy (1-based).
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Season number to copy (1-based).")]
     [ValidateRange(1, 1000)]
     public int Season { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// First episode number in the input set, used when files begin mid-season.
+    /// </summary>
+    [Parameter(HelpMessage = "First episode number in the input set (default 1).")]
     [ValidateRange(1, 1000)]
     public int EpisodeStart { get; set; } = 1;
 
-    [Parameter(Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    /// <summary>
+    /// One or more root folders containing source video files.
+    /// </summary>
+    [Parameter(Mandatory = true, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Root folder(s) containing source video files.")]
     [ValidateNotNullOrEmpty]
     public string[] Path { get; set; } = Array.Empty<string>();
 
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// File name patterns (wildcards) used to find episode files under Path.
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "File name patterns (wildcards) used to find episode files under Path.")]
     [ValidateNotNullOrEmpty]
     public string[] FilePatterns { get; set; } = Array.Empty<string>();
 
-    [Parameter]
+    /// <summary>
+    /// Minimum file size in bytes required for a file to be treated as a candidate episode.
+    /// </summary>
+    [Parameter(HelpMessage = "Minimum file size in bytes required to treat a file as an episode (default 1 GB).")]
     [ValidateRange(1, long.MaxValue)]
     public long MinimumFileSize { get; set; } = 1L * 1024 * 1024 * 1024;
 
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Destination directory where copied episode files are written.
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Destination directory where copied episode files are written.")]
     [ValidateNotNullOrEmpty]
     public string Destination { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// TVDb episode metadata for the season, used to name and organize copied files.
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "TVDb episode metadata for the season, used to name and organize copied files.")]
     [ValidateNotNull]
     public TvDbEpisodeInfo[] Episodes { get; set; } = Array.Empty<TvDbEpisodeInfo>();
 
@@ -47,6 +79,9 @@ public class InvokeVideoCopyCommand : CmdletBase
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
+    /// <summary>
+    /// Collects all input paths from the pipeline.
+    /// </summary>
     protected override void Process()
     {
         foreach (var path in Path)
@@ -56,6 +91,9 @@ public class InvokeVideoCopyCommand : CmdletBase
         }
     }
 
+    /// <summary>
+    /// Executes the video copy operation and writes copied paths to the pipeline.
+    /// </summary>
     protected override void End()
     {
         if (_allPaths.Count == 0)
