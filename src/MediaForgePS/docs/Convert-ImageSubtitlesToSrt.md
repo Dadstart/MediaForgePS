@@ -8,7 +8,7 @@ schema: 2.0.0
 # Convert-ImageSubtitlesToSrt
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
 
 ## SYNTAX
 
@@ -18,16 +18,30 @@ Convert-ImageSubtitlesToSrt [-InputPath] <String[]> [[-OutputPath] <String>] [-R
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Output SRT paths are written to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Convert a single SUP file
 ```powershell
-PS C:\> {{ Add example code here }}
+Convert-ImageSubtitlesToSrt -InputPath "C:\Subtitles\movie.eng.sup"
 ```
 
-{{ Add example description here }}
+Produces movie.eng.srt in the same folder and writes the path to the pipeline.
+
+### Example 2: Convert all image subtitles in a folder recursively
+```powershell
+Convert-ImageSubtitlesToSrt -InputPath "C:\Season1" -Recurse
+```
+
+Finds all .sup and .sub files under C:\Season1 and writes .srt files alongside each.
+
+### Example 3: Convert and write to a specific path
+```powershell
+Convert-ImageSubtitlesToSrt -InputPath "episode.sup" -OutputPath "C:\Out\episode.srt"
+```
+
+Converts episode.sup and saves the SRT to C:\Out\episode.srt.
 
 ## PARAMETERS
 
@@ -78,7 +92,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -98,11 +112,17 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String[]
+Paths to .sup or .sub files, or directories containing them. Accepts pipeline input. Alias: Path.
 
 ## OUTPUTS
 
 ### System.String
+Paths of the created SRT files.
 
 ## NOTES
+Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Use Repair-Subtitles afterward to fix common OCR errors in the SRT.
 
 ## RELATED LINKS
+[Repair-Subtitles](Repair-Subtitles.md)
+[Export-Subtitles](Export-Subtitles.md)
+[Invoke-SubtitleOcrRepair](Invoke-SubtitleOcrRepair.md)

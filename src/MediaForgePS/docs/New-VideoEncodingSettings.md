@@ -8,7 +8,7 @@ schema: 2.0.0
 # New-VideoEncodingSettings
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Creates a VideoEncodingSettings object for use with conversion cmdlets.
 
 ## SYNTAX
 
@@ -25,16 +25,29 @@ New-VideoEncodingSettings -Codec <String> -Bitrate <Int32> [-Preset <String>] [-
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+New-VideoEncodingSettings creates an object that holds video encoding parameters: codec, CRF or bitrate, preset, profile, tune, and pixel format. Use the CRF parameter set for constant quality (typical: 18-28 for H.264, 20-30 for H.265) or the VBR parameter set for variable bitrate. The result is passed to Convert-MediaFileAdvanced or Convert-MediaFiles via -VideoEncodingSettings. Default pixel format is yuv420p for libx264 and yuv420p10le for libx265 if -PixelFormat is omitted.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: H.265 with CRF
 ```powershell
-PS C:\> {{ Add example code here }}
+New-VideoEncodingSettings -Codec libx265 -CRF 20 -Preset slow -CodecProfile main
 ```
 
-{{ Add example description here }}
+Creates settings for libx265, CRF 20, slow preset, main profile.
+
+### Example 2: H.264 with bitrate
+```powershell
+New-VideoEncodingSettings -Codec libx264 -Bitrate 5000 -Preset medium
+```
+
+Creates variable bitrate settings for libx264 at 5000 kbps.
+
+### Example 3: Use with Convert-MediaFileAdvanced
+```powershell
+$settings = New-VideoEncodingSettings -Codec libx265 -CRF 18 -Preset medium
+Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodingSettings $settings -AudioTrackMappings $mappings
+```
 
 ## PARAMETERS
 
@@ -148,7 +161,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -168,11 +181,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
+This cmdlet does not accept pipeline input.
 
 ## OUTPUTS
 
-### Dadstart.Labs.MediaForge.Models.VideoEncodingSettings
+### VideoEncodingSettings
+ConstantRateVideoEncodingSettings or VariableRateVideoEncodingSettings (CRF or VBR parameter set).
 
 ## NOTES
+Preset default is slow. CodecProfile default is high; Tune default is film. Valid codecs include libx264, libx265, vp9, hevc_nvenc.
 
 ## RELATED LINKS
+[Convert-MediaFiles](Convert-MediaFiles.md)
+[Convert-MediaFileAdvanced](Convert-MediaFileAdvanced.md)

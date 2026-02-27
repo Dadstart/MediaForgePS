@@ -8,7 +8,7 @@ schema: 2.0.0
 # Get-AudioStreams
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Returns audio track mappings for a media file suitable for use with conversion cmdlets.
 
 ## SYNTAX
 
@@ -17,21 +17,29 @@ Get-AudioStreams [-InputPath] <String> [-ProgressAction <ActionPreference>] [<Co
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Get-AudioStreams reads a media file with ffprobe and returns an array of AudioTrackMapping objects that describe how to map and optionally encode each audio stream. Use the output with Convert-MediaFiles or Convert-MediaFileAdvanced. The mappings are built from the file's audio streams and can be passed as-is or edited (e.g. with New-AudioTrackMapping for custom copy/encode settings).
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Get mappings for a file and convert
 ```powershell
-PS C:\> {{ Add example code here }}
+$mappings = Get-AudioStreams -InputPath "C:\movie.mkv"
+Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -DefaultVideoEncoder x265 -AudioTrackMappings $mappings
 ```
 
-{{ Add example description here }}
+Retrieves audio mappings from movie.mkv and uses them for conversion.
+
+### Example 2: Inspect suggested mappings
+```powershell
+Get-AudioStreams -InputPath "episode.mkv" | Format-Table -Property *
+```
+
+Lists all suggested audio track mappings for the file.
 
 ## PARAMETERS
 
 ### -InputPath
-Path to the input media file
+Path to the input media file. Supports pipeline input by value or property name.
 
 ```yaml
 Type: String
@@ -46,7 +54,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -66,11 +74,18 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String
+Path to the media file.
 
 ## OUTPUTS
 
-### Dadstart.Labs.MediaForge.Models.AudioTrackMapping[]
+### AudioTrackMapping[]
+Array of audio track mappings (copy or encode) for the file's audio streams.
 
 ## NOTES
+Requires ffprobe. Output is intended for -AudioTrackMappings in Convert-MediaFiles or Convert-MediaFileAdvanced.
 
 ## RELATED LINKS
+[Convert-MediaFiles](Convert-MediaFiles.md)
+[Convert-MediaFileAdvanced](Convert-MediaFileAdvanced.md)
+[New-AudioTrackMapping](New-AudioTrackMapping.md)
+[Get-MediaFile](Get-MediaFile.md)

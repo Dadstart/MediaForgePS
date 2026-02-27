@@ -8,7 +8,7 @@ schema: 2.0.0
 # Export-MediaStream
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Exports a single stream (video, audio, subtitle, or data) from a media file to a separate file without re-encoding.
 
 ## SYNTAX
 
@@ -18,16 +18,30 @@ Export-MediaStream [-InputPath] <String> [-OutputPath] <String> [-Type] <String>
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Export-MediaStream uses FFmpeg to extract one stream from a media file and write it to an output file with stream copy (no re-encoding). -Type can be Video, Audio, Subtitle, Data, or All; -Index is the zero-based stream index within that type (or the absolute stream index when Type is All). If the output file already exists, the cmdlet fails unless -Force is specified. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Extract first audio stream
 ```powershell
-PS C:\> {{ Add example code here }}
+Export-MediaStream -InputPath "C:\movie.mkv" -OutputPath "C:\Out\audio.aac" -Type Audio -Index 0
 ```
 
-{{ Add example description here }}
+Extracts the first audio stream to audio.aac.
+
+### Example 2: Extract first subtitle stream with overwrite
+```powershell
+Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle -Index 0 -Force
+```
+
+Extracts the first subtitle stream to subs.srt, overwriting if it exists.
+
+### Example 3: WhatIf
+```powershell
+Export-MediaStream -InputPath "in.mkv" -OutputPath "out.video" -Type Video -Index 0 -WhatIf
+```
+
+Shows what would be done without extracting.
 
 ## PARAMETERS
 
@@ -62,7 +76,7 @@ Accept wildcard characters: False
 ```
 
 ### -Index
-Zero-based index of the stream to extract
+Zero-based index of the stream within the specified Type (or absolute index when Type is All).
 
 ```yaml
 Type: Int32
@@ -77,7 +91,7 @@ Accept wildcard characters: False
 ```
 
 ### -InputPath
-Path to the input media file
+Path to the input media file. Supports pipeline input. Supports relative or absolute paths.
 
 ```yaml
 Type: String
@@ -92,7 +106,7 @@ Accept wildcard characters: False
 ```
 
 ### -OutputPath
-Path to the output file
+Path where the extracted stream will be saved. Use -Force to overwrite if the file exists.
 
 ```yaml
 Type: String
@@ -107,7 +121,7 @@ Accept wildcard characters: False
 ```
 
 ### -Type
-Type of stream to extract
+Kind of stream: Video, Audio, Subtitle, Data, or All. With All, -Index is the absolute stream index.
 
 ```yaml
 Type: String
@@ -139,7 +153,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -159,11 +173,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String
+Input path (and optionally output path by property name).
 
 ## OUTPUTS
 
-### System.Void
+### None
+This cmdlet does not write to the pipeline.
 
 ## NOTES
+Requires FFmpeg. Streams are copied without re-encoding. Use Get-MediaFile to inspect stream indices and types.
 
 ## RELATED LINKS
+[Get-MediaFile](Get-MediaFile.md)
+[Export-Subtitles](Export-Subtitles.md)

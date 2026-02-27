@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-SubtitleOcrRepair
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs all SRT files in the set.
 
 ## SYNTAX
 
@@ -18,16 +18,30 @@ Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-Thrott
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs all SRT files (including any SRT already in the input) unless -NoRepair is specified. Equivalent to running Convert-ImageSubtitlesToSrt on image paths and Repair-Subtitles on all SRT paths. Input can be file path(s) or directory/directories; -Recurse searches subdirectories. Output SRT paths are written to the pipeline. Use -BackupPath to copy SRT files to a backup location before repairing (structure preserved).
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Convert and repair all subtitles in a folder
 ```powershell
-PS C:\> {{ Add example code here }}
+Invoke-SubtitleOcrRepair -InputPath "C:\Season1\Subtitles" -Recurse
 ```
 
-{{ Add example description here }}
+Converts .sup/.sub to .srt and repairs all SRT files under C:\Season1\Subtitles.
+
+### Example 2: Convert only, skip repair
+```powershell
+Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -NoRepair
+```
+
+Converts image subtitles to SRT but does not run the repair step; converted and existing SRT paths are still emitted.
+
+### Example 3: With backup before repair
+```powershell
+Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -BackupPath "C:\Backup\srts" -ThrottleLimit 5
+```
+
+Backs up SRT files to C:\Backup\srts, then converts and repairs; limits parallel OCR conversions to 5.
 
 ## PARAMETERS
 
@@ -92,7 +106,7 @@ Accept wildcard characters: False
 ```
 
 ### -ThrottleLimit
-Maximum number of image subtitle conversions to run simultaneously.
+Maximum number of image-to-SRT conversions to run in parallel. Default is 10.
 
 ```yaml
 Type: Int32
@@ -107,7 +121,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -127,11 +141,17 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String[]
+Paths to .sup, .sub, or .srt files, or directories containing them. Alias: Path.
 
 ## OUTPUTS
 
 ### System.String
+Paths of all SRT files (converted and/or repaired).
 
 ## NOTES
+Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 
 ## RELATED LINKS
+[Convert-ImageSubtitlesToSrt](Convert-ImageSubtitlesToSrt.md)
+[Repair-Subtitles](Repair-Subtitles.md)
+[Export-Subtitles](Export-Subtitles.md)

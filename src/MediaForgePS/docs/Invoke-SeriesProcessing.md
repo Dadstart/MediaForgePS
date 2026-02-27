@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-SeriesProcessing
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Runs the full season workflow: create folders, scan TVDb, copy episodes, and optionally extract chapters and captions.
 
 ## SYNTAX
 
@@ -20,16 +20,30 @@ Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] 
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Full season processing with chapter and caption extraction
 ```powershell
-PS C:\> {{ Add example code here }}
+Invoke-SeriesProcessing -Title "My Show" -Season 1 -InputPath "C:\Source" -FilePatterns "*.mkv" -OutputPath "P:\TV" -TvDbSeriesUrl "https://thetvdb.com/series/12345" -ExtractChapters
 ```
 
-{{ Add example description here }}
+Creates P:\TV\My Show\Season 01, scans TVDb, copies matching MKV files, extracts chapters, then extracts captions.
+
+### Example 2: Skip caption extraction
+```powershell
+Invoke-SeriesProcessing -Title "Show" -Season 2 -InputPath "D:\Season2" -FilePatterns "*.mkv","*.mp4" -SkipCaptionExtraction
+```
+
+Copies episodes and optionally extracts chapters only; skips caption extraction.
+
+### Example 3: Minimum file size and episode start
+```powershell
+Invoke-SeriesProcessing -Title "Show" -Season 1 -EpisodeStart 5 -InputPath "C:\Source" -FilePatterns "*.mkv" -MinimumFileSize 500MB
+```
+
+Processes files as episodes starting at episode 5; only files at least 500 MB are considered.
 
 ## PARAMETERS
 
@@ -200,7 +214,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -220,11 +234,17 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
+Parameters are specified directly; InputPath and FilePatterns are required.
 
 ## OUTPUTS
 
-### System.Void
+### None
+This cmdlet does not write to the pipeline.
 
 ## NOTES
+TVDb URLs are used to fetch episode metadata. If no episodes are returned or no files match, the cmdlet writes an error and stops.
 
 ## RELATED LINKS
+[Invoke-SeasonScan](Invoke-SeasonScan.md)
+[Invoke-VideoCopy](Invoke-VideoCopy.md)
+[Split-SeriesChapters](Split-SeriesChapters.md)

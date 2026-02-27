@@ -8,7 +8,7 @@ schema: 2.0.0
 # Convert-MediaFileAdvanced
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Converts a single media file using explicit video encoding settings and audio track mappings.
 
 ## SYNTAX
 
@@ -20,16 +20,26 @@ Convert-MediaFileAdvanced [-InputPath] <String> [-OutputPath] <String>
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options; -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Convert with custom settings and audio mappings
 ```powershell
-PS C:\> {{ Add example code here }}
+$settings = New-VideoEncodingSettings -Codec libx265 -CRF 20 -Preset slow
+$mappings = Get-AudioStreams -InputPath "C:\movie.mkv"
+Convert-MediaFileAdvanced -InputPath "C:\movie.mkv" -OutputPath "C:\Out\movie.mp4" -VideoEncodingSettings $settings -AudioTrackMappings $mappings
 ```
 
-{{ Add example description here }}
+Converts movie.mkv to movie.mp4 using the specified encoding and audio mappings.
+
+### Example 2: Add extra x265 parameters
+```powershell
+$settings = New-VideoEncodingSettings -Codec libx265 -CRF 18 -Preset medium
+Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -VideoEncodingSettings $settings -AudioTrackMappings $mappings -X265Params "aq-mode=3"
+```
+
+Passes aq-mode=3 to x265 via -x265-params.
 
 ## PARAMETERS
 
@@ -64,7 +74,7 @@ Accept wildcard characters: False
 ```
 
 ### -InputPath
-Path to the input media file
+Path to the input media file. Supports relative or absolute paths and PowerShell path resolution.
 
 ```yaml
 Type: String
@@ -79,7 +89,7 @@ Accept wildcard characters: False
 ```
 
 ### -OutputPath
-Path to the output media file
+Path to the output media file. Can be relative or absolute.
 
 ```yaml
 Type: String
@@ -124,7 +134,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -144,11 +154,18 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String
+Input and output paths (by value or property name).
 
 ## OUTPUTS
 
 ### System.Boolean
+Not written to pipeline; conversion runs synchronously. Errors are reported via WriteError.
 
 ## NOTES
+Requires FFmpeg. For batch conversion with automatic audio detection, use Convert-MediaFiles.
 
 ## RELATED LINKS
+[Convert-MediaFiles](Convert-MediaFiles.md)
+[New-VideoEncodingSettings](New-VideoEncodingSettings.md)
+[Get-AudioStreams](Get-AudioStreams.md)
+[New-AudioTrackMapping](New-AudioTrackMapping.md)

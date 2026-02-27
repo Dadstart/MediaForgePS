@@ -8,7 +8,7 @@ schema: 2.0.0
 # Convert-MediaFiles
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Converts multiple media files with automatic audio stream selection and configurable video encoding.
 
 ## SYNTAX
 
@@ -27,16 +27,32 @@ Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String>
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Default video encoding is chosen by -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). Override with -VideoEncodingSettings for full control. If -AudioTrackMappings is not provided, mappings are auto-detected per file (preferring English, then by codec and channel count). Output files keep the original base name with .mp4 extension in the specified OutputDirectory. The cmdlet outputs ConversionResult objects (FilePath, Success, Status) for each input.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Convert all MKV files in a folder using x265
 ```powershell
-PS C:\> {{ Add example code here }}
+Convert-MediaFiles -InputPath "C:\Source\*.mkv" -OutputDirectory "C:\Output" -DefaultVideoEncoder x265
 ```
 
-{{ Add example description here }}
+Converts each MKV under C:\Source to .mp4 in C:\Output using libx265 defaults.
+
+### Example 2: Convert with custom video settings and explicit audio mappings
+```powershell
+$settings = New-VideoEncodingSettings -Codec libx265 -CRF 20 -Preset fast
+$mappings = Get-AudioStreams -InputPath "C:\movie.mkv"
+Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEncodingSettings $settings -AudioTrackMappings $mappings
+```
+
+Uses custom CRF 20 and the audio mappings from Get-AudioStreams for the conversion.
+
+### Example 3: Pipeline input from Get-ChildItem
+```powershell
+Get-ChildItem "C:\Videos" -Filter *.mkv | Convert-MediaFiles -OutputDirectory "C:\Converted" -DefaultVideoEncoder nvenc
+```
+
+Converts all MKV files in C:\Videos to C:\Converted using NVENC HEVC.
 
 ## PARAMETERS
 
@@ -73,7 +89,7 @@ Accept wildcard characters: False
 ```
 
 ### -InputPath
-Array of input file paths to convert
+Array of input file paths to convert. Can be strings or FileSystemInfo objects; accepts pipeline input by value or by property name.
 
 ```yaml
 Type: Object[]
@@ -88,7 +104,7 @@ Accept wildcard characters: False
 ```
 
 ### -OutputDirectory
-Directory where output files will be written (files keep original name with .mkv extension)
+Directory where output files are written. Each file keeps its original base name with .mp4 extension.
 
 ```yaml
 Type: String
@@ -134,7 +150,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -154,11 +170,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.Object[]
+Paths to media files (strings or FileSystemInfo). Duplicates are ignored.
 
 ## OUTPUTS
 
-### Dadstart.Labs.MediaForge.Cmdlets.ConvertMediaFilesCommand+ConversionResult
+### ConversionResult
+For each input file: FilePath (original path), Success (boolean), Status (message).
 
 ## NOTES
+Requires FFmpeg. Output extension is .mp4. Failed files are reported in the output and via WriteError.
 
 ## RELATED LINKS
+[Convert-MediaFileAdvanced](Convert-MediaFileAdvanced.md)
+[Get-MediaFile](Get-MediaFile.md)
+[Get-AudioStreams](Get-AudioStreams.md)
+[New-VideoEncodingSettings](New-VideoEncodingSettings.md)
+[New-AudioTrackMapping](New-AudioTrackMapping.md)

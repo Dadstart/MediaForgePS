@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-SeasonScan
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Retrieves TVDb episode information for a season.
 
 ## SYNTAX
 
@@ -18,16 +18,24 @@ Invoke-SeasonScan -Season <Int32> [-TvDbSeriesUrl <String>] [-TvDbSeasonUrl <Str
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Invoke-SeasonScan calls the series processing service to fetch TVDb episode metadata for the given -Season. Use -TvDbSeriesUrl and optionally -TvDbSeasonUrl to point at the series and season; if TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season. Output is an array of TvDbEpisodeInfo objects (Id, EpisodeNumber, etc.) used by Invoke-VideoCopy and Split-SeriesChapters.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Get episode list for a season
 ```powershell
-PS C:\> {{ Add example code here }}
+Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/12345"
 ```
 
-{{ Add example description here }}
+Returns TvDbEpisodeInfo objects for season 1.
+
+### Example 2: Pass to Invoke-VideoCopy
+```powershell
+$episodes = Invoke-SeasonScan -Season 2 -TvDbSeriesUrl "https://thetvdb.com/series/12345"
+Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv" -Destination "P:\Season2" -Episodes $episodes
+```
+
+Scans season 2 and uses the result for video copy.
 
 ## PARAMETERS
 
@@ -77,7 +85,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -97,11 +105,17 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
+Parameters are specified directly.
 
 ## OUTPUTS
 
-### Dadstart.Labs.MediaForge.Models.TvDbEpisodeInfo
+### TvDbEpisodeInfo[]
+Array of episode metadata for the season.
 
 ## NOTES
+If no episode information is returned, the cmdlet writes a warning and produces no output.
 
 ## RELATED LINKS
+[Invoke-VideoCopy](Invoke-VideoCopy.md)
+[Invoke-SeriesProcessing](Invoke-SeriesProcessing.md)
+[Split-SeriesChapters](Split-SeriesChapters.md)

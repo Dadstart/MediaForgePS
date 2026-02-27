@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-VideoCopy
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Copies episode video files into a destination folder using TVDb episode metadata for naming.
 
 ## SYNTAX
 
@@ -19,16 +19,24 @@ Invoke-VideoCopy -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -Path <
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Invoke-VideoCopy is the lower-level copy step used by Invoke-SeriesProcessing. It searches one or more -Path roots for files matching -FilePatterns, filters by -MinimumFileSize, associates them with -Episodes (TvDbEpisodeInfo from Invoke-SeasonScan), and copies them to -Destination with series title and episode-based naming. -EpisodeStart is the episode number for the first matched file. Pipeline input is accepted for -Path. Outputs the paths of copied files.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Copy with TVDb metadata from season scan
 ```powershell
-PS C:\> {{ Add example code here }}
+$episodes = Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/12345"
+Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.mkv" -Destination "P:\TV\My Show\Season 01" -Episodes $episodes
 ```
 
-{{ Add example description here }}
+Scans TVDb for season 1, then copies matching MKV files to the destination with episode naming.
+
+### Example 2: Pipeline paths
+```powershell
+"C:\Source1", "C:\Source2" | Invoke-VideoCopy -Title "Show" -Season 2 -FilePatterns "*.mkv" -Destination "P:\Season2" -Episodes $episodes
+```
+
+Copies from multiple source folders.
 
 ## PARAMETERS
 
@@ -153,7 +161,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -173,11 +181,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String[]
+Root folder path(s) to search for video files. Accepts pipeline input by value or property name.
 
 ## OUTPUTS
 
 ### System.String
+Path(s) of copied files (enumerated).
 
 ## NOTES
+Typically used with Invoke-SeasonScan to obtain -Episodes. Invoke-SeriesProcessing runs this step internally.
 
 ## RELATED LINKS
+[Invoke-SeasonScan](Invoke-SeasonScan.md)
+[Invoke-SeriesProcessing](Invoke-SeriesProcessing.md)

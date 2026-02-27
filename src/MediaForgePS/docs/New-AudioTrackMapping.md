@@ -8,7 +8,7 @@ schema: 2.0.0
 # New-AudioTrackMapping
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Creates an audio track mapping for media conversion (copy or encode).
 
 ## SYNTAX
 
@@ -26,16 +26,23 @@ New-AudioTrackMapping [-Title <String>] [-SourceStream] <Int32> [-SourceIndex] <
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+New-AudioTrackMapping creates a single AudioTrackMapping object used by Convert-MediaFiles and Convert-MediaFileAdvanced. Use -Copy to copy the stream without re-encoding, or -Encode with -Codec, -Bitrate, and -Channels to re-encode. SourceStream is typically 0 (the input file); SourceIndex and DestinationIndex are the audio stream index in the source and the desired index in the output. Optional -Title sets track title metadata.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Copy one audio stream
 ```powershell
-PS C:\> {{ Add example code here }}
+New-AudioTrackMapping -SourceStream 0 -SourceIndex 0 -DestinationIndex 0 -Copy
 ```
 
-{{ Add example description here }}
+Creates a mapping that copies the first audio stream to the first output position.
+
+### Example 2: Encode to AAC stereo
+```powershell
+New-AudioTrackMapping -SourceStream 0 -SourceIndex 0 -DestinationIndex 0 -Encode -Codec aac -Bitrate 192 -Channels 2
+```
+
+Creates a mapping that encodes the first audio stream to AAC at 192 kbps, 2 channels.
 
 ## PARAMETERS
 
@@ -176,7 +183,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -196,11 +203,17 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
+This cmdlet does not accept pipeline input.
 
 ## OUTPUTS
 
-### Dadstart.Labs.MediaForge.Models.AudioTrackMapping
+### AudioTrackMapping
+One CopyAudioTrackMapping or EncodeAudioTrackMapping object.
 
 ## NOTES
+Combine multiple mappings in an array for -AudioTrackMappings. Get-AudioStreams can generate mappings automatically from a file.
 
 ## RELATED LINKS
+[Get-AudioStreams](Get-AudioStreams.md)
+[Convert-MediaFiles](Convert-MediaFiles.md)
+[Convert-MediaFileAdvanced](Convert-MediaFileAdvanced.md)

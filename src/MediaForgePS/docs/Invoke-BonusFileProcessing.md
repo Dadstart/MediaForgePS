@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-BonusFileProcessing
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Converts bonus MKV files and organizes them into Plex-style bonus content folders.
 
 ## SYNTAX
 
@@ -18,21 +18,28 @@ Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-Defaul
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Invoke-BonusFileProcessing does two steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Organizes the converted .mp4 and matching .srt files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Process bonus folder to Plex location
 ```powershell
-PS C:\> {{ Add example code here }}
+Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -DefaultVideoEncoder nvenc
 ```
 
-{{ Add example description here }}
+Converts bonus MKV files in C:\Extras\Movie and moves them into P:\Movies\Movie in Plex bonus subfolders.
+
+### Example 2: Use x265 for conversion
+```powershell
+Invoke-BonusFileProcessing -InputPath "D:\Bonus" -OutputPath "P:\Movies\Title" -DefaultVideoEncoder x265
+```
+
+Converts bonus files with libx265 and organizes under P:\Movies\Title.
 
 ## PARAMETERS
 
 ### -DefaultVideoEncoder
-Default encoder to use when converting bonus files: 'x264', 'x265', or 'nvenc'
+Encoder to use for converting bonus MKV files: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). Default is nvenc.
 
 ```yaml
 Type: String
@@ -48,7 +55,7 @@ Accept wildcard characters: False
 ```
 
 ### -InputPath
-Source directory containing media files to process
+Source directory containing bonus MKV files (and optionally SRT). Only files with bonus suffixes (e.g. -trailer, -behindthescenes) are converted and moved.
 
 ```yaml
 Type: String
@@ -63,7 +70,7 @@ Accept wildcard characters: False
 ```
 
 ### -OutputPath
-Destination directory for organized Plex files (must be under P:\ on Windows)
+Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).
 
 ```yaml
 Type: String
@@ -78,7 +85,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -98,11 +105,15 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
+Parameters are specified directly.
 
 ## OUTPUTS
 
-### System.Void
+### None
+This cmdlet does not write to the pipeline.
 
 ## NOTES
+Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. On Windows, output must be under P:\.
 
 ## RELATED LINKS
+[Convert-MediaFiles](Convert-MediaFiles.md)

@@ -8,7 +8,7 @@ schema: 2.0.0
 # Split-Chapters
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Splits a video file into multiple files based on chapter ranges.
 
 ## SYNTAX
 
@@ -25,16 +25,32 @@ Split-Chapters [-InputFile] <String> [-AllChapters] [-OutputPath <String>] [-Pro
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Split-Chapters uses ffprobe to read chapter information and ffmpeg to split the video by time ranges. Chapter indices are 1-based: Start=1, End=1 is the first chapter. Use -ChapterRanges with objects that have Start, End (inclusive), and optional OutputName; or use -AllChapters to split every chapter into its own file. Output files are written to -OutputPath (default: same directory as input) with names like basename.split-01.mkv or the custom OutputName when provided.
 
 ## EXAMPLES
 
-### Example 1
+### Example 1: Split specific chapter ranges
 ```powershell
-PS C:\> {{ Add example code here }}
+$ranges = @(
+    @{ Start = 1; End = 2 }
+    @{ Start = 5; End = 7; OutputName = "part2" }
+)
+Split-Chapters -InputFile "C:\movie.mkv" -ChapterRanges $ranges -OutputPath "C:\Out"
 ```
 
-{{ Add example description here }}
+Splits chapters 1-2 and 5-7 into separate files; the second range is named part2 plus extension.
+
+### Example 2: Split every chapter into its own file
+```powershell
+Split-Chapters -InputFile "C:\movie.mkv" -AllChapters
+```
+
+Creates one file per chapter in the same directory as the input.
+
+### Example 3: Pipeline input
+```powershell
+Get-ChildItem "C:\Videos\*.mkv" | Split-Chapters -ChapterRanges (@{ Start=1; End=3 }) -OutputPath "C:\Splits"
+```
 
 ## PARAMETERS
 
@@ -99,7 +115,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.
 
 ```yaml
 Type: ActionPreference
@@ -119,11 +135,16 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### System.String
+Path(s) to the input video file(s) (pipeline by value or property name).
 
 ## OUTPUTS
 
 ### System.String[]
+Paths of the created output files.
 
 ## NOTES
+Requires ffprobe and ffmpeg. Chapter ranges must have at least one valid range with Start and End.
 
 ## RELATED LINKS
+[Split-SeriesChapters](Split-SeriesChapters.md)
+[Get-MediaFile](Get-MediaFile.md)
