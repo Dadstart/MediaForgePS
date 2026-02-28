@@ -12,40 +12,68 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Splits a video file into episodes based on chapter ranges and TVDb episode IDs.
+/// Splits a video file into episode files based on chapter ranges and TVDb episode metadata.
 /// </summary>
+/// <remarks>
+/// This cmdlet pairs user-specified chapter ranges with TVDb episode IDs to create per-episode files.
+/// Output file names follow a Plex-friendly pattern including series title, TVDb ID, season, and episode numbers.
+/// </remarks>
 [Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath")]
 [OutputType(typeof(string[]))]
 public class SplitSeriesChaptersCommand : CmdletBase
 {
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Series title used in output file names.
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Series title used in output file names.")]
     [ValidateNotNullOrEmpty]
     public string Title { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Season number represented by the input file (1-based).
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Season number represented by the input file (1-based).")]
     [ValidateRange(1, 1000)]
     public int Season { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// First episode number mapped to the first chapter range.
+    /// </summary>
+    [Parameter(HelpMessage = "First episode number mapped to the first chapter range (default 1).")]
     [ValidateRange(1, 1000)]
     public int EpisodeStart { get; set; } = 1;
 
-    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    /// <summary>
+    /// Input video file to split into episodes.
+    /// </summary>
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Input video file to split into episodes.")]
     [ValidateNotNullOrEmpty]
     public string InputFile { get; set; } = string.Empty;
 
-    [Parameter(Mandatory = true, Position = 1)]
+    /// <summary>
+    /// Chapter ranges; each object must define Start (1-based), End (1-based inclusive), and optional OutputName.
+    /// </summary>
+    [Parameter(Mandatory = true, Position = 1, HelpMessage = "Chapter ranges with Start, End (1-based, inclusive) and optional OutputName.")]
     [ValidateNotNull]
     public object[] ChapterRanges { get; set; } = [];
 
-    [Parameter]
+    /// <summary>
+    /// Output directory for episode files; defaults to the input file's directory when omitted.
+    /// </summary>
+    [Parameter(HelpMessage = "Output directory for episode files; defaults to the input file's directory when omitted.")]
     public string? OutputPath { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// Optional TVDb series URL used as a starting point for fetching episode metadata.
+    /// </summary>
+    [Parameter(HelpMessage = "Optional TVDb series URL used as a starting point for fetching episode metadata.")]
     [ValidateNotNullOrEmpty]
     public string? TvDbSeriesUrl { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// Optional TVDb season URL; when omitted, constructed from TvDbSeriesUrl and Season.
+    /// </summary>
+    [Parameter(HelpMessage = "Optional TVDb season URL; when omitted, constructed from TvDbSeriesUrl and Season.")]
     [ValidateNotNullOrEmpty]
     public string? TvDbSeasonUrl { get; set; }
 
@@ -60,12 +88,18 @@ public class SplitSeriesChaptersCommand : CmdletBase
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
+    /// <summary>
+    /// Collects input files from the pipeline.
+    /// </summary>
     protected override void Process()
     {
         if (!string.IsNullOrWhiteSpace(InputFile))
             _inputFiles.Add(InputFile);
     }
 
+    /// <summary>
+    /// Performs the split operation for each collected input file.
+    /// </summary>
     protected override void End()
     {
         if (_inputFiles.Count == 0)

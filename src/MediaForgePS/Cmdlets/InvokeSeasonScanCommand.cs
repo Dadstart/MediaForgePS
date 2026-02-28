@@ -5,25 +5,44 @@ using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
+/// <summary>
+/// Retrieves TVDb episode information for a specific season.
+/// </summary>
+/// <remarks>
+/// This cmdlet calls the series processing service to scrape or query TVDb and returns a collection of TvDbEpisodeInfo objects.
+/// It is typically used to drive season organization and file naming for other MediaForge commands.
+/// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeasonScan")]
 [OutputType(typeof(TvDbEpisodeInfo))]
 public class InvokeSeasonScanCommand : CmdletBase
 {
-    [Parameter(Mandatory = true)]
+    /// <summary>
+    /// Season number to scan (1-based).
+    /// </summary>
+    [Parameter(Mandatory = true, HelpMessage = "Season number to scan (1-based).")]
     [ValidateRange(1, 1000)]
     public int Season { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// Optional TVDb series URL used as a starting point for the scan.
+    /// </summary>
+    [Parameter(HelpMessage = "Optional TVDb series URL used as a starting point for the scan.")]
     [ValidateNotNullOrEmpty]
     public string? TvDbSeriesUrl { get; set; }
 
-    [Parameter]
+    /// <summary>
+    /// Optional TVDb season URL; when omitted, constructed from TvDbSeriesUrl and Season.
+    /// </summary>
+    [Parameter(HelpMessage = "Optional TVDb season URL; when omitted, constructed from TvDbSeriesUrl and Season.")]
     [ValidateNotNullOrEmpty]
     public string? TvDbSeasonUrl { get; set; }
 
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
+    /// <summary>
+    /// Performs the season scan and writes TvDbEpisodeInfo objects to the pipeline.
+    /// </summary>
     protected override void Process()
     {
         var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);

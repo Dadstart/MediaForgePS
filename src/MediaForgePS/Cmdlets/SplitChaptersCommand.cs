@@ -22,27 +22,27 @@ public class SplitChaptersCommand : CmdletBase
     /// <summary>
     /// Path to the input video file.
     /// </summary>
-    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
+    [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, HelpMessage = "Path to the input video file to split.")]
     [ValidateNotNullOrEmpty]
     public string InputFile { get; set; } = string.Empty;
 
     /// <summary>
-    /// Chapter ranges. Each range has Start (1-based), End (1-based inclusive), and optional OutputName.
+    /// Chapter ranges; each range has Start (1-based), End (1-based inclusive), and optional OutputName.
     /// </summary>
-    [Parameter(Mandatory = true, Position = 1, ParameterSetName = "ByRanges")]
+    [Parameter(Mandatory = true, Position = 1, ParameterSetName = "ByRanges", HelpMessage = "Chapter ranges with Start, End (1-based, inclusive) and optional OutputName.")]
     [ValidateNotNull]
     public object[] ChapterRanges { get; set; } = [];
 
     /// <summary>
     /// When specified, splits every chapter into its own file. Mutually exclusive with -ChapterRanges.
     /// </summary>
-    [Parameter(Mandatory = true, ParameterSetName = "AllChapters")]
+    [Parameter(Mandatory = true, ParameterSetName = "AllChapters", HelpMessage = "Split every chapter into its own file (mutually exclusive with -ChapterRanges).")]
     public SwitchParameter AllChapters { get; set; }
 
     /// <summary>
-    /// Directory where output files are saved. Defaults to the input file's directory.
+    /// Directory where output files are saved; defaults to the input file's directory.
     /// </summary>
-    [Parameter(Mandatory = false)]
+    [Parameter(Mandatory = false, HelpMessage = "Directory where output files are saved; defaults to the input file's directory.")]
     public string? OutputPath { get; set; }
 
     private readonly List<string> _inputFiles = [];
@@ -54,12 +54,18 @@ public class SplitChaptersCommand : CmdletBase
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
+    /// <summary>
+    /// Collects input files from the pipeline.
+    /// </summary>
     protected override void Process()
     {
         if (!string.IsNullOrWhiteSpace(InputFile))
             _inputFiles.Add(InputFile);
     }
 
+    /// <summary>
+    /// Performs chapter splitting for each collected input file.
+    /// </summary>
     protected override void End()
     {
         if (_inputFiles.Count == 0)
