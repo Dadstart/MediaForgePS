@@ -66,7 +66,7 @@ function TestModulePathsExist {
     }
 
     $baseName = Join-Path $ModuleDir $moduleBaseName
-    foreach ($fileExtension in ('dll', 'psm1')) {
+    foreach ($fileExtension in ('dll', 'psd1')) {
         $file = "$baseName.$fileExtension"
         if (-not (TestPathWithThrow -Path $file -ThrowText "Module file not found: $file" -ShouldThrow $ShouldThrow)) {
             return $false
@@ -117,11 +117,11 @@ if ($isDebugSession) {
     Write-Host 'Attach your debugger to this process ID to begin debugging.' -ForegroundColor Green
     Write-Host 'The session will remain open for interactive use.' -ForegroundColor Green
     Write-Host ''
-    $moduleScriptPath = Join-Path $tempModuleDir "$moduleBaseName.psm1"
+    $moduleScriptPath = Join-Path $tempModuleDir "$moduleBaseName.psd1"
     Write-Host "Importing $moduleScriptPath"
 }
 else {
-    $moduleScriptPath = Join-Path $modulePath "$moduleBaseName.psm1"
+    $moduleScriptPath = Join-Path $modulePath "$moduleBaseName.psd1"
 }
 Import-Module $moduleScriptPath
 Write-Host "$moduleBaseName module imported successfully." -ForegroundColor Green
