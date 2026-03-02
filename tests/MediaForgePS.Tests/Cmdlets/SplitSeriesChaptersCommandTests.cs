@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -26,9 +26,8 @@ public class SplitSeriesChaptersCommandTests : IDisposable
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<SplitSeriesChaptersCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly System.Reflection.FieldInfo? _providerField;
-    private readonly System.Reflection.FieldInfo? _initializedField;
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ModuleServicesTestScope _moduleServicesScope;
 
     public SplitSeriesChaptersCommandTests()
     {
@@ -56,23 +55,13 @@ public class SplitSeriesChaptersCommandTests : IDisposable
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         _serviceProvider = services.BuildServiceProvider();
-
-        var moduleServicesType = typeof(ModuleServices);
-        _providerField = moduleServicesType.GetField("_provider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        _initializedField = moduleServicesType.GetField("_initialized", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-
-        if (_providerField != null)
-            _providerField.SetValue(null, _serviceProvider);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, true);
+        _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
     }
 
     public void Dispose()
     {
-        if (_providerField != null)
-            _providerField.SetValue(null, null);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, false);
+        _moduleServicesScope.Dispose();
+        _serviceProvider.Dispose();
     }
 
     [Fact]
@@ -199,14 +188,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
         }
     }
 
-    private static PowerShell CreatePowerShell()
-    {
-        var asm = typeof(SplitSeriesChaptersCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-SeriesChapters", typeof(SplitSeriesChaptersCommand), null));
-        return PowerShell.Create(initialSessionState);
-    }
+    private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<SplitSeriesChaptersCommand>("Split-SeriesChapters");
 
     private delegate void TryResolveInputPathCallback(string path, out string resolvedPath);
 }

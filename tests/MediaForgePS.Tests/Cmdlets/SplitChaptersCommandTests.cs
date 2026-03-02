@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -24,9 +24,8 @@ public class SplitChaptersCommandTests : IDisposable
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<SplitChaptersCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly System.Reflection.FieldInfo? _providerField;
-    private readonly System.Reflection.FieldInfo? _initializedField;
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ModuleServicesTestScope _moduleServicesScope;
 
     public SplitChaptersCommandTests()
     {
@@ -52,23 +51,13 @@ public class SplitChaptersCommandTests : IDisposable
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         _serviceProvider = services.BuildServiceProvider();
-
-        var moduleServicesType = typeof(ModuleServices);
-        _providerField = moduleServicesType.GetField("_provider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        _initializedField = moduleServicesType.GetField("_initialized", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-
-        if (_providerField != null)
-            _providerField.SetValue(null, _serviceProvider);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, true);
+        _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
     }
 
     public void Dispose()
     {
-        if (_providerField != null)
-            _providerField.SetValue(null, null);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, false);
+        _moduleServicesScope.Dispose();
+        _serviceProvider.Dispose();
     }
 
     [Fact]
@@ -79,12 +68,7 @@ public class SplitChaptersCommandTests : IDisposable
         _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedPath))
             .Returns(false);
 
-        var asm = typeof(SplitChaptersCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-Chapters", typeof(SplitChaptersCommand), null));
-
-        using var ps = PowerShell.Create(initialSessionState);
+        using var ps = CreatePowerShell();
         ps.AddCommand("Split-Chapters")
             .AddParameter("InputFile", inputPath)
             .AddParameter("ChapterRanges", new object[] { new ChapterRange(1, 1) });
@@ -106,12 +90,7 @@ public class SplitChaptersCommandTests : IDisposable
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync((MediaFile?)null);
 
-        var asm = typeof(SplitChaptersCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-Chapters", typeof(SplitChaptersCommand), null));
-
-        using var ps = PowerShell.Create(initialSessionState);
+        using var ps = CreatePowerShell();
         ps.AddCommand("Split-Chapters")
             .AddParameter("InputFile", inputPath)
             .AddParameter("ChapterRanges", new object[] { new ChapterRange(1, 1) });
@@ -152,14 +131,7 @@ public class SplitChaptersCommandTests : IDisposable
             _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mediaFile);
 
-            InjectServiceProvider();
-
-            var asm = typeof(SplitChaptersCommand).Assembly;
-            var initialSessionState = InitialSessionState.CreateDefault();
-            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-Chapters", typeof(SplitChaptersCommand), null));
-
-            using var ps = PowerShell.Create(initialSessionState);
+            using var ps = CreatePowerShell();
             ps.AddCommand("Split-Chapters")
                 .AddParameter("InputFile", inputPath)
                 .AddParameter("ChapterRanges", new object[] { new ChapterRange(1, 1, "Episode1") });
@@ -216,14 +188,7 @@ public class SplitChaptersCommandTests : IDisposable
             _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mediaFile);
 
-            InjectServiceProvider();
-
-            var asm = typeof(SplitChaptersCommand).Assembly;
-            var initialSessionState = InitialSessionState.CreateDefault();
-            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Split-Chapters", typeof(SplitChaptersCommand), null));
-
-            using var ps = PowerShell.Create(initialSessionState);
+            using var ps = CreatePowerShell();
             ps.AddCommand("Split-Chapters")
                 .AddParameter("InputFile", inputPath)
                 .AddParameter("AllChapters", true);
@@ -251,13 +216,7 @@ public class SplitChaptersCommandTests : IDisposable
         }
     }
 
-    private void InjectServiceProvider()
-    {
-        if (_providerField != null)
-            _providerField.SetValue(null, _serviceProvider);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, true);
-    }
+    private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<SplitChaptersCommand>("Split-Chapters");
 
     private delegate void TryResolveInputPathCallback(string path, out string resolvedPath);
 }

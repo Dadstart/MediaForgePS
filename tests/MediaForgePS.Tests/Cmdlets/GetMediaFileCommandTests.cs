@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -22,9 +22,8 @@ public class GetMediaFileCommandTests : IDisposable
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<GetMediaFileCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly System.Reflection.FieldInfo? _providerField;
-    private readonly System.Reflection.FieldInfo? _initializedField;
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ModuleServicesTestScope _moduleServicesScope;
 
     public GetMediaFileCommandTests()
     {
@@ -44,19 +43,13 @@ public class GetMediaFileCommandTests : IDisposable
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         _serviceProvider = services.BuildServiceProvider();
-
-        var moduleServicesType = typeof(ModuleServices);
-        _providerField = moduleServicesType.GetField("_provider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        _initializedField = moduleServicesType.GetField("_initialized", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        InjectServiceProvider();
+        _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
     }
 
     public void Dispose()
     {
-        if (_providerField != null)
-            _providerField.SetValue(null, null);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, false);
+        _moduleServicesScope.Dispose();
+        _serviceProvider.Dispose();
     }
 
     [Fact]
@@ -131,20 +124,8 @@ public class GetMediaFileCommandTests : IDisposable
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    private void InjectServiceProvider()
-    {
-        if (_providerField != null)
-            _providerField.SetValue(null, _serviceProvider);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, true);
-    }
-
     private static PowerShell CreatePowerShell()
     {
-        var asm = typeof(GetMediaFileCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Get-MediaFile", typeof(GetMediaFileCommand), null));
-        return PowerShell.Create(initialSessionState);
+        return PowerShellCmdletTestHost.Create<GetMediaFileCommand>("Get-MediaFile");
     }
 }
