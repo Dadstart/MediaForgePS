@@ -13,6 +13,12 @@ public record ProcessingPhaseStats(
     int Failed,
     int Total);
 
+public record CaptionExtractionPhaseResult(
+    int Processed,
+    int Failed,
+    int Total,
+    IReadOnlyList<string> ExtractedCaptionPaths);
+
 public record VideoCopyRequest(
     IReadOnlyList<string> Paths,
     string Destination,

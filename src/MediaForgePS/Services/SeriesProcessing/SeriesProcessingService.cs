@@ -137,7 +137,7 @@ public class SeriesProcessingService : ISeriesProcessingService
             () => RunChapterExtraction(cmdlet, seasonDir, copiedFiles, chapterNumber, chapterDurationSeconds, chapterDirectory));
     }
 
-    public ProcessingPhaseStats InvokeCaptionExtractionPhase(
+    public CaptionExtractionPhaseResult InvokeCaptionExtractionPhase(
         PSCmdlet cmdlet,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
@@ -146,7 +146,7 @@ public class SeriesProcessingService : ISeriesProcessingService
         return InvokeWithErrorHandling(
             cmdlet,
             "Caption extraction phase",
-            new ProcessingPhaseStats(0, 0, 0),
+            new CaptionExtractionPhaseResult(0, 0, 0, Array.Empty<string>()),
             () => RunCaptionExtraction(cmdlet, seasonDir, copiedFiles, captionDirectory));
     }
 
@@ -463,7 +463,7 @@ public class SeriesProcessingService : ISeriesProcessingService
         }
     }
 
-    private ProcessingPhaseStats RunCaptionExtraction(
+    private CaptionExtractionPhaseResult RunCaptionExtraction(
         PSCmdlet cmdlet,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
@@ -473,6 +473,7 @@ public class SeriesProcessingService : ISeriesProcessingService
         var processed = 0;
         var failed = 0;
         var total = copiedFiles.Count;
+        var extractedCaptionPaths = new List<string>();
 
         for (var i = 0; i < copiedFiles.Count; i++)
         {
@@ -483,8 +484,12 @@ public class SeriesProcessingService : ISeriesProcessingService
             MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
             MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting captions...", fileName, recordType: ProgressRecordType.Processing);
 
-            if (TryExtractCaptions(file, captionDir))
+            var extractedFromFile = TryExtractCaptions(file, captionDir);
+            if (extractedFromFile.Count > 0)
+            {
                 processed++;
+                extractedCaptionPaths.AddRange(extractedFromFile);
+            }
             else
                 failed++;
 
@@ -494,17 +499,17 @@ public class SeriesProcessingService : ISeriesProcessingService
         }
 
         MediaConversionHelper.WriteProgressCompleted(cmdlet, "Caption extraction", "Current file");
-        return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
+        return new CaptionExtractionPhaseResult(processed, failed, copiedFiles.Count, extractedCaptionPaths);
     }
 
-    private bool TryExtractCaptions(string filePath, string captionDir)
+    private IReadOnlyList<string> TryExtractCaptions(string filePath, string captionDir)
     {
         try
         {
             var media = _mediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (media == null)
-                return false;
+                return Array.Empty<string>();
 
             var subtitles = (media.Streams ?? Array.Empty<MediaStream>())
                 .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
@@ -512,10 +517,10 @@ public class SeriesProcessingService : ISeriesProcessingService
                 .ToList();
 
             if (subtitles.Count == 0)
-                return false;
+                return Array.Empty<string>();
 
             var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
-            var anyExtracted = false;
+            var extractedPaths = new List<string>();
 
             foreach (var stream in subtitles)
             {
@@ -532,7 +537,7 @@ public class SeriesProcessingService : ISeriesProcessingService
                         filePath,
                         outputPath,
                         mkvextractPath);
-                    anyExtracted = true;
+                    extractedPaths.Add(outputPath);
                 }
                 catch (Exception ex)
                 {
@@ -540,12 +545,12 @@ public class SeriesProcessingService : ISeriesProcessingService
                 }
             }
 
-            return anyExtracted;
+            return extractedPaths;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to extract captions from {Path}", filePath);
-            return false;
+            return Array.Empty<string>();
         }
     }
 }

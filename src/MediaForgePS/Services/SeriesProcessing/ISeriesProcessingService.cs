@@ -13,5 +13,5 @@ public interface ISeriesProcessingService
     IReadOnlyList<string> GetFilteredVideoFiles(PSCmdlet cmdlet, IReadOnlyList<string> paths, IReadOnlyList<string> filePatterns, long minimumFileSizeBytes);
     IReadOnlyList<string> InvokeVideoCopy(PSCmdlet cmdlet, VideoCopyRequest request);
     ProcessingPhaseStats InvokeChapterExtractionPhase(PSCmdlet cmdlet, string seasonDir, IReadOnlyList<string> copiedFiles, int chapterNumber = 3, int chapterDurationSeconds = 15, string chapterDirectory = "Chapters");
-    ProcessingPhaseStats InvokeCaptionExtractionPhase(PSCmdlet cmdlet, string seasonDir, IReadOnlyList<string> copiedFiles, string captionDirectory = "Captions");
+    CaptionExtractionPhaseResult InvokeCaptionExtractionPhase(PSCmdlet cmdlet, string seasonDir, IReadOnlyList<string> copiedFiles, string captionDirectory = "Captions");
 }

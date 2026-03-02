@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
@@ -194,12 +193,11 @@ public class InvokeSeriesProcessingCommand : CmdletBase
 
             if (Ocr.IsPresent)
             {
-                var captionDir = Path.Combine(directoryStructure.SeasonDir, "Captions");
-                if (Directory.Exists(captionDir))
+                var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
+                if (extractedCaptionPaths.Count > 0)
                 {
-                    var allCaptionPaths = Directory.GetFiles(captionDir, "*.*", SearchOption.TopDirectoryOnly);
-                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(allCaptionPaths);
-                    var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(allCaptionPaths);
+                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(extractedCaptionPaths);
+                    var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
 
                     if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
                     {
