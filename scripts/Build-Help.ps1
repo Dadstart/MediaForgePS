@@ -29,13 +29,16 @@ if (-not (Test-Path -LiteralPath $docsPath -PathType Container)) {
     Write-Error "Docs folder not found: $docsPath"
 }
 
-$platyPS = Get-Module -ListAvailable platyPS | Select-Object -First 1
-if (-not $platyPS) {
-    $platyPS = Import-Module platyPS -Scope CurrentUser
-    if (-not $platyPS) {
-        Write-Error "platyPS module is required. Error installing it. Try manually with: Install-Module platyPS -Scope CurrentUser"
+if (-not (Get-Module -ListAvailable -Name platyPS)) {
+    Write-Host "platyPS not found. Installing for CurrentUser..." -ForegroundColor Yellow
+    try {
+        Install-Module platyPS -Scope CurrentUser -Force -ErrorAction Stop
+    } catch {
+        Write-Error "platyPS module is required. Install manually with: Install-Module platyPS -Scope CurrentUser"
     }
 }
+
+Import-Module platyPS -ErrorAction Stop
 
 Write-Verbose "Docs path: $docsPath"
 Write-Verbose "Output path: $enUsPath"

@@ -38,14 +38,15 @@ if (-not (Test-Path -LiteralPath $docsPath -PathType Container)) {
 }
 
 # Ensure platyPS is available
-$null = Get-Module -ListAvailable platyPS | Select-Object -First 1
-if (-not (Get-Module -ListAvailable platyPS)) {
+if (-not (Get-Module -ListAvailable -Name platyPS)) {
+    Write-Host "platyPS not found. Installing for CurrentUser..." -ForegroundColor Yellow
     try {
-        Import-Module platyPS -Scope CurrentUser -ErrorAction Stop
+        Install-Module platyPS -Scope CurrentUser -Force -ErrorAction Stop
     } catch {
         Write-Error "platyPS module is required. Install with: Install-Module platyPS -Scope CurrentUser"
     }
 }
+Import-Module platyPS -ErrorAction Stop
 
 # Step 1: Build
 if (-not $SkipBuild) {

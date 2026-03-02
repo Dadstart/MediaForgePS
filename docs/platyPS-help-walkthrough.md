@@ -33,6 +33,18 @@ The module will be in `src\MediaForgePS\bin\Debug\<target-framework>\` (for exam
 
 ---
 
+## Fast path (recommended)
+
+Use the project scripts to avoid manual path and framework drift:
+
+```powershell
+.\scripts\Update-Help.ps1
+```
+
+This updates Markdown and regenerates `src\MediaForgePS\en-US\MediaForgePS.dll-Help.xml`.
+
+---
+
 ## Step 3: Create the docs folder and scaffold Markdown
 
 Create a folder for help source (Markdown) next to the module source. From the repo root:
@@ -47,7 +59,8 @@ Load the **built** module (so it sees the real cmdlets), then generate one Markd
 
 ```powershell
 # Use the built module (bin/Debug or bin/Release)
-$builtModule = "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\<target-framework>"
+$targetFramework = ([xml](Get-Content .\Shared.props -Raw)).Project.PropertyGroup.TargetFramework
+$builtModule = "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\$targetFramework"
 Import-Module $builtModule -Force
 
 New-MarkdownHelp -Module MediaForgePS -OutputFolder $outputDir -Force
@@ -129,7 +142,8 @@ dotnet build
 Load the module from the build output and verify help:
 
 ```powershell
-Import-Module "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\net9.0" -Force
+$targetFramework = ([xml](Get-Content .\Shared.props -Raw)).Project.PropertyGroup.TargetFramework
+Import-Module "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\$targetFramework" -Force
 Get-Help Export-Subtitles -Full
 Get-Help Export-Subtitles -Examples
 ```

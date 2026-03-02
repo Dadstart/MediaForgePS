@@ -5,13 +5,12 @@ This folder holds the **Markdown source** for module help. PowerShell does not u
 - **Generate Markdown (one-time or after new cmdlets):**  
   From repo root, with the built module loaded:
   ```powershell
-  Install-Module platyPS
-  Import-Module ".\src\MediaForgePS\bin\Debug\net9.0" -Force
-  New-MarkdownHelp -Module MediaForgePS -OutputFolder ".\src\MediaForgePS\docs" -Force
+  Install-Module platyPS -Scope CurrentUser
+  .\scripts\Update-Help.ps1
   ```
 - **Edit** the `.md` files (description, parameters, examples).
 - **Generate MAML:**  
   ```powershell
-  New-ExternalHelp -Path ".\src\MediaForgePS\docs" -OutputPath ".\src\MediaForgePS\en-US"
+  .\scripts\Build-Help.ps1
   ```
 - See **docs\platyPS-help-walkthrough.md** at the repo root for the full walkthrough.

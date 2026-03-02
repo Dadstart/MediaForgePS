@@ -41,35 +41,35 @@
     Valid values: quiet, minimal, normal, detailed, diagnostic
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1
+    .\scripts\Build.ps1
     Runs all operations (equivalent to -Build -Clean -Lint -Test -Publish).
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Build -Publish
+    .\scripts\Build.ps1 -Configuration Release -Build -Publish
     Builds in Release configuration, then publishes the module.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Build -Lint
+    .\scripts\Build.ps1 -Build -Lint
     Builds without cleaning, then checks for linting issues (defaults to View).
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Build -Lint View
+    .\scripts\Build.ps1 -Build -Lint View
     Builds without cleaning, then checks for linting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Build -Lint Fix
+    .\scripts\Build.ps1 -Build -Lint Fix
     Builds the solution, then runs lint fix to correct formatting issues.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Test
+    .\scripts\Build.ps1 -Configuration Release -Clean -Build -Test
     Cleans, builds in Release configuration, and runs all tests.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Clean -Build -Lint View -Lint Fix -Test -Publish
-    Full workflow: clean, build in Release, check linting, fix linting, test, and publish.
+    .\scripts\Build.ps1 -Configuration Release -Clean -Build -Lint Fix -Test -Publish
+    Full workflow: clean, build in Release, fix linting, test, and publish.
 
 .EXAMPLE
-    .\scripts\Build-Project.ps1 -Configuration Release -Build -Publish -Aot
+    .\scripts\Build.ps1 -Configuration Release -Build -Publish -Aot
     Builds in Release, then publishes with Native AOT (native executable output).
 #>
 [CmdletBinding(DefaultParameterSetName = "PartialBuild")]
