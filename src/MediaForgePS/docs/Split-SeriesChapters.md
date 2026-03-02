@@ -196,6 +196,7 @@ Paths of the created episode files.
 Requires ffprobe, ffmpeg, and TVDb episode data. Use Invoke-SeasonScan to verify episode count before splitting.
 
 ## RELATED LINKS
+
 [Split-Chapters](Split-Chapters.md)
 [Invoke-SeasonScan](Invoke-SeasonScan.md)
 [Invoke-SeriesProcessing](Invoke-SeriesProcessing.md)

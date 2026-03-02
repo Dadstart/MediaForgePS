@@ -15,8 +15,8 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 ```
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
- [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+ [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr] [-NoRepair]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -228,6 +228,36 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -NoRepair
+Skip SRT repair when used with -Ocr.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Ocr
+Convert image captions to SRT via OCR and repair SRT files.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -245,6 +275,7 @@ This cmdlet does not write to the pipeline.
 TVDb URLs are used to fetch episode metadata. If no episodes are returned or no files match, the cmdlet writes an error and stops.
 
 ## RELATED LINKS
+
 [Invoke-SeasonScan](Invoke-SeasonScan.md)
 [Invoke-VideoCopy](Invoke-VideoCopy.md)
 [Split-SeriesChapters](Split-SeriesChapters.md)

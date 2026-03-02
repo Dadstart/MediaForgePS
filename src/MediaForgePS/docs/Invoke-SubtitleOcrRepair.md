@@ -152,6 +152,7 @@ Paths of all SRT files (converted and/or repaired).
 Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 
 ## RELATED LINKS
+
 [Convert-ImageSubtitlesToSrt](Convert-ImageSubtitlesToSrt.md)
 [Repair-Subtitles](Repair-Subtitles.md)
 [Export-Subtitles](Export-Subtitles.md)

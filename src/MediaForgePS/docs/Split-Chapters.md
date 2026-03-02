@@ -146,5 +146,6 @@ Paths of the created output files.
 Requires ffprobe and ffmpeg. Chapter ranges must have at least one valid range with Start and End.
 
 ## RELATED LINKS
+
 [Split-SeriesChapters](Split-SeriesChapters.md)
 [Get-MediaFile](Get-MediaFile.md)

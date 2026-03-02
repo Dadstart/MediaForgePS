@@ -154,6 +154,7 @@ When -Ocr is used, the paths of exported or repaired SRT files are written to th
 Requires mkvextract for extracting embedded subtitles. When using -Ocr, Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit).
 
 ## RELATED LINKS
+
 [Get-MediaFile](Get-MediaFile.md)
 [Repair-Subtitles](Repair-Subtitles.md)
 [Convert-ImageSubtitlesToSrt](Convert-ImageSubtitlesToSrt.md)

@@ -123,6 +123,7 @@ Paths of the created SRT files.
 Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Use Repair-Subtitles afterward to fix common OCR errors in the SRT.
 
 ## RELATED LINKS
+
 [Repair-Subtitles](Repair-Subtitles.md)
 [Export-Subtitles](Export-Subtitles.md)
 [Invoke-SubtitleOcrRepair](Invoke-SubtitleOcrRepair.md)
