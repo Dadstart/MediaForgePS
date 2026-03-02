@@ -18,7 +18,10 @@
 param()
 
 $ErrorActionPreference = 'Stop'
-$repoRoot = Split-Path -Parent $PSScriptRoot
+
+Import-Module (Join-Path $PSScriptRoot 'MediaForge.DevTools.psm1') -Force
+
+$repoRoot = Get-RepoRoot
 $docsPath = Join-Path $repoRoot 'src' 'MediaForgePS' 'docs'
 $enUsPath = Join-Path $repoRoot 'src' 'MediaForgePS' 'en-US'
 
@@ -40,9 +43,18 @@ Write-Verbose "Output path: $enUsPath"
 New-Item -ItemType Directory -Path $enUsPath -Force | Out-Null
 New-ExternalHelp -Path $docsPath -OutputPath $enUsPath
 
-$outFile = Join-Path $enUsPath 'MediaForgePS-help.xml'
-if (Test-Path -LiteralPath $outFile -PathType Leaf) {
-    Write-Host "Help file generated: $outFile" -ForegroundColor Green
+$canonicalName = 'MediaForgePS.dll-Help.xml'
+$legacyName = 'MediaForgePS-help.xml'
+
+$legacyPath = Join-Path $enUsPath $legacyName
+$canonicalPath = Join-Path $enUsPath $canonicalName
+
+if ((Test-Path -LiteralPath $legacyPath -PathType Leaf) -and -not (Test-Path -LiteralPath $canonicalPath -PathType Leaf)) {
+    Move-Item -LiteralPath $legacyPath -Destination $canonicalPath -Force
+}
+
+if (Test-Path -LiteralPath $canonicalPath -PathType Leaf) {
+    Write-Host "Help file generated: $canonicalPath" -ForegroundColor Green
 } else {
-    Write-Warning "Expected output file not found: $outFile"
+    Write-Warning "Expected output file not found: $canonicalPath"
 }

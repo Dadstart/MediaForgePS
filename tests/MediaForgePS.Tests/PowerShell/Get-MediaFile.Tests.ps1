@@ -1,10 +1,17 @@
 BeforeAll {
-    # Import the module for testing
-    $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net9.0\MediaForgePS.dll'
+    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $devToolsPath = Join-Path $repoRoot 'scripts\MediaForge.DevTools.psm1'
+    if (Test-Path $devToolsPath) {
+        Import-Module $devToolsPath -Force
+        $moduleDir = Get-MediaForgeBuildOutput -RepoRoot $repoRoot -Configuration 'Debug'
+        $modulePath = Join-Path $moduleDir 'MediaForgePS.dll'
+    } else {
+        # Fallback to previous hardcoded path if helpers are not available
+        $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net9.0\MediaForgePS.dll'
+    }
 
-    # Build the module if it doesn't exist
     if (-not (Test-Path $modulePath)) {
-        Push-Location (Split-Path $PSScriptRoot -Parent -Parent)
+        Push-Location $repoRoot
         try {
             dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug | Out-Null
             if ($LASTEXITCODE -ne 0) {

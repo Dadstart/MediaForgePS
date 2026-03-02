@@ -108,59 +108,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-#
-# --------------------------------------------------------------------------------
-# Helper function to validate required external commands
-# --------------------------------------------------------------------------------
-#
-<#
-.SYNOPSIS
-    Validates that a required external command is available.
+Import-Module (Join-Path $PSScriptRoot 'MediaForge.DevTools.psm1') -Force
 
-.DESCRIPTION
-    Checks if a command exists in the PATH and is executable.
-    Throws an error if the command is not found.
+Assert-CommandAvailable -CommandName 'git'
+Assert-CommandAvailable -CommandName 'dotnet'
 
-.PARAMETER CommandName
-    The name of the command to validate (e.g., 'git', 'dotnet').
-
-.EXAMPLE
-    Test-Command -CommandName 'git'
-    Validates that git is available in the PATH.
-#>
-function Test-Command {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$CommandName
-    )
-
-    $command = Get-Command $CommandName -ErrorAction SilentlyContinue
-    if (-not $command) {
-        throw "Required command '$CommandName' not found. Please install it and ensure it's in your PATH."
-    }
-
-    Write-Verbose "Command '$CommandName' found at: $($command.Source)"
-}
-
-#
-# --------------------------------------------------------------------------------
-#
-
-# Validate required external commands
-Test-Command -CommandName 'git'
-Test-Command -CommandName 'dotnet'
-
-# Target framework version (matches MediaForgePS.csproj)
-$targetFramework = 'net9.0'
-
-# Determine repository root using git
-$repoRoot = git rev-parse --show-toplevel
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to determine repository root. Make sure you're in a git repository."
-}
-
-$repoRoot = $repoRoot.Trim()
+$repoRoot = Get-RepoRoot
+$targetFramework = Get-MediaForgeTargetFramework -RepoRoot $repoRoot
 
 $slnPath = Join-Path $repoRoot 'MediaForgePS.sln'
 
