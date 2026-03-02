@@ -235,64 +235,7 @@ public static class MediaConversionHelper
     /// <returns>Array of conversion mappings.</returns>
     public static AudioTrackMapping[] CreateAutomaticAudioTrackMappings(IEnumerable<MediaStream> streams)
     {
-        var mappings = new List<AudioTrackMapping>();
-        var destinationIndex = 0;
-
-        foreach (var stream in streams)
-        {
-            var channels = AudioTrackMappingService.ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
-
-            AudioTrackMapping mapping;
-            var codecLower = stream.Codec.ToLowerInvariant();
-            if ((codecLower == "dts" || codecLower == "truehd") && channels >= 6 && !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
-            {
-                mapping = new CopyAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex);
-            }
-            else
-            {
-                mapping = new EncodeAudioTrackMapping(
-                    title,
-                    0,
-                    stream.Index - 1,
-                    destinationIndex,
-                    "aac",
-                    0,
-                    channels);
-            }
-
-            mappings.Add(mapping);
-            destinationIndex++;
-        }
-
-        if (mappings.Count >= 2 &&
-            mappings[0] is CopyAudioTrackMapping copyMapping &&
-            mappings[1] is EncodeAudioTrackMapping encodeMapping &&
-            string.Equals(encodeMapping.DestinationCodec, "aac", StringComparison.OrdinalIgnoreCase) &&
-            encodeMapping.DestinationChannels >= 6 &&
-            copyMapping.SourceIndex < encodeMapping.SourceIndex)
-        {
-            mappings[0] = new EncodeAudioTrackMapping(
-                encodeMapping.Title,
-                encodeMapping.SourceStream,
-                encodeMapping.SourceIndex,
-                copyMapping.DestinationIndex,
-                encodeMapping.DestinationCodec,
-                encodeMapping.DestinationBitrate,
-                encodeMapping.DestinationChannels);
-
-            mappings[1] = new CopyAudioTrackMapping(
-                copyMapping.Title,
-                copyMapping.SourceStream,
-                copyMapping.SourceIndex,
-                encodeMapping.DestinationIndex);
-        }
-
-        return mappings.ToArray();
+        return AudioTrackMappingService.CreateAutomaticMappingsFromStreams(streams);
     }
 
     /// <summary>

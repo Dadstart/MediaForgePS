@@ -146,6 +146,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
+    private IAudioTrackMappingService? _audioTrackMappingService;
     private readonly List<ConversionResult> _conversionResults = new();
     private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<FileProcessingStats> _fileProcessingStats = new();
@@ -172,6 +173,11 @@ public class ConvertMediaFilesCommand : CmdletBase
     /// Media reader service instance for retrieving media file information.
     /// </summary>
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
+
+    /// <summary>
+    /// Audio track mapping service for automatic mapping generation.
+    /// </summary>
+    private IAudioTrackMappingService AudioTrackMappingService => _audioTrackMappingService ??= ModuleServices.GetRequiredService<IAudioTrackMappingService>();
 
     /// <summary>
     /// Initializes error tracking list and collects all input paths.
@@ -438,49 +444,8 @@ public class ConvertMediaFilesCommand : CmdletBase
         // Calculate ETA for this file (only available if we have prior processing stats)
         _currentFileEstimatedTime = CalculateFileEta(resolvedInputPath);
 
-        // Determine audio track mappings
-        AudioTrackMapping[] audioMappings;
-
-        // If AudioTrackMappings is provided and not empty, use it for all files
-        if (AudioTrackMappings != null && AudioTrackMappings.Length > 0)
-        {
-            UpdateFileProgress("Using provided audio mappings", fileName);
-            audioMappings = AudioTrackMappings;
-            Logger.LogInformation("Using provided audio track mappings for: {InputPath}", resolvedInputPath);
-            UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
-        }
-        else
-        {
-            UpdateFileProgress("Detecting audio mappings", fileName);
-            var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
-            if (audioSelection.TotalAudioStreamCount == 0)
-            {
-                Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
-                UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
-                if (ProcessConversion(resolvedInputPath, resolvedOutputPath, Array.Empty<AudioTrackMapping>(), inputPath))
-                {
-                    _fileProcessingStopwatch.Stop();
-                    RecordFileProcessingStats(resolvedInputPath);
-                    UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
-                }
-                return;
-            }
-            if (audioSelection.EnglishAudioStreamCount == 0)
-                Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
-
-            try
-            {
-                audioMappings = MediaConversionHelper.CreateAutomaticAudioTrackMappings(audioSelection.SelectedStreams);
-                UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
-                HandleFileError(inputPath, fileName, $"Auto-detection failed: {ex.Message}", ex);
-                WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
-                return;
-            }
-        }
+        if (!TryResolveAudioMappings(inputPath, fileName, resolvedInputPath, mediaFile, out var audioMappings))
+            return;
 
         // Perform conversion
         UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
@@ -493,6 +458,45 @@ public class ConvertMediaFilesCommand : CmdletBase
         else
         {
             _fileProcessingStopwatch.Stop();
+        }
+    }
+
+    private bool TryResolveAudioMappings(string inputPath, string fileName, string resolvedInputPath, MediaFile mediaFile, out AudioTrackMapping[] audioMappings)
+    {
+        audioMappings = Array.Empty<AudioTrackMapping>();
+
+        if (AudioTrackMappings is { Length: > 0 })
+        {
+            UpdateFileProgress("Using provided audio mappings", fileName);
+            audioMappings = AudioTrackMappings;
+            Logger.LogInformation("Using provided audio track mappings for: {InputPath}", resolvedInputPath);
+            UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
+            return true;
+        }
+
+        UpdateFileProgress("Detecting audio mappings", fileName);
+        var audioSelection = MediaConversionHelper.SelectPreferredAudioStreams(mediaFile.Streams);
+        if (audioSelection.TotalAudioStreamCount == 0)
+        {
+            Logger.LogInformation("No audio streams found in: {InputPath}, processing as video-only", resolvedInputPath);
+            return true;
+        }
+
+        if (audioSelection.EnglishAudioStreamCount == 0)
+            Logger.LogInformation("No English audio streams found in: {InputPath}, using all audio streams", resolvedInputPath);
+
+        try
+        {
+            audioMappings = AudioTrackMappingService.CreateAutomaticMappings(audioSelection.SelectedStreams);
+            UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create audio track mappings for: {InputPath}", resolvedInputPath);
+            HandleFileError(inputPath, fileName, $"Auto-detection failed: {ex.Message}", ex);
+            WriteWarning($"Audio settings can't be auto-detected for: {inputPath}. It must be processed manually. Error: {ex.Message}");
+            return false;
         }
     }
 
