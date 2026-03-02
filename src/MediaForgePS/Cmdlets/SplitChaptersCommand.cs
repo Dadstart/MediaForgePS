@@ -154,7 +154,7 @@ public class SplitChaptersCommand : CmdletBase
     {
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
-        
+
         var inputExtension = GetInputExtensionOrDefault(resolvedInputPath);
         var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
         var outputFiles = ChapterSplitHelper.ExecuteSplitWorkflow(
