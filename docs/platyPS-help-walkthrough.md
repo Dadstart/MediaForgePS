@@ -29,7 +29,7 @@ cd M:\repos\MediaForgePS
 dotnet build
 ```
 
-The module will be in `src\MediaForgePS\bin\Debug\net9.0\` (or your target framework), with `MediaForgePS.psd1`, `MediaForgePS.psm1`, and `MediaForgePS.dll` copied there.
+The module will be in `src\MediaForgePS\bin\Debug\<target-framework>\` (for example `net9.0`), with `MediaForgePS.psd1`, `MediaForgePS.psm1`, and `MediaForgePS.dll` copied there.
 
 ---
 
@@ -47,7 +47,7 @@ Load the **built** module (so it sees the real cmdlets), then generate one Markd
 
 ```powershell
 # Use the built module (bin/Debug or bin/Release)
-$builtModule = "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\net9.0"
+$builtModule = "M:\repos\MediaForgePS\src\MediaForgePS\bin\Debug\<target-framework>"
 Import-Module $builtModule -Force
 
 New-MarkdownHelp -Module MediaForgePS -OutputFolder $outputDir -Force
@@ -112,13 +112,13 @@ New-Item -ItemType Directory -Path $enUsPath -Force
 New-ExternalHelp -Path $docsPath -OutputPath $enUsPath
 ```
 
-This creates `src\MediaForgePS\en-US\MediaForgePS-help.xml`. PowerShell expects a folder named `en-US` next to the module’s `.psd1`/`.psm1`, with the module’s help XML inside it.
+This creates `src\MediaForgePS\en-US\MediaForgePS.dll-Help.xml`. PowerShell expects a folder named `en-US` next to the module’s `.psd1`/`.psm1`, with the module’s help XML inside it.
 
 ---
 
 ## Step 6: Ship the help with the module
 
-The `.csproj` is already set up to copy `en-US\*.xml` into the build output. After building, `bin\Debug\net9.0\en-US\MediaForgePS-help.xml` will be present next to the module files.
+The `.csproj` is already set up to copy `en-US\*.xml` into the build output. After building, `bin\Debug\<target-framework>\en-US\MediaForgePS.dll-Help.xml` will be present next to the module files.
 
 Rebuild so the help is in the output directory:
 
@@ -157,13 +157,13 @@ src/MediaForgePS/
 │   ├── Get-MediaFile.md
 │   └── ...
 ├── en-US/                   ← Generated; copied to build output
-│   └── MediaForgePS-help.xml
-└── bin/Debug/net9.0/
+│   └── MediaForgePS.dll-Help.xml
+└── bin/Debug/<target-framework>/
     ├── MediaForgePS.psd1
     ├── MediaForgePS.psm1
     ├── MediaForgePS.dll
     └── en-US/
-        └── MediaForgePS-help.xml
+        └── MediaForgePS.dll-Help.xml
 ```
 
 ---
@@ -171,5 +171,5 @@ src/MediaForgePS/
 ## Troubleshooting
 
 - **"Module MediaForgePS not found"** – Build first and use the full path to the built folder when calling `Import-Module` before `New-MarkdownHelp`.
-- **Help not showing** – Ensure `en-US\MediaForgePS-help.xml` exists in the **same** directory as the loaded module (the folder containing `.psd1`). Rebuild after adding or updating `en-US`.
+- **Help not showing** – Ensure `en-US\MediaForgePS.dll-Help.xml` exists in the **same** directory as the loaded module (the folder containing `.psd1`). Rebuild after adding or updating `en-US`.
 - **Stale help** – After editing `.md` files, run `New-ExternalHelp` again and rebuild.
