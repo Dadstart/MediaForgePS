@@ -5,7 +5,6 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
-using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -122,9 +121,15 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
             {
                 MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", pathDisplayName, percentComplete: 100, recordType: ProgressRecordType.Processing);
                 var defaultOutput = Path.ChangeExtension(resolvedPath, "srt") ?? resolvedPath + ".srt";
-                var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
-                    ? PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, e => WriteError(e))
-                    : defaultOutput;
+                var outputPath = defaultOutput;
+                if (resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath))
+                {
+                    if (!TryResolveOutputPath(PathResolver, OutputPath!, out var resolvedOutputPath))
+                        continue;
+
+                    outputPath = resolvedOutputPath;
+                }
+
                 if (outputPath != null && ConvertFile(subtitleEditPath, resolvedPath, outputPath))
                     writtenPaths.Add(outputPath);
                 MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);

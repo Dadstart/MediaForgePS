@@ -193,11 +193,9 @@ public class ExportSubtitlesCommand : CmdletBase
         }
 
         var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
-        if (!PathResolver.TryResolveOutputPath(newPath, out var resolved))
-        {
-            WriteError(new ErrorRecord(new InvalidOperationException($"Failed to resolve output path: {newPath}"), "OutputPathFailed", ErrorCategory.InvalidArgument, newPath));
+        if (!TryResolveOutputPath(PathResolver, newPath, out var resolved))
             return false;
-        }
+
         resolvedOutput = resolved;
 
         try

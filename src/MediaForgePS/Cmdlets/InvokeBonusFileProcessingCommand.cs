@@ -31,6 +31,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private IMediaReaderService? _mediaReaderService;
     private IMediaConversionService? _mediaConversionService;
+    private IPathResolver? _pathResolverService;
 
     private static readonly (string FolderName, string Suffix)[] _plexLayout =
     {
@@ -77,6 +78,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
 
+    private IPathResolver PathResolverService => _pathResolverService ??= ModuleServices.GetRequiredService<IPathResolver>();
+
     /// <summary>
     /// Executes the bonus file processing workflow.
     /// </summary>
@@ -95,30 +98,12 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             return;
         }
 
-        if (!TryResolveDirectoryPath(OutputPath, requireExists: false, out var outputFullPath))
-        {
-            WriteError(CreateErrorRecord(
-                new InvalidOperationException($"Failed to resolve output path: {OutputPath}"),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidArgument,
-                OutputPath));
+        if (!TryResolveOutputPath(PathResolverService, OutputPath, out var outputFullPath))
             return;
-        }
 
         WriteHostMessage("Starting Bonus File Processing", ConsoleColor.Cyan);
         WriteHostMessage($"  Input:  {inputFullPath}", ConsoleColor.Gray);
         WriteHostMessage($"  Output: {outputFullPath}", ConsoleColor.Gray);
-
-        if (!Directory.Exists(inputFullPath))
-        {
-            var error = new ErrorRecord(
-                new DirectoryNotFoundException($"Input path does not exist or is not a directory: '{inputFullPath}'"),
-                "InputPathNotFound",
-                ErrorCategory.InvalidArgument,
-                inputFullPath);
-            WriteError(error);
-            return;
-        }
 
         if (!ValidatePlexOutputPath(outputFullPath))
             return;

@@ -5,7 +5,6 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
-using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -81,9 +80,10 @@ public class RepairSubtitlesCommand : CmdletBase
             _inputPaths.Count == 1 &&
             !string.IsNullOrWhiteSpace(OutputPath))
         {
-            singleOutputPath = PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, WriteError);
-            if (singleOutputPath == null)
+            if (!TryResolveOutputPath(PathResolver, OutputPath!, out var resolvedOutputPath))
                 return;
+
+            singleOutputPath = resolvedOutputPath;
         }
 
         var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
