@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
+using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -91,8 +93,28 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     [Parameter(HelpMessage = "Skip caption extraction after copying episodes (chapters may still be extracted).")]
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
+    /// <summary>
+    /// When specified, converts image-based captions (SUP, SUB) to SRT via OCR and repairs SRT files (unless -NoRepair is also specified).
+    /// </summary>
+    [Parameter(HelpMessage = "Convert image captions to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
+
+    /// <summary>
+    /// When specified with -Ocr, skips the SRT repair step. Has no effect without -Ocr.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip SRT repair when used with -Ocr.")]
+    public SwitchParameter NoRepair { get; set; }
+
+    private const int DefaultOcrThrottleLimit = 10;
+
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
+
+    private IExecutableService? _executableService;
+    private IPathResolver? _pathResolver;
+
+    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
     /// Executes the end-to-end season processing workflow.
@@ -169,6 +191,43 @@ public class InvokeSeriesProcessingCommand : CmdletBase
             var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles);
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
+
+            if (Ocr.IsPresent)
+            {
+                var captionDir = Path.Combine(directoryStructure.SeasonDir, "Captions");
+                if (Directory.Exists(captionDir))
+                {
+                    var allCaptionPaths = Directory.GetFiles(captionDir, "*.*", SearchOption.TopDirectoryOnly);
+                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(allCaptionPaths);
+                    var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(allCaptionPaths);
+
+                    if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
+                    {
+                        WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
+
+                        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                            this,
+                            Logger,
+                            ExecutableService,
+                            PathResolver,
+                            imagePaths,
+                            srtPathsFromCaptions,
+                            performOcr: true,
+                            DefaultOcrThrottleLimit,
+                            shouldRepair: !NoRepair.IsPresent,
+                            backupPath: null,
+                            WriteObject);
+
+                        if (allSrtPaths == null)
+                            return;
+
+                        if (allSrtPaths.Count == 0)
+                            WriteHostMessage("  No SRT files to repair (only non-SRT formats were extracted).", ConsoleColor.Green);
+                        else
+                            WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
+                    }
+                }
+            }
         }
 
         WriteHostMessage(string.Empty);
