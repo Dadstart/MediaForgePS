@@ -166,40 +166,19 @@ public class SplitSeriesChaptersCommand : CmdletBase
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
 
-        var outputDir = ChapterSplitHelper.ResolveOutputDirectory(
-            PathResolver,
-            OutputPath,
-            resolvedInputPath,
-            SessionState.Path.CurrentLocation.Path);
-        if (string.IsNullOrEmpty(outputDir))
-        {
-            WriteError(new ErrorRecord(
-                new InvalidOperationException("Could not resolve output directory."),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidOperation,
-                OutputPath));
-            return;
-        }
-
-        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
-        if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
-            return;
-
-        WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
-
         var inputExtension = Path.GetExtension(resolvedInputPath);
         if (string.IsNullOrWhiteSpace(inputExtension))
             inputExtension = ".mkv";
 
-        var outputFiles = ChapterSplitHelper.SplitChapterRanges(
+        var outputFiles = ChapterSplitHelper.ExecuteSplitWorkflow(
             this,
             Logger,
+            MediaReaderService,
             ExecutableService,
+            PathResolver,
             resolvedInputPath,
-            outputDir,
+            OutputPath,
             ranges,
-            chapters,
             (rangeIndex, range) =>
             {
                 if (!string.IsNullOrWhiteSpace(range.OutputName))
@@ -211,6 +190,8 @@ public class SplitSeriesChaptersCommand : CmdletBase
                 return $"{Title} {{tvdb {tvDbEpisode.Id}}} S{Season:D2}E{episodeNumber:D2}{inputExtension}";
             },
             WriteHostMessage);
+        if (outputFiles == null)
+            return;
 
         foreach (var path in outputFiles)
             WriteObject(path);

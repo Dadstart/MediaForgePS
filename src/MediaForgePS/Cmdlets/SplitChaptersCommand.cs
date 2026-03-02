@@ -120,50 +120,31 @@ public class SplitChaptersCommand : CmdletBase
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
 
-        var outputDir = ChapterSplitHelper.ResolveOutputDirectory(
-            PathResolver,
-            OutputPath,
-            resolvedInputPath,
-            SessionState.Path.CurrentLocation.Path);
-        if (string.IsNullOrEmpty(outputDir))
-        {
-            WriteError(new ErrorRecord(
-                new InvalidOperationException("Could not resolve output directory."),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidOperation,
-                OutputPath));
-            return;
-        }
-
         WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
         var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
         if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
             return;
-
         WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
 
-        var chapterCount = chapters.Length;
-        var ranges = new List<(int Start, int End, string? OutputName)>(chapterCount);
-        for (var i = 1; i <= chapterCount; i++)
-            ranges.Add((i, i, null));
-
-        var inputExtension = Path.GetExtension(resolvedInputPath);
-        if (string.IsNullOrWhiteSpace(inputExtension))
-            inputExtension = ".mkv";
+        var ranges = BuildSingleChapterRanges(chapters.Length);
+        var inputExtension = GetInputExtensionOrDefault(resolvedInputPath);
         var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
-
-        var outputFiles = ChapterSplitHelper.SplitChapterRanges(
+        var outputFiles = ChapterSplitHelper.ExecuteSplitWorkflow(
             this,
             Logger,
+            MediaReaderService,
             ExecutableService,
+            PathResolver,
             resolvedInputPath,
-            outputDir,
+            OutputPath,
             ranges,
-            chapters,
             (rangeIndex, range) => !string.IsNullOrWhiteSpace(range.OutputName)
                 ? range.OutputName + inputExtension
                 : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
-            WriteHostMessage);
+            WriteHostMessage,
+            chapters);
+        if (outputFiles == null)
+            return;
 
         foreach (var path in outputFiles)
             WriteObject(path);
@@ -173,48 +154,40 @@ public class SplitChaptersCommand : CmdletBase
     {
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
-
-        var outputDir = ChapterSplitHelper.ResolveOutputDirectory(
-            PathResolver,
-            OutputPath,
-            resolvedInputPath,
-            SessionState.Path.CurrentLocation.Path);
-        if (string.IsNullOrEmpty(outputDir))
-        {
-            WriteError(new ErrorRecord(
-                new InvalidOperationException("Could not resolve output directory."),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidOperation,
-                OutputPath));
-            return;
-        }
-
-        WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
-        if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
-            return;
-
-        WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
-
-        var inputExtension = Path.GetExtension(resolvedInputPath);
-        if (string.IsNullOrWhiteSpace(inputExtension))
-            inputExtension = ".mkv";
-
+        
+        var inputExtension = GetInputExtensionOrDefault(resolvedInputPath);
         var baseName = Path.GetFileNameWithoutExtension(resolvedInputPath);
-        var outputFiles = ChapterSplitHelper.SplitChapterRanges(
+        var outputFiles = ChapterSplitHelper.ExecuteSplitWorkflow(
             this,
             Logger,
+            MediaReaderService,
             ExecutableService,
+            PathResolver,
             resolvedInputPath,
-            outputDir,
+            OutputPath,
             ranges,
-            chapters,
             (rangeIndex, range) => !string.IsNullOrWhiteSpace(range.OutputName)
                 ? range.OutputName + inputExtension
                 : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
             WriteHostMessage);
+        if (outputFiles == null)
+            return;
 
         foreach (var path in outputFiles)
             WriteObject(path);
+    }
+
+    private static List<(int Start, int End, string? OutputName)> BuildSingleChapterRanges(int chapterCount)
+    {
+        var ranges = new List<(int Start, int End, string? OutputName)>(chapterCount);
+        for (var i = 1; i <= chapterCount; i++)
+            ranges.Add((i, i, null));
+        return ranges;
+    }
+
+    private static string GetInputExtensionOrDefault(string resolvedInputPath)
+    {
+        var extension = Path.GetExtension(resolvedInputPath);
+        return string.IsNullOrWhiteSpace(extension) ? ".mkv" : extension;
     }
 }
