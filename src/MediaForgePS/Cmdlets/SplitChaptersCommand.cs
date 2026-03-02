@@ -84,7 +84,7 @@ public class SplitChaptersCommand : CmdletBase
                 }
                 catch (Exception ex)
                 {
-                    WriteError(new ErrorRecord(ex, "SplitChaptersFailed", ErrorCategory.OperationStopped, inputPath));
+                    WriteStandardError(ex, ErrorIds.SplitChaptersFailed, ErrorCategory.OperationStopped, inputPath);
                 }
             }
 
@@ -96,7 +96,7 @@ public class SplitChaptersCommand : CmdletBase
         {
             WriteError(new ErrorRecord(
                 new ArgumentException("At least one valid chapter range with Start and End is required."),
-                "InvalidChapterRanges",
+                ErrorIds.InvalidChapterRanges,
                 ErrorCategory.InvalidArgument,
                 ChapterRanges));
             return;
@@ -110,7 +110,7 @@ public class SplitChaptersCommand : CmdletBase
             }
             catch (Exception ex)
             {
-                WriteError(new ErrorRecord(ex, "SplitChaptersFailed", ErrorCategory.OperationStopped, inputPath));
+                WriteStandardError(ex, ErrorIds.SplitChaptersFailed, ErrorCategory.OperationStopped, inputPath);
             }
         }
     }
