@@ -29,7 +29,7 @@ public record EncodeAudioTrackMapping(
     {
         ArgumentNullException.ThrowIfNull(platformService);
 
-        var builder = new FfmpegArgumentBuilder(platformService);
+        var builder = new FfmpegArgumentBuilder();
         return builder
             .AddSourceMap(SourceStream, StreamType, SourceIndex)
             .AddDestinationCodec(StreamType, DestinationCodec)
