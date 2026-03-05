@@ -1,3 +1,6 @@
+using System.IO;
+using System.Linq;
+using Dadstart.Labs.MediaForge.Cmdlets;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.ComponentTests.Cmdlets;
@@ -5,10 +8,26 @@ namespace Dadstart.Labs.MediaForge.ComponentTests.Cmdlets;
 public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
 {
     [Fact]
-    public void ConvertMediaFilesCommand_ComponentTest_Placeholder()
+    public void ConvertMediaFiles_WithValidSampleVideo_ProducesOutputFileInOutputDirectory()
     {
-        // Placeholder test to prevent warnings when running dotnet test
-        // Component tests with real media files should be added here to verify end-to-end functionality
-        Assert.True(true);
+        SkipIfMediaToolsMissing();
+        SkipIfTestAssetsMissing();
+
+        var outputDir = CreateTempDirectory();
+
+        using var ps = CreatePowerShellFor<ConvertMediaFilesCommand>("Convert-MediaFiles");
+        ps.AddCommand("Convert-MediaFiles")
+            .AddParameter("InputPath", new object[] { SampleVideoPath })
+            .AddParameter("OutputDirectory", outputDir);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+
+        var outputFiles = Directory.GetFiles(outputDir);
+        Assert.Single(outputFiles);
+        var outputFile = outputFiles[0];
+        Assert.True(new FileInfo(outputFile).Length > 0);
     }
 }
