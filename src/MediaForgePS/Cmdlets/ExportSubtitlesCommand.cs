@@ -140,8 +140,7 @@ public class ExportSubtitlesCommand : CmdletBase
             performOcr: Ocr.IsPresent,
             ThrottleLimit,
             shouldRepair: Ocr.IsPresent && !NoRepair.IsPresent,
-            BackupPath,
-            WriteObject);
+            BackupPath);
 
         if (allSrtPaths == null)
             return;

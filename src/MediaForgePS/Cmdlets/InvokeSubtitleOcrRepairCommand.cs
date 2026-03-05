@@ -108,8 +108,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
             performOcr: true,
             ThrottleLimit,
             shouldRepair: !NoRepair.IsPresent,
-            BackupPath,
-            WriteObject);
+            BackupPath);
 
         if (allSrtPaths == null)
             return;

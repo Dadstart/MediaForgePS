@@ -27,8 +27,7 @@ public static class SubtitleOcrRepairWorkflow
         bool performOcr,
         int throttleLimit,
         bool shouldRepair,
-        string? backupPath,
-        Action<string> writeObject)
+        string? backupPath)
     {
         IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (performOcr && imagePaths.Count > 0)
@@ -59,7 +58,7 @@ public static class SubtitleOcrRepairWorkflow
             .ToList();
 
         if (allSrtPaths.Count > 0)
-            SrtRepairHelper.RunRepairLoop(cmdlet, logger, pathResolver, allSrtPaths, shouldRepair, backupPath, writeObject);
+            SrtRepairHelper.RunRepairLoop(cmdlet, logger, pathResolver, allSrtPaths, shouldRepair, backupPath);
 
         return allSrtPaths;
     }

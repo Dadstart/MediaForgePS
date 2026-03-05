@@ -213,8 +213,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                             performOcr: true,
                             DefaultOcrThrottleLimit,
                             shouldRepair: !NoRepair.IsPresent,
-                            backupPath: null,
-                            WriteObject);
+                            backupPath: null);
 
                         if (allSrtPaths == null)
                             return;

@@ -130,7 +130,6 @@ public class RepairSubtitlesCommand : CmdletBase
             PathResolver,
             repairItems,
             shouldRepair: true,
-            BackupPath,
-            WriteObject);
+            BackupPath);
     }
 }
