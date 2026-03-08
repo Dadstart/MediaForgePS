@@ -8,19 +8,19 @@ schema: 2.0.0
 # Export-Subtitles
 
 ## SYNOPSIS
-Exports English subtitle streams from media files and optionally converts image subtitles to SRT via OCR.
+Exports English subtitle streams from media files and converts image subtitles to SRT via OCR unless skipped.
 
 ## SYNTAX
 
 ```
-Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr] [-NoRepair]
+Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr] [-NoRepair]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Export-Subtitles extracts English subtitle tracks from media files (MKV and others). For each file it finds subtitle streams whose language matches English and exports them next to the source file with an appropriate extension (e.g. .srt, .sup).
 
-When you specify -Ocr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -NoRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when -Ocr is used. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
+Unless you specify -SkipOcr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -NoRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
 
 ## EXAMPLES
 
@@ -33,14 +33,14 @@ Exports all English subtitle streams from movie.mkv to files alongside the video
 
 ### Example 2: Export from a folder and convert image subtitles to SRT with repair
 ```powershell
-Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -Ocr -BackupPath "C:\Backup\srts"
+Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -BackupPath "C:\Backup\srts"
 ```
 
 Exports subtitles from all MKV files in C:\Videos. Image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then repaired. Resulting SRT paths are emitted to the pipeline.
 
 ### Example 3: Export and convert without SRT repair
 ```powershell
-Export-Subtitles -InputPath "C:\Videos\season1" -Ocr -NoRepair
+Export-Subtitles -InputPath "C:\Videos\season1" -NoRepair
 ```
 
 Exports and converts image subtitles to SRT but skips the repair step.
@@ -78,7 +78,7 @@ Accept wildcard characters: False
 ```
 
 ### -NoRepair
-Skip SRT repair when used with -Ocr.
+Skip SRT repair during default OCR processing.
 
 ```yaml
 Type: SwitchParameter
@@ -92,8 +92,8 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Ocr
-Convert image subtitles to SRT via OCR and repair SRT files.
+### -SkipOcr
+Skip OCR conversion of image subtitles to SRT.
 
 ```yaml
 Type: SwitchParameter
@@ -108,7 +108,7 @@ Accept wildcard characters: False
 ```
 
 ### -ThrottleLimit
-Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.
+Maximum number of image-to-SRT conversions to run in parallel. Only applies unless -SkipOcr is specified. Default is 10.
 
 ```yaml
 Type: Int32
@@ -148,10 +148,10 @@ Path strings, folder paths, or MediaFile objects (e.g. from Get-MediaFile). For 
 ## OUTPUTS
 
 ### System.String
-When -Ocr is used, the paths of exported or repaired SRT files are written to the pipeline.
+When OCR processing runs, the paths of exported or repaired SRT files are written to the pipeline.
 
 ## NOTES
-Requires mkvextract for extracting embedded subtitles. When using -Ocr, Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit).
+Requires mkvextract for extracting embedded subtitles. When OCR processing is enabled, Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit).
 
 ## RELATED LINKS
 

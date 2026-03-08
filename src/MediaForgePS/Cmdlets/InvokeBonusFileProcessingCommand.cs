@@ -82,10 +82,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     public SwitchParameter NoSubtitles { get; set; }
 
     /// <summary>
-    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR.
+    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
     /// </summary>
-    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR.")]
-    public SwitchParameter Ocr { get; set; }
+    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
+    public SwitchParameter SkipOcr { get; set; }
 
     /// <summary>
     /// When specified, skips the SRT repair step after extraction or OCR.
@@ -100,9 +100,9 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel when -Ocr is used. Default is 10.
+    /// Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.
     /// </summary>
-    [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously when -Ocr is used.")]
+    [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously when OCR is enabled.")]
     public int ThrottleLimit { get; set; } = 10;
 
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
@@ -189,7 +189,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                         PathResolverService,
                         imagePaths,
                         srtPaths,
-                        performOcr: Ocr.IsPresent,
+                        performOcr: !SkipOcr.IsPresent,
                         ThrottleLimit,
                         shouldRepair: !SkipRepair.IsPresent,
                         BackupPath);
@@ -793,4 +793,3 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             : 0;
     }
 }
-

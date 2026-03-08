@@ -1,9 +1,11 @@
 using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +20,8 @@ public class ExportSubtitlesCommandTests : IDisposable
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<ExportSubtitlesCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
+    private readonly Mock<IMediaReaderService> _mediaReaderMock;
+    private readonly Mock<IExecutableService> _executableMock;
     private readonly IServiceProvider _serviceProvider;
     private readonly System.Reflection.FieldInfo? _providerField;
     private readonly System.Reflection.FieldInfo? _initializedField;
@@ -33,13 +37,13 @@ public class ExportSubtitlesCommandTests : IDisposable
             .Returns((string name) => name?.Contains("PathResolver") == true ? pathResolverLoggerMock.Object : _loggerMock.Object);
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
-        var mediaReaderMock = new Mock<IMediaReaderService>();
-        var executableMock = new Mock<IExecutableService>();
+        _mediaReaderMock = new Mock<IMediaReaderService>();
+        _executableMock = new Mock<IExecutableService>();
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
-        services.AddSingleton<IMediaReaderService>(mediaReaderMock.Object);
-        services.AddSingleton<IExecutableService>(executableMock.Object);
+        services.AddSingleton<IMediaReaderService>(_mediaReaderMock.Object);
+        services.AddSingleton<IExecutableService>(_executableMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();
@@ -107,5 +111,112 @@ public class ExportSubtitlesCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public void ExportSubtitles_UsesSkipOcrParameter()
+    {
+        var cmdlet = new ExportSubtitlesCommand();
+
+        Assert.False(cmdlet.SkipOcr.IsPresent);
+        Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.SkipOcr)));
+        Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("Ocr"));
+    }
+
+    [Fact]
+    public void ExportSubtitles_DefaultsToRepairingExtractedSrt_WhenSkipOcrIsNotSpecified()
+    {
+        using var tempDir = new TemporaryDirectory();
+        var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
+        File.WriteAllText(mediaPath, "not-a-real-media-file");
+
+        _mediaReaderMock
+            .Setup(service => service.GetMediaFileAsync(mediaPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
+
+        _executableMock
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var asm = typeof(ExportSubtitlesCommand).Assembly;
+        var initialSessionState = InitialSessionState.CreateDefault();
+        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
+
+        using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
+        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { mediaPath });
+
+        ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        var error = Assert.Single(errors);
+        Assert.Contains("RepairSubtitlesFailed", error.FullyQualifiedErrorId, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExportSubtitles_SkipOcr_SkipsRepairWorkflowForExtractedSrt()
+    {
+        using var tempDir = new TemporaryDirectory();
+        var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
+        File.WriteAllText(mediaPath, "not-a-real-media-file");
+
+        _mediaReaderMock
+            .Setup(service => service.GetMediaFileAsync(mediaPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
+
+        _executableMock
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var asm = typeof(ExportSubtitlesCommand).Assembly;
+        var initialSessionState = InitialSessionState.CreateDefault();
+        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
+
+        using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
+        ps.AddCommand("Export-Subtitles")
+            .AddParameter("InputPath", new[] { mediaPath })
+            .AddParameter("SkipOcr");
+
+        ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+    }
+
+    private static MediaFile CreateMediaFile(string mediaPath, string subtitleCodec)
+    {
+        return new MediaFile(
+            mediaPath,
+            new MediaFormat(
+                mediaPath,
+                1,
+                "matroska",
+                "Matroska",
+                0,
+                1,
+                1024,
+                1024,
+                new Dictionary<string, string>()),
+            [],
+            [new MediaStream("subtitle", 2, subtitleCodec, string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng")],
+            string.Empty);
+    }
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        public TemporaryDirectory()
+        {
+            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MediaForgePS_ExportSubtitles_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public string Path { get; }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+                Directory.Delete(Path, recursive: true);
+        }
     }
 }

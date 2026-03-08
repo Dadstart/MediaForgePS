@@ -15,12 +15,12 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 ```
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
- [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr] [-NoRepair]
+ [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-SkipOcr] [-NoRepair]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
+Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Unless -SkipOcr is specified, extracted image captions are converted to SRT via OCR and repaired by default; use -NoRepair to skip only the repair step. Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
 
 ## EXAMPLES
 
@@ -229,7 +229,7 @@ Accept wildcard characters: False
 ```
 
 ### -NoRepair
-Skip SRT repair when used with -Ocr.
+Skip SRT repair during default OCR processing.
 
 ```yaml
 Type: SwitchParameter
@@ -243,8 +243,8 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Ocr
-Convert image captions to SRT via OCR and repair SRT files.
+### -SkipOcr
+Skip OCR conversion of image captions to SRT.
 
 ```yaml
 Type: SwitchParameter

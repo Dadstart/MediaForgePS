@@ -8,18 +8,18 @@ schema: 2.0.0
 # Invoke-BonusFileProcessing
 
 ## SYNOPSIS
-Converts bonus MKV files, extracts subtitles (with optional OCR and repair), and organizes them into Plex-style bonus content folders.
+Converts bonus MKV files, extracts subtitles (with OCR by default and repair), and organizes them into Plex-style bonus content folders.
 
 ## SYNTAX
 
 ```
 Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-DefaultVideoEncoder <String>]
- [-NoSubtitles] [-Ocr] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
+ [-NoSubtitles] [-SkipOcr] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -NoSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). If -Ocr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
+Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -NoSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). Unless -SkipOcr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
 
 ## EXAMPLES
 
@@ -39,7 +39,7 @@ Converts bonus files with libx265 and organizes under P:\Movies\Title.
 
 ### Example 3: Extract subtitles with OCR and repair
 ```powershell
-Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -Ocr
+Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie"
 ```
 
 Converts bonus files, extracts subtitles, converts image-based (SUP/SUB) subtitles to SRT via OCR, repairs SRT files, then organizes into Plex folders. Use -SkipRepair to skip the repair step; use -NoSubtitles to skip subtitle extraction entirely.
@@ -77,8 +77,8 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Ocr
-Convert image-based subtitles (SUP, SUB) to SRT via OCR. Requires Subtitle Edit and Tesseract on Windows. When specified, extracted image subtitle files are converted to SRT before repair (if repair is not skipped).
+### -SkipOcr
+Skip OCR conversion of image-based subtitles (SUP, SUB). By default, extracted image subtitle files are converted to SRT before repair when OCR dependencies are available.
 
 ```yaml
 Type: SwitchParameter
@@ -123,7 +123,7 @@ Accept wildcard characters: False
 ```
 
 ### -ThrottleLimit
-Maximum number of image-to-SRT conversions to run in parallel when -Ocr is specified. Default is 10.
+Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.
 
 ```yaml
 Type: Int32
@@ -196,7 +196,7 @@ Parameters are specified directly.
 This cmdlet does not write to the pipeline.
 
 ## NOTES
-Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). For -Ocr, Subtitle Edit and Tesseract are required on Windows. On Windows, output must be under P:\.
+Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows. On Windows, output must be under P:\.
 
 ## RELATED LINKS
 

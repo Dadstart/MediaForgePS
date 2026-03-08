@@ -118,6 +118,16 @@ public class SeriesProcessingServiceTests
     }
 
     [Fact]
+    public void InvokeSeriesProcessingCommand_UsesSkipOcrParameter()
+    {
+        var cmdlet = new InvokeSeriesProcessingCommand();
+
+        Assert.False(cmdlet.SkipOcr.IsPresent);
+        Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.SkipOcr)));
+        Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("Ocr"));
+    }
+
+    [Fact]
     public void TryParseTvDbEpisode_ValidPSObject_ReturnsTrueAndParsedEpisode()
     {
         var ps = PSObject.AsPSObject(new { Id = "42", Title = "Pilot", EpisodeNumber = 1, SeasonNumber = 2 });
