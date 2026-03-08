@@ -31,6 +31,11 @@
     Enable publish step. Publishes the main module project to the bin directory.
     Only runs if build succeeded.
 
+.PARAMETER Help
+    Regenerate the PowerShell help XML (MediaForgePS.dll-Help.xml) from the Markdown
+    files in src/MediaForgePS/docs. Runs Build-Help.ps1. When combined with -Build,
+    the build copies the updated help into the output directory. Also enabled by -Full.
+
 .PARAMETER Aot
     Publish with Native AOT (Ahead-of-Time compilation). Only applies when -Publish is used.
     Produces a self-contained native executable. Requires platform-specific tooling
@@ -42,7 +47,7 @@
 
 .EXAMPLE
     .\scripts\Build.ps1
-    Runs all operations (equivalent to -Build -Clean -Lint -Test -Publish).
+    Runs all operations (equivalent to -Full: Clean, Help, Build, Lint Fix, Test, Publish).
 
 .EXAMPLE
     .\scripts\Build.ps1 -Configuration Release -Build -Publish
@@ -71,6 +76,10 @@
 .EXAMPLE
     .\scripts\Build.ps1 -Configuration Release -Build -Publish -Aot
     Builds in Release, then publishes with Native AOT (native executable output).
+
+.EXAMPLE
+    .\scripts\Build.ps1 -Help -Build
+    Regenerates help XML from docs, then builds (so the updated help is in the output).
 #>
 [CmdletBinding(DefaultParameterSetName = "PartialBuild")]
 param(
@@ -97,6 +106,10 @@ param(
 
     [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
+
+    [Parameter(ParameterSetName = "FullBuild")]
+    [Parameter(ParameterSetName = "PartialBuild")]
+    [switch]$Help,
 
     [Parameter()]
     [switch]$Aot,
@@ -247,11 +260,13 @@ function Initialize-ProgressTracker {
         [bool]$Build,
         [string]$Lint,
         [bool]$Test,
-        [bool]$Publish
+        [bool]$Publish,
+        [bool]$Help
     )
 
     $steps = @()
     if ($Clean) { $steps += 'Clean' }
+    if ($Help) { $steps += 'Help' }
     if ($Build) { $steps += 'Build' }
     if ($Lint -eq 'View') { $steps += 'Lint View' }
     if ($Lint -eq 'Fix') { $steps += 'Lint Fix' }
@@ -266,7 +281,7 @@ function Initialize-ProgressTracker {
 #
 
 # Check if any operations were requested
-$operationsRequested = $Full -or $Clean -or $Build -or ($Lint -ne 'None') -or $Test -or $Publish
+$operationsRequested = $Full -or $Clean -or $Build -or ($Lint -ne 'None') -or $Test -or $Publish -or $Help
 
 # If no operations requested, enable all operations by default
 if (-not $operationsRequested) {
@@ -288,10 +303,11 @@ if ($Full) {
     }
     $Test = $true
     $Publish = $true
+    $Help = $true
 }
 
 # Initialize progress tracker
-$progressTracker = Initialize-ProgressTracker -Clean $Clean -Build $Build -Lint $Lint -Test $Test -Publish $Publish
+$progressTracker = Initialize-ProgressTracker -Clean $Clean -Build $Build -Lint $Lint -Test $Test -Publish $Publish -Help $Help
 
 
 # Step 1: Clean (optional, enabled by -Clean)
@@ -313,7 +329,26 @@ if ($Clean) {
     Write-Host ""
 }
 
-# Step 2: Build (optional, enabled by -Build)
+# Step 2: Help (optional, enabled by -Help or -Full)
+if ($Help) {
+    Write-Host "Regenerating PowerShell help XML..." -ForegroundColor Cyan
+    Write-Host ""
+
+    $progressTracker.UpdateProgress("Regenerating help (Build-Help.ps1)")
+
+    $buildHelpScript = Join-Path $PSScriptRoot 'Build-Help.ps1'
+    & $buildHelpScript
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Information "Build:Help:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
+        throw "Help regeneration failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "Help XML regenerated successfully." -ForegroundColor Green
+    Write-Host ""
+}
+
+# Step 3: Build (optional, enabled by -Build)
 if ($Build) {
     Write-Host "Building solution..." -ForegroundColor Cyan
     Write-Host "Configuration: $Configuration" -ForegroundColor Gray
@@ -339,7 +374,7 @@ if ($Build) {
     Write-Host ""
 }
 
-# Step 3: Lint (optional, enabled with -Lint, defaults to None)
+# Step 4: Lint (optional, enabled with -Lint, defaults to None)
 if ($Lint -eq 'View') {
     Write-Host "Checking for linting issues..." -ForegroundColor Cyan
     Write-Host ""
@@ -377,7 +412,7 @@ elseif ($Lint -eq 'Fix') {
     }
 }
 
-# Step 4: Test (optional, enabled with -Test)
+# Step 5: Test (optional, enabled with -Test)
 if ($Test) {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Test") {
         Write-Host "Running tests..." -ForegroundColor Cyan
@@ -406,7 +441,7 @@ if ($Test) {
     }
 }
 
-# Step 5: Publish (optional, enabled with -Publish)
+# Step 6: Publish (optional, enabled with -Publish)
 if ($Publish) {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Publish") {
         Write-Host "Publishing MediaForgePS module..." -ForegroundColor Cyan
