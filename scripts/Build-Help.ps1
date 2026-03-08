@@ -44,7 +44,7 @@ Write-Verbose "Docs path: $docsPath"
 Write-Verbose "Output path: $enUsPath"
 
 New-Item -ItemType Directory -Path $enUsPath -Force | Out-Null
-New-ExternalHelp -Path $docsPath -OutputPath $enUsPath
+New-ExternalHelp -Path $docsPath -OutputPath $enUsPath -Force
 
 $canonicalName = 'MediaForgePS.dll-Help.xml'
 $legacyName = 'MediaForgePS-help.xml'
