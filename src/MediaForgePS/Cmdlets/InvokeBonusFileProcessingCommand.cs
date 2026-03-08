@@ -79,7 +79,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     /// When specified, skips extracting subtitles from bonus files.
     /// </summary>
     [Parameter(HelpMessage = "Skip subtitle extraction from bonus files.")]
-    public SwitchParameter NoSubtitles { get; set; }
+    public SwitchParameter SkipSubtitles { get; set; }
 
     /// <summary>
     /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
@@ -171,7 +171,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             bonusFileCount = _conversionResults.Count(summary => summary.Success);
         }
 
-        if (!NoSubtitles.IsPresent)
+        if (!SkipSubtitles.IsPresent)
         {
             try
             {

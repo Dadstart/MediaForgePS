@@ -40,7 +40,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
     /// When specified, skips the SRT repair step. Only conversion (SUP/SUB to SRT) is performed; converted and existing SRT paths are still written to the pipeline.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair; only convert image subtitles to SRT.")]
-    public SwitchParameter NoRepair { get; set; }
+    public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
     /// When input is a directory, recurse into subdirectories to find .sup, .sub, and .srt files.
@@ -107,7 +107,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
             srtPathsFromInput,
             performOcr: true,
             ThrottleLimit,
-            shouldRepair: !NoRepair.IsPresent,
+            shouldRepair: !SkipRepair.IsPresent,
             BackupPath);
 
         if (allSrtPaths == null)

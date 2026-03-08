@@ -14,7 +14,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Exports English subtitle streams from media files. By default, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. Unless -SkipOcr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -NoRepair is specified.
+/// Always extracts subtitle tracks matching English language. Unless -SkipOcr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
 /// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
@@ -51,7 +51,7 @@ public class ExportSubtitlesCommand : CmdletBase
     /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
-    public SwitchParameter NoRepair { get; set; }
+    public SwitchParameter SkipRepair { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
@@ -139,7 +139,7 @@ public class ExportSubtitlesCommand : CmdletBase
             srtPathsFromExport,
             performOcr: !SkipOcr.IsPresent,
             ThrottleLimit,
-            shouldRepair: !SkipOcr.IsPresent && !NoRepair.IsPresent,
+            shouldRepair: !SkipOcr.IsPresent && !SkipRepair.IsPresent,
             BackupPath);
 
         if (allSrtPaths == null)

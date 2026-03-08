@@ -102,7 +102,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
-    public SwitchParameter NoRepair { get; set; }
+    public SwitchParameter SkipRepair { get; set; }
 
     private const int DefaultOcrThrottleLimit = 10;
 
@@ -212,7 +212,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
                             srtPathsFromCaptions,
                             performOcr: true,
                             DefaultOcrThrottleLimit,
-                            shouldRepair: !NoRepair.IsPresent,
+                            shouldRepair: !SkipRepair.IsPresent,
                             backupPath: null);
 
                         if (allSrtPaths == null)

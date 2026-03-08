@@ -13,14 +13,14 @@ Exports English subtitle streams from media files and converts image subtitles t
 ## SYNTAX
 
 ```
-Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr] [-NoRepair]
+Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr] [-SkipRepair]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Export-Subtitles extracts English subtitle tracks from media files (MKV and others). For each file it finds subtitle streams whose language matches English and exports them next to the source file with an appropriate extension (e.g. .srt, .sup).
 
-Unless you specify -SkipOcr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -NoRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
+Unless you specify -SkipOcr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -SkipRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
 
 ## EXAMPLES
 
@@ -40,7 +40,7 @@ Exports subtitles from all MKV files in C:\Videos. Image-based tracks (SUP/SUB) 
 
 ### Example 3: Export and convert without SRT repair
 ```powershell
-Export-Subtitles -InputPath "C:\Videos\season1" -NoRepair
+Export-Subtitles -InputPath "C:\Videos\season1" -SkipRepair
 ```
 
 Exports and converts image subtitles to SRT but skips the repair step.
@@ -77,7 +77,7 @@ Accept pipeline input: True (ByPropertyName, ByValue)
 Accept wildcard characters: False
 ```
 
-### -NoRepair
+### -SkipRepair
 Skip SRT repair during default OCR processing.
 
 ```yaml
