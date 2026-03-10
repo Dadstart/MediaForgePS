@@ -46,6 +46,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         ("Other", "other")
     };
 
+    private static readonly string[] SubtitleExtensions = { "srt", "vtt" };
+
     /// <summary>
     /// Source directory containing media files to process.
     /// </summary>
@@ -182,7 +184,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 {
                     var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
                     var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-                    SubtitleOcrRepairWorkflow.Run(
+                    var result = SubtitleOcrRepairWorkflow.Run(
                         this,
                         Logger,
                         ExecutableService,
@@ -193,6 +195,12 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                         ThrottleLimit,
                         shouldRepair: !SkipRepair.IsPresent,
                         BackupPath);
+
+                    if (result == null && !SkipRepair.IsPresent && srtPaths.Count > 0)
+                    {
+                        WriteHostMessage("  OCR unavailable; repairing existing SRT files...", ConsoleColor.Yellow);
+                        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolverService, srtPaths, shouldRepair: true, BackupPath);
+                    }
                 }
                 WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
             }
@@ -615,10 +623,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 Directory.CreateDirectory(destFolder);
 
             var videoPattern = $"*-{suffix}.mp4";
-            var subtitlePattern = $"*-{suffix}.*srt";
 
             var videoFiles = Directory.EnumerateFiles(sourceDirectory, videoPattern, SearchOption.AllDirectories);
-            var subtitleFiles = Directory.EnumerateFiles(sourceDirectory, subtitlePattern, SearchOption.AllDirectories);
+            var subtitleFiles = SubtitleExtensions
+                .SelectMany(ext => Directory.EnumerateFiles(sourceDirectory, $"*-{suffix}.*{ext}", SearchOption.AllDirectories));
             var sourceFiles = videoFiles.Concat(subtitleFiles).ToList();
 
             if (sourceFiles.Count > 0)
