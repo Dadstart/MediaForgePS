@@ -65,6 +65,8 @@ Start-Process -FilePath $pwshPath -NoNewWindow -ArgumentList $importArgs
 $command = @"
 Write-Host "`$(`$PSStyle.Dim)Started new PowerShell process `$(`$PSStyle.DimOff)`$(`$PSStyle.Foreground.Cyan)`$PID`$(`$PSStyle.Reset)"
 & "$($importScriptPath)" -Configuration "$Configuration"
+Set-Alias -Name 'bonus' -Value 'Invoke-BonusFileProcessing' -Scope Global
+Set-Alias -Name 'sub' -Value 'Export-Subtitles' -Scope Global
 "@
 pwsh -NoExit -Command $command
 
