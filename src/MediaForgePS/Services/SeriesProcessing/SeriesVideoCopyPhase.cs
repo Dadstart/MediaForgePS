@@ -69,7 +69,11 @@ internal sealed class SeriesVideoCopyPhase
             var episodeIndex = (request.EpisodeStart - 1) + fileIndex;
             if (episodeIndex >= sortedEpisodes.Count)
             {
-                cmdlet.WriteWarning($"No TVDb episode metadata available for file '{inputFile}'.");
+                cmdlet.WriteWarning(
+                    $"No TVDb episode metadata for file '{inputFile}'. " +
+                    $"The season scan returned {sortedEpisodes.Count} episode(s), but -EpisodeStart {request.EpisodeStart} maps input files to scan positions " +
+                    $"{request.EpisodeStart} onward (file {fileIndex + 1} needs position {episodeIndex + 1}). " +
+                    "DVD-order TVDb season pages often have fewer rows than aired order; use .../seasons/official/<season> or lower -EpisodeStart.");
                 break;
             }
 
