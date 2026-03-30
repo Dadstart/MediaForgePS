@@ -18,10 +18,6 @@
     Enable the build step. By default, the solution is not built unless this parameter is explicitly set.
 
 .PARAMETER Lint
-    Enable linting in View mode.
-    Equivalent to using `-LintMode View`.
-
-.PARAMETER LintMode
     Linting mode. Defaults to 'None'.
     - 'None': Skip linting.
     - 'View': Check for formatting issues without fixing them (runs 'dotnet format --verify-no-changes').
@@ -58,15 +54,11 @@
     Builds in Release configuration, then publishes the module.
 
 .EXAMPLE
-    .\scripts\Build.ps1 -Build -Lint
-    Builds without cleaning, then checks for linting issues (defaults to View).
-
-.EXAMPLE
-    .\scripts\Build.ps1 -Build -LintMode View
+    .\scripts\Build.ps1 -Build -Lint View
     Builds without cleaning, then checks for linting issues.
 
 .EXAMPLE
-    .\scripts\Build.ps1 -Build -LintMode Fix
+    .\scripts\Build.ps1 -Build -Lint Fix
     Builds the solution, then runs lint fix to correct formatting issues.
 
 .EXAMPLE
@@ -74,7 +66,7 @@
     Cleans, builds in Release configuration, and runs all tests.
 
 .EXAMPLE
-    .\scripts\Build.ps1 -Configuration Release -Clean -Build -LintMode Fix -Test -Publish
+    .\scripts\Build.ps1 -Configuration Release -Clean -Build -Lint Fix -Test -Publish
     Full workflow: clean, build in Release, fix linting, test, and publish.
 
 .EXAMPLE
@@ -102,12 +94,8 @@ param(
 
     [Parameter(ParameterSetName = "FullBuild")]
     [Parameter(ParameterSetName = "PartialBuild")]
-    [switch]$Lint,
-
-    [Parameter(ParameterSetName = "FullBuild")]
-    [Parameter(ParameterSetName = "PartialBuild")]
     [ValidateSet('None', 'View', 'Fix')]
-    [string]$LintMode = 'None',
+    [string]$Lint = 'None',
 
     [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Test,
@@ -138,15 +126,6 @@ $repoRoot = Get-RepoRoot
 $targetFramework = Get-MediaForgeTargetFramework -RepoRoot $repoRoot
 
 $slnPath = Join-Path $repoRoot 'MediaForgePS.sln'
-
-# Normalize lint mode:
-# -Lint            => View
-# -LintMode X      => X
-# -Lint + -LintMode X => X
-$effectiveLintMode = $LintMode
-if ($Lint -and -not $PSBoundParameters.ContainsKey('LintMode')) {
-    $effectiveLintMode = 'View'
-}
 
 # Verify solution file exists
 if (-not (Test-Path $slnPath)) {
@@ -298,7 +277,7 @@ function Initialize-ProgressTracker {
 #
 
 # Check if any operations were requested
-$operationsRequested = $Full -or $Clean -or $Build -or ($effectiveLintMode -ne 'None') -or $Test -or $Publish -or $Help
+$operationsRequested = $Full -or $Clean -or $Build -or ($Lint -ne 'None') -or $Test -or $Publish -or $Help
 
 # If no operations requested, enable all operations by default
 if (-not $operationsRequested) {
@@ -315,8 +294,8 @@ if ($Full) {
     $Build = $true
 
     # override lint to fix unless -Lint was explicitly set
-    if (-not $PSBoundParameters.ContainsKey('Lint') -and -not $PSBoundParameters.ContainsKey('LintMode')) {
-        $effectiveLintMode = 'Fix'
+    if (-not $PSBoundParameters.ContainsKey('Lint')) {
+        $Lint = 'Fix'
     }
     $Test = $true
     $Publish = $true
@@ -324,7 +303,7 @@ if ($Full) {
 }
 
 # Initialize progress tracker
-$progressTracker = Initialize-ProgressTracker -Clean $Clean -Build $Build -Lint $effectiveLintMode -Test $Test -Publish $Publish -Help $Help
+$progressTracker = Initialize-ProgressTracker -Clean $Clean -Build $Build -Lint $Lint -Test $Test -Publish $Publish -Help $Help
 
 
 # Step 1: Clean (optional, enabled by -Clean)
@@ -392,7 +371,7 @@ if ($Build) {
 }
 
 # Step 4: Lint (optional, enabled with -Lint, defaults to None)
-if ($effectiveLintMode -eq 'View') {
+if ($Lint -eq 'View') {
     Write-Host "Checking for linting issues..." -ForegroundColor Cyan
     Write-Host ""
 
@@ -401,7 +380,7 @@ if ($effectiveLintMode -eq 'View') {
     dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Linting issues found. Use -LintMode Fix to auto-fix them." -ForegroundColor Yellow
+        Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
         Write-Host ""
     }
     else {
@@ -409,7 +388,7 @@ if ($effectiveLintMode -eq 'View') {
         Write-Host ""
     }
 }
-elseif ($effectiveLintMode -eq 'Fix') {
+elseif ($Lint -eq 'Fix') {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {
         Write-Host "Auto-fixing linting issues..." -ForegroundColor Cyan
         Write-Host ""
@@ -432,7 +411,7 @@ elseif ($effectiveLintMode -eq 'Fix') {
         dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Lint issues remain after auto-fix (likely non-fixable diagnostics such as IDE1006)." -ForegroundColor Yellow
-            Write-Host "Run with -LintMode View to review diagnostics and apply manual fixes." -ForegroundColor Yellow
+            Write-Host "Run with -Lint View to review diagnostics and apply manual fixes." -ForegroundColor Yellow
             Write-Host ""
         }
     }
