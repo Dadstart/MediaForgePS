@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -53,7 +54,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
     [Fact]
     public void ConvertMediaFiles_WhenInputPathCannotBeResolved_WritesErrorAndSkipsConversion()
     {
-        var inputPath = @"C:\missing.mkv";
+        var inputPath = CreateInputPath("missing.mkv");
         string? resolvedInputPath = null;
         _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
             .Returns(false);
@@ -61,7 +62,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-MediaFiles")
             .AddParameter("InputPath", new object[] { inputPath })
-            .AddParameter("OutputDirectory", @"C:\output");
+            .AddParameter("OutputDirectory", CreateOutputDirectory());
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
@@ -79,9 +80,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
     [Fact]
     public void ConvertMediaFiles_WhenOutputPathCannotBeResolved_WritesErrorAndSkipsConversion()
     {
-        var inputPath = @"C:\media\episode1.mkv";
-        var outputDirectory = @"C:\output";
-        var expectedOutputPath = @"C:\output\episode1.mp4";
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
+        var expectedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
         var resolvedInputPath = inputPath;
         string? unresolvedOutputPath = null;
 
@@ -109,12 +110,38 @@ public class ConvertMediaFilesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMediaFiles_WithProvidedAudioMappings_UsesProvidedMappingsAndSkipsAutoDetection()
+    public void ConvertMediaFiles_WithWindowsStyleInputPath_UsesFileNameForOutputPath()
     {
         var inputPath = @"C:\media\episode1.mkv";
-        var outputDirectory = @"C:\output";
+        var outputDirectory = CreateOutputDirectory();
+        var expectedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
         var resolvedInputPath = inputPath;
-        var resolvedOutputPath = @"C:\output\episode1.mp4";
+        string? unresolvedOutputPath = null;
+
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
+            .Returns(true);
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveOutputPath(expectedOutputPath, out unresolvedOutputPath))
+            .Returns(false);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MediaFiles")
+            .AddParameter("InputPath", new object[] { inputPath })
+            .AddParameter("OutputDirectory", outputDirectory);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.NotEmpty(errors);
+        _pathResolverMock.Verify(pathResolver => pathResolver.TryResolveOutputPath(expectedOutputPath, out unresolvedOutputPath), Times.Once);
+    }
+
+    [Fact]
+    public void ConvertMediaFiles_WithProvidedAudioMappings_UsesProvidedMappingsAndSkipsAutoDetection()
+    {
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
+        var resolvedInputPath = inputPath;
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
         var providedMappings = new AudioTrackMapping[]
         {
             new CopyAudioTrackMapping("Custom", 0, 0, 0)
@@ -149,10 +176,10 @@ public class ConvertMediaFilesCommandTests : IDisposable
     [Fact]
     public void ConvertMediaFiles_WithoutProvidedAudioMappings_UsesAutoDetectedMappings()
     {
-        var inputPath = @"C:\media\episode1.mkv";
-        var outputDirectory = @"C:\output";
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
         var resolvedInputPath = inputPath;
-        var resolvedOutputPath = @"C:\output\episode1.mp4";
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
         var autoMappings = new AudioTrackMapping[]
         {
             new EncodeAudioTrackMapping("Auto AAC", 0, 0, 0, "aac", 192, 2)
@@ -188,10 +215,10 @@ public class ConvertMediaFilesCommandTests : IDisposable
     [Fact]
     public void ConvertMediaFiles_WhenMediaReadReturnsNull_WritesWarningAndSkipsConversion()
     {
-        var inputPath = @"C:\media\episode1.mkv";
-        var outputDirectory = @"C:\output";
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
         var resolvedInputPath = inputPath;
-        var resolvedOutputPath = @"C:\output\episode1.mp4";
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
 
         _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
             .Returns(true);
@@ -222,10 +249,10 @@ public class ConvertMediaFilesCommandTests : IDisposable
     [Fact]
     public void ConvertMediaFiles_WhenAutoDetectionThrows_WritesErrorAndSkipsConversion()
     {
-        var inputPath = @"C:\media\episode1.mkv";
-        var outputDirectory = @"C:\output";
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
         var resolvedInputPath = inputPath;
-        var resolvedOutputPath = @"C:\output\episode1.mp4";
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
 
         _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
             .Returns(true);
@@ -297,8 +324,17 @@ public class ConvertMediaFilesCommandTests : IDisposable
 
     private static string PathCombine(string outputDirectory, string fileName)
     {
-        return outputDirectory.EndsWith("\\", StringComparison.Ordinal)
-            ? outputDirectory + fileName
-            : outputDirectory + "\\" + fileName;
+        return Path.Combine(outputDirectory, fileName);
+    }
+
+    private static string CreateInputPath(string fileName)
+    {
+        var root = OperatingSystem.IsWindows() ? @"C:\media" : "/media";
+        return Path.Combine(root, fileName);
+    }
+
+    private static string CreateOutputDirectory()
+    {
+        return OperatingSystem.IsWindows() ? @"C:\output" : "/output";
     }
 }

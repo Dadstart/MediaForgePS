@@ -240,7 +240,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             {
                 _currentFileIndex++;
                 var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
-                    _currentFileIndex, totalFiles, Path.GetFileName(inputPath), _batchCompletedBytes, _batchTotalBytes);
+                    _currentFileIndex, totalFiles, GetFileName(inputPath), _batchCompletedBytes, _batchTotalBytes);
                 var batchEta = CalculateRemainingTime(inputPath, totalFiles - _currentFileIndex);
                 MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
                 ProcessFile(inputPath);
@@ -393,7 +393,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     private void ProcessFile(string inputPath)
     {
         _fileProcessingStopwatch = Stopwatch.StartNew();
-        var fileName = Path.GetFileName(inputPath);
+        var fileName = GetFileName(inputPath);
         UpdateFileProgress($"Preparing to convert {fileName}", fileName, percentComplete: 0);
         Logger.LogInformation("Processing file: {InputPath}", inputPath);
 
@@ -409,7 +409,7 @@ public class ConvertMediaFilesCommand : CmdletBase
 
         // Resolve output path
         UpdateFileProgress("Resolving output path", fileName);
-        var outputFileName = Path.GetFileNameWithoutExtension(resolvedInputPath) + ".mp4";
+        var outputFileName = GetFileNameWithoutExtension(resolvedInputPath) + ".mp4";
         var outputPath = Path.Combine(OutputDirectory, outputFileName);
         if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
         {
@@ -448,7 +448,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             return;
 
         // Perform conversion
-        UpdateFileProgress("Starting conversion", Path.GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
+        UpdateFileProgress("Starting conversion", GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
         if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath))
         {
             _fileProcessingStopwatch.Stop();
@@ -509,7 +509,7 @@ public class ConvertMediaFilesCommand : CmdletBase
             var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            var outputFileName = Path.GetFileName(resolvedOutputPath);
+            var outputFileName = GetFileName(resolvedOutputPath);
             UpdateFileProgress(
                 $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)",
                 outputFileName,
@@ -547,7 +547,7 @@ public class ConvertMediaFilesCommand : CmdletBase
                     if (remaining.TotalSeconds > 0)
                     {
                         var (batchStatus, batchPercent) = MediaConversionHelper.BuildBatchProgressStatus(
-                            _currentFileIndex, _batchTotalFiles, Path.GetFileName(resolvedInputPath), _batchCompletedBytes, _batchTotalBytes);
+                            _currentFileIndex, _batchTotalFiles, GetFileName(resolvedInputPath), _batchCompletedBytes, _batchTotalBytes);
                         MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", batchStatus, batchPercent, remaining, ProgressRecordType.Processing);
                     }
                     lastBatchUpdateTime = now;
@@ -565,15 +565,30 @@ public class ConvertMediaFilesCommand : CmdletBase
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
-            HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
+            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            HandleFileError(originalInputPath, Path.GetFileName(resolvedInputPath), $"Conversion failed: {ex.Message}", ex, ErrorCategory.OperationStopped);
+            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), $"Conversion failed: {ex.Message}", ex, ErrorCategory.OperationStopped);
         }
 
         return false;
+    }
+
+    private static string GetFileName(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return path;
+
+        var separatorIndex = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+        return separatorIndex >= 0 ? path[(separatorIndex + 1)..] : path;
+    }
+
+    private static string GetFileNameWithoutExtension(string path)
+    {
+        var fileName = GetFileName(path);
+        return Path.GetFileNameWithoutExtension(fileName);
     }
 
     /// <summary>
