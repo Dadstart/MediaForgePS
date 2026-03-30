@@ -20,4 +20,11 @@ public interface IAudioTrackMappingService
     /// <param name="streams">Selected audio streams to map.</param>
     /// <returns>Array of conversion mappings.</returns>
     AudioTrackMapping[] CreateAutomaticMappings(IEnumerable<MediaStream> streams);
+
+    /// <summary>
+    /// Creates audio mappings for MKV directory batch encoding.
+    /// </summary>
+    /// <param name="mediaFile">Media file to analyze.</param>
+    /// <returns>Array of conversion mappings for English audio streams.</returns>
+    AudioTrackMapping[] CreateDirectoryEncodeMappings(MediaFile mediaFile);
 }
