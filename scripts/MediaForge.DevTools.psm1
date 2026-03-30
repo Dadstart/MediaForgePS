@@ -55,8 +55,8 @@ function Get-MediaForgeTargetFramework {
 
     $sharedPropsPath = Join-Path $RepoRoot 'Shared.props'
     if (-not (Test-Path -LiteralPath $sharedPropsPath -PathType Leaf)) {
-        # Fallback to the default used previously
-        return 'net9.0'
+        # Fallback to repository default when Shared.props is unavailable
+        return 'net10.0'
     }
 
     try {
@@ -66,10 +66,10 @@ function Get-MediaForgeTargetFramework {
             return $tfmNode.Trim()
         }
     } catch {
-        Write-Verbose "Failed to read TargetFramework from Shared.props. Falling back to net9.0. $_"
+        Write-Verbose "Failed to read TargetFramework from Shared.props. Falling back to net10.0. $_"
     }
 
-    return 'net9.0'
+    return 'net10.0'
 }
 
 function Get-MediaForgeBuildOutput {

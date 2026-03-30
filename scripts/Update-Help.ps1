@@ -62,7 +62,7 @@ if (-not $SkipBuild) {
     }
 }
 
-# Locate built module (e.g. bin/Debug/net9.0 or bin/Release/net9.0)
+# Locate built module (e.g. bin/Debug/net10.0 or bin/Release/net10.0)
 $binBase = Join-Path $repoRoot 'src' 'MediaForgePS' 'bin'
 $frameworkDir = Get-ChildItem -Path $binBase -Recurse -Directory -Filter 'net*' -ErrorAction SilentlyContinue |
     Where-Object { Test-Path (Join-Path $_.FullName 'MediaForgePS.psd1') } |

@@ -4,7 +4,7 @@ PowerShell module for managing video files (MP4, MKV, etc.) directly from the te
 
 ## Requirements
 
-- .NET 9 SDK
+- .NET 10 SDK
 - PowerShell 7.5
 
 ## Building

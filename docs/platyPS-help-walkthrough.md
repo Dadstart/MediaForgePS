@@ -29,7 +29,7 @@ cd M:\repos\MediaForgePS
 dotnet build
 ```
 
-The module will be in `src\MediaForgePS\bin\Debug\<target-framework>\` (for example `net9.0`), with `MediaForgePS.psd1`, `MediaForgePS.psm1`, and `MediaForgePS.dll` copied there.
+The module will be in `src\MediaForgePS\bin\Debug\<target-framework>\` (for example `net10.0`), with `MediaForgePS.psd1`, `MediaForgePS.psm1`, and `MediaForgePS.dll` copied there.
 
 ---
 

@@ -7,7 +7,7 @@ BeforeAll {
         $modulePath = Join-Path $moduleDir 'MediaForgePS.dll'
     } else {
         # Fallback to previous hardcoded path if helpers are not available
-        $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net9.0\MediaForgePS.dll'
+        $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net10.0\MediaForgePS.dll'
     }
 
     if (-not (Test-Path $modulePath)) {
