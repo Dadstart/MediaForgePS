@@ -15,12 +15,12 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 ```
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
- [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+ [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-SkipOcr] [-SkipRepair]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
+Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Unless -SkipOcr is specified, extracted image captions are converted to SRT via OCR and repaired by default; use -SkipRepair to skip only the repair step. Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
 
 ## EXAMPLES
 
@@ -228,6 +228,36 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -SkipRepair
+Skip SRT repair during default OCR processing.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -SkipOcr
+Skip OCR conversion of image captions to SRT.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -245,6 +275,7 @@ This cmdlet does not write to the pipeline.
 TVDb URLs are used to fetch episode metadata. If no episodes are returned or no files match, the cmdlet writes an error and stops.
 
 ## RELATED LINKS
+
 [Invoke-SeasonScan](Invoke-SeasonScan.md)
 [Invoke-VideoCopy](Invoke-VideoCopy.md)
 [Split-SeriesChapters](Split-SeriesChapters.md)

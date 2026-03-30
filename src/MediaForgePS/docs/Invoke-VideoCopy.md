@@ -192,5 +192,6 @@ Path(s) of copied files (enumerated).
 Typically used with Invoke-SeasonScan to obtain -Episodes. Invoke-SeriesProcessing runs this step internally.
 
 ## RELATED LINKS
+
 [Invoke-SeasonScan](Invoke-SeasonScan.md)
 [Invoke-SeriesProcessing](Invoke-SeriesProcessing.md)

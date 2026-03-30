@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -20,9 +20,8 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<ConvertMediaFileAdvancedCommand>> _loggerMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly System.Reflection.FieldInfo? _providerField;
-    private readonly System.Reflection.FieldInfo? _initializedField;
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ModuleServicesTestScope _moduleServicesScope;
 
     public ConvertMediaFileAdvancedCommandTests()
     {
@@ -42,19 +41,13 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         _serviceProvider = services.BuildServiceProvider();
-
-        var moduleServicesType = typeof(ModuleServices);
-        _providerField = moduleServicesType.GetField("_provider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        _initializedField = moduleServicesType.GetField("_initialized", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        InjectServiceProvider();
+        _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
     }
 
     public void Dispose()
     {
-        if (_providerField != null)
-            _providerField.SetValue(null, null);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, false);
+        _moduleServicesScope.Dispose();
+        _serviceProvider.Dispose();
     }
 
     [Fact]
@@ -164,20 +157,8 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         return [new CopyAudioTrackMapping("eng", 0, 0, 0)];
     }
 
-    private void InjectServiceProvider()
-    {
-        if (_providerField != null)
-            _providerField.SetValue(null, _serviceProvider);
-        if (_initializedField != null)
-            _initializedField.SetValue(null, true);
-    }
-
     private static PowerShell CreatePowerShell()
     {
-        var asm = typeof(ConvertMediaFileAdvancedCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Convert-MediaFileAdvanced", typeof(ConvertMediaFileAdvancedCommand), null));
-        return PowerShell.Create(initialSessionState);
+        return PowerShellCmdletTestHost.Create<ConvertMediaFileAdvancedCommand>("Convert-MediaFileAdvanced");
     }
 }

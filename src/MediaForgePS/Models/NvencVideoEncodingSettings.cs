@@ -29,7 +29,7 @@ public record NvencVideoEncodingSettings(
     public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
     {
         ArgumentNullException.ThrowIfNull(platformService);
-        var builder = new FfmpegArgumentBuilder(platformService);
+        var builder = new FfmpegArgumentBuilder();
         builder
             .AddSourceMap(0, StreamType, 0)
             .AddDestinationCodec(StreamType, Codec)

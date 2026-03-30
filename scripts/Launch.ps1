@@ -13,11 +13,11 @@
     The script will look for the module DLL in the corresponding bin directory.
 
 .EXAMPLE
-    .\scripts\Launch-MediaForgePS.ps1
+    .\scripts\Launch.ps1
     Launches a new PowerShell instance with the Debug build of MediaForgePS imported.
 
 .EXAMPLE
-    .\scripts\Launch-MediaForgePS.ps1 -Configuration Release
+    .\scripts\Launch.ps1 -Configuration Release
     Launches a new PowerShell instance with the Release build of MediaForgePS imported.
 #>
 [CmdletBinding()]
@@ -29,56 +29,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-#
-# --------------------------------------------------------------------------------
-# Helper function to validate required external commands
-# --------------------------------------------------------------------------------
-#
-<#
-.SYNOPSIS
-    Validates that a required external command is available.
+Import-Module (Join-Path $PSScriptRoot 'MediaForge.DevTools.psm1') -Force
 
-.DESCRIPTION
-    Checks if a command exists in the PATH and is executable.
-    Throws an error if the command is not found.
+Assert-CommandAvailable -CommandName 'git'
+Assert-CommandAvailable -CommandName 'pwsh'
 
-.PARAMETER CommandName
-    The name of the command to validate (e.g., 'git', 'pwsh').
-
-.EXAMPLE
-    Test-Command -CommandName 'git'
-    Validates that git is available in the PATH.
-#>
-function Test-Command {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$CommandName
-    )
-
-    $command = Get-Command $CommandName -ErrorAction SilentlyContinue
-    if (-not $command) {
-        throw "Required command '$CommandName' not found. Please install it and ensure it's in your PATH."
-    }
-
-    Write-Verbose "Command '$CommandName' found at: $($command.Source)"
-}
-
-#
-# --------------------------------------------------------------------------------
-#
-
-# Validate required external commands
-Test-Command -CommandName 'git'
-Test-Command -CommandName 'pwsh'
-
-# Determine repository root using git (relative to this script's location)
-$repoRoot = git -C $PSScriptRoot rev-parse --show-toplevel
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to determine repository root. Make sure you're in a git repository."
-}
-
-$repoRoot = $repoRoot.Trim()
+# Determine repository root
+$repoRoot = Get-RepoRoot
 
 # Construct path to Import.ps1 script
 $importScriptPath = Join-Path -Path $repoRoot -ChildPath 'scripts' -AdditionalChildPath 'Import.ps1'
@@ -108,6 +65,8 @@ Start-Process -FilePath $pwshPath -NoNewWindow -ArgumentList $importArgs
 $command = @"
 Write-Host "`$(`$PSStyle.Dim)Started new PowerShell process `$(`$PSStyle.DimOff)`$(`$PSStyle.Foreground.Cyan)`$PID`$(`$PSStyle.Reset)"
 & "$($importScriptPath)" -Configuration "$Configuration"
+Set-Alias -Name 'bonus' -Value 'Invoke-BonusFileProcessing' -Scope Global
+Set-Alias -Name 'sub' -Value 'Export-Subtitles' -Scope Global
 "@
 pwsh -NoExit -Command $command
 

@@ -24,22 +24,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$targetFramework = 'net9.0' # matches csproj
+Import-Module (Join-Path $PSScriptRoot 'MediaForge.DevTools.psm1') -Force
+
 $moduleBaseName = 'MediaForgePS'
 
-# Determine repository root using git (relative to this script's location)
-$repoRoot = git -C $PSScriptRoot rev-parse --show-toplevel
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to determine repository root. Make sure you're in a git repository."
-    }
-    
-$repoRoot = $repoRoot.Trim()
+$repoRoot = Get-RepoRoot
+$targetFramework = Get-MediaForgeTargetFramework -RepoRoot $repoRoot
 $isDebugSession = ($Configuration -eq 'Debug')
 if ($isDebugSession) {
     Write-Host "Repo root: $repoRoot"
 }
 # Construct path to the module
-$modulePath = Join-Path -Path $repoRoot -ChildPath 'src' -AdditionalChildPath ($moduleBaseName, 'bin', $Configuration, $targetFramework)
+$modulePath = Get-MediaForgeBuildOutput -RepoRoot $repoRoot -Configuration $Configuration
 
 function TestModulePathsExist {
     [CmdletBinding()]

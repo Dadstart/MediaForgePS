@@ -135,9 +135,10 @@ Paths to SRT file(s) or directory/directories containing .srt files. Accepts pip
 Paths of repaired SRT files are written to the pipeline.
 
 ## NOTES
-Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles -Ocr first.
+Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles without -SkipOcr first.
 
 ## RELATED LINKS
+
 [Export-Subtitles](Export-Subtitles.md)
 [Convert-ImageSubtitlesToSrt](Convert-ImageSubtitlesToSrt.md)
 [Invoke-SubtitleOcrRepair](Invoke-SubtitleOcrRepair.md)

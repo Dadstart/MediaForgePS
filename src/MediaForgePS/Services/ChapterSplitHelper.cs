@@ -15,6 +15,62 @@ namespace Dadstart.Labs.MediaForge.Services;
 public static class ChapterSplitHelper
 {
     /// <summary>
+    /// Executes the shared chapter split workflow for a resolved input file.
+    /// </summary>
+    public static IReadOnlyList<string>? ExecuteSplitWorkflow(
+        PSCmdlet cmdlet,
+        ILogger logger,
+        IMediaReaderService mediaReaderService,
+        IExecutableService executableService,
+        IPathResolver pathResolver,
+        string resolvedInputPath,
+        string? outputPath,
+        IReadOnlyList<(int Start, int End, string? OutputName)> ranges,
+        Func<int, (int Start, int End, string? OutputName), string> buildOutputFileName,
+        Action<string, ConsoleColor?> writeHostMessage,
+        IReadOnlyList<MediaChapter>? preloadedChapters = null)
+    {
+        var outputDirectory = ResolveOutputDirectory(
+            pathResolver,
+            outputPath,
+            resolvedInputPath,
+            cmdlet.SessionState.Path.CurrentLocation.Path);
+        if (string.IsNullOrEmpty(outputDirectory))
+        {
+            cmdlet.WriteError(new ErrorRecord(
+                new InvalidOperationException("Could not resolve output directory."),
+                "OutputPathResolutionFailed",
+                ErrorCategory.InvalidOperation,
+                outputPath));
+            return null;
+        }
+
+        MediaChapter[] chapters;
+        if (preloadedChapters == null)
+        {
+            writeHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
+            var mediaFile = ReadMediaFile(mediaReaderService, resolvedInputPath);
+            if (!TryGetChapters(cmdlet, resolvedInputPath, mediaFile, out chapters))
+                return null;
+
+            writeHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
+        }
+        else
+            chapters = [.. preloadedChapters];
+
+        return SplitChapterRanges(
+            cmdlet,
+            logger,
+            executableService,
+            resolvedInputPath,
+            outputDirectory,
+            ranges,
+            chapters,
+            buildOutputFileName,
+            writeHostMessage);
+    }
+
+    /// <summary>
     /// Resolves the output directory for chapter splitting.
     /// </summary>
     public static string? ResolveOutputDirectory(

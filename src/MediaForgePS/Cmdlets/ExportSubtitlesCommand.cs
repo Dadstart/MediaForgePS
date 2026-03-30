@@ -11,11 +11,11 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports English subtitle streams from media files. With -Ocr, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
+/// Exports English subtitle streams from media files. By default, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. With -Ocr: converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -NoRepair is specified.
-/// Output SRT paths are written to the pipeline when -Ocr is used (and for repaired/native SRT when applicable).
+/// Always extracts subtitle tracks matching English language. Unless -SkipOcr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
+/// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-RepairedSubtitles")]
@@ -30,28 +30,28 @@ public class ExportSubtitlesCommand : CmdletBase
     public object[]? InputPath { get; set; }
 
     /// <summary>
-    /// Directory to copy all SRT files to before repairing. Directory structure is preserved under this root. Only used when -Ocr is specified and repair runs.
+    /// Directory to copy all SRT files to before repairing. Directory structure is preserved under this root. Only used when OCR processing runs and repair is enabled.
     /// </summary>
     [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is specified.
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies unless -SkipOcr is specified.
     /// </summary>
     [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR and repairs SRT files (unless -NoRepair is also specified).
+    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
     /// </summary>
-    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR and repair SRT files.")]
-    public SwitchParameter Ocr { get; set; }
+    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
+    public SwitchParameter SkipOcr { get; set; }
 
     /// <summary>
-    /// When specified with -Ocr, skips the SRT repair step. Has no effect without -Ocr.
+    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair when used with -Ocr.")]
-    public SwitchParameter NoRepair { get; set; }
+    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    public SwitchParameter SkipRepair { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
@@ -137,11 +137,10 @@ public class ExportSubtitlesCommand : CmdletBase
             PathResolver,
             imagePaths,
             srtPathsFromExport,
-            performOcr: Ocr.IsPresent,
+            performOcr: !SkipOcr.IsPresent,
             ThrottleLimit,
-            shouldRepair: Ocr.IsPresent && !NoRepair.IsPresent,
-            BackupPath,
-            WriteObject);
+            shouldRepair: !SkipOcr.IsPresent && !SkipRepair.IsPresent,
+            BackupPath);
 
         if (allSrtPaths == null)
             return;
@@ -193,11 +192,9 @@ public class ExportSubtitlesCommand : CmdletBase
         }
 
         var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
-        if (!PathResolver.TryResolveOutputPath(newPath, out var resolved))
-        {
-            WriteError(new ErrorRecord(new InvalidOperationException($"Failed to resolve output path: {newPath}"), "OutputPathFailed", ErrorCategory.InvalidArgument, newPath));
+        if (!TryResolveOutputPath(PathResolver, newPath, out var resolved))
             return false;
-        }
+
         resolvedOutput = resolved;
 
         try
@@ -214,7 +211,7 @@ public class ExportSubtitlesCommand : CmdletBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
-            WriteError(new ErrorRecord(ex, "SubtitleExportFailed", ErrorCategory.OperationStopped, mediaFile.Path));
+            WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path);
             return false;
         }
     }

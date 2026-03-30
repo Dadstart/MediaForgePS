@@ -13,12 +13,12 @@ Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs all 
 ## SYNTAX
 
 ```
-Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-NoRepair]
+Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipRepair]
  [-Recurse] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs all SRT files (including any SRT already in the input) unless -NoRepair is specified. Equivalent to running Convert-ImageSubtitlesToSrt on image paths and Repair-Subtitles on all SRT paths. Input can be file path(s) or directory/directories; -Recurse searches subdirectories. Output SRT paths are written to the pipeline. Use -BackupPath to copy SRT files to a backup location before repairing (structure preserved).
+Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs all SRT files (including any SRT already in the input) unless -SkipRepair is specified. Equivalent to running Convert-ImageSubtitlesToSrt on image paths and Repair-Subtitles on all SRT paths. Input can be file path(s) or directory/directories; -Recurse searches subdirectories. Output SRT paths are written to the pipeline. Use -BackupPath to copy SRT files to a backup location before repairing (structure preserved).
 
 ## EXAMPLES
 
@@ -31,7 +31,7 @@ Converts .sup/.sub to .srt and repairs all SRT files under C:\Season1\Subtitles.
 
 ### Example 2: Convert only, skip repair
 ```powershell
-Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -NoRepair
+Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -SkipRepair
 ```
 
 Converts image subtitles to SRT but does not run the repair step; converted and existing SRT paths are still emitted.
@@ -75,7 +75,7 @@ Accept pipeline input: True (ByPropertyName, ByValue)
 Accept wildcard characters: False
 ```
 
-### -NoRepair
+### -SkipRepair
 Skip SRT repair; only convert image subtitles to SRT.
 
 ```yaml
@@ -152,6 +152,7 @@ Paths of all SRT files (converted and/or repaired).
 Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 
 ## RELATED LINKS
+
 [Convert-ImageSubtitlesToSrt](Convert-ImageSubtitlesToSrt.md)
 [Repair-Subtitles](Repair-Subtitles.md)
 [Export-Subtitles](Export-Subtitles.md)

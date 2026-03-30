@@ -122,13 +122,13 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         catch (FfmpegConversionException ex)
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            WriteError(CreateErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            WriteStandardError(ex, ErrorIds.ConversionFailed, ErrorCategory.OperationStopped, resolvedInputPath);
             return;
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            WriteError(CreateErrorRecord(ex, "ConversionFailed", ErrorCategory.OperationStopped, resolvedInputPath));
+            WriteStandardError(ex, ErrorIds.ConversionFailed, ErrorCategory.OperationStopped, resolvedInputPath);
             return;
         }
     }

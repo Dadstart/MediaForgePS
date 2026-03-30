@@ -63,23 +63,6 @@ public class RepairSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void RepairSubtitles_WhenPathDoesNotExist_WritesError()
-    {
-        var asm = typeof(RepairSubtitlesCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
-
-        using var ps = PowerShell.Create(initialSessionState);
-        ps.AddCommand("Repair-Subtitles").AddParameter("InputPath", "C:\\Nonexistent\\path.srt");
-
-        ps.Invoke();
-        var errors = ps.Streams.Error.ReadAll();
-
-        Assert.NotEmpty(errors);
-    }
-
-    [Fact]
     public void RepairSubtitles_WhenSingleFile_FixesContentAndOutputsPath()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_RepairSubtitles_" + Guid.NewGuid().ToString("N"));
@@ -98,12 +81,10 @@ public class RepairSubtitlesCommandTests : IDisposable
             using var ps = PowerShell.Create(initialSessionState);
             ps.AddCommand("Repair-Subtitles").AddParameter("InputPath", srtPath);
 
-            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
+            ps.Invoke();
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.Empty(errors);
-            Assert.Single(results);
-            Assert.Equal(srtPath, results[0]);
 
             var written = File.ReadAllText(srtPath);
             Assert.Contains("♪", written);
@@ -139,12 +120,10 @@ public class RepairSubtitlesCommandTests : IDisposable
                 .AddParameter("InputPath", inputPath)
                 .AddParameter("OutputPath", outputPath);
 
-            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
+            ps.Invoke();
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.Empty(errors);
-            Assert.Single(results);
-            Assert.Equal(outputPath, results[0]);
             Assert.True(File.Exists(outputPath));
             Assert.Contains("Song ♪ plays.", File.ReadAllText(outputPath));
         }

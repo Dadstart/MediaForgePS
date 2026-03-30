@@ -114,7 +114,7 @@ public class ExportMediaStreamCommand : CmdletBase
                 Logger.LogError(errorMessage);
                 var errorRecord = new ErrorRecord(
                     new IOException(errorMessage),
-                    "OutputFileExists",
+                    ErrorIds.OutputFileExists,
                     ErrorCategory.ResourceExists,
                     resolvedOutputPath);
                 WriteError(errorRecord);
@@ -153,7 +153,7 @@ public class ExportMediaStreamCommand : CmdletBase
                     Logger.LogError(errorMessage);
                     var errorRecord = new ErrorRecord(
                         new Exception(errorMessage),
-                        "FfmpegExecutionFailed",
+                        ErrorIds.FfmpegExecutionFailed,
                         ErrorCategory.OperationStopped,
                         null);
                     WriteError(errorRecord);
@@ -164,7 +164,7 @@ public class ExportMediaStreamCommand : CmdletBase
                 Logger.LogError(ex, "Exception occurred while executing FFmpeg");
                 var errorRecord = new ErrorRecord(
                     ex,
-                    "FfmpegExecutionException",
+                    ErrorIds.FfmpegExecutionException,
                     ErrorCategory.OperationStopped,
                     null);
                 WriteError(errorRecord);

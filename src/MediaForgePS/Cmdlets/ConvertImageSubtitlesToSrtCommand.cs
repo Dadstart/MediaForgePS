@@ -5,7 +5,6 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
-using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
@@ -85,18 +84,23 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
         }
 
         var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var totalFiles = 0;
+        foreach (var pair in resolvedPairs)
+        {
+            var (resolvedPath, isDirectory) = pair;
+            if (isDirectory)
+                totalFiles += SubtitlePathResolutionHelper.EnumerateMatchingPaths([pair], searchOption, "*.*", SubtitlePathHelper.IsImageSubtitlePath).Count;
+            else
+                totalFiles += 1;
+        }
+
         var writtenPaths = new List<string>();
-        var totalPaths = resolvedPairs.Count;
-        var pathIndex = 0;
+        var fileIndex = 0;
 
         foreach (var pair in resolvedPairs)
         {
-            pathIndex++;
             var (resolvedPath, isDirectory) = pair;
             var pathDisplayName = Path.GetFileName(resolvedPath) ?? resolvedPath;
-            var mainPercent = totalPaths > 0 ? (int)((pathIndex * 100.0) / totalPaths) : 0;
-            var mainStatus = $"Path {pathIndex} of {totalPaths} ({mainPercent}%) — {pathDisplayName}";
-            MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
 
             if (isDirectory)
             {
@@ -105,26 +109,37 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
                     searchOption,
                     "*.*",
                     SubtitlePathHelper.IsImageSubtitlePath);
-                var fileCount = files.Count;
-                var currentFileIndex = 0;
                 foreach (var filePath in files)
                 {
-                    currentFileIndex++;
-                    var filePercent = fileCount > 0 ? (int)((currentFileIndex * 100.0) / fileCount) : 0;
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Processing);
+                    fileIndex++;
+                    var fileName = Path.GetFileName(filePath) ?? filePath;
+                    var mainPercent = totalFiles > 0 ? (int)((fileIndex * 100.0) / totalFiles) : 0;
+                    var mainStatus = $"File {fileIndex} of {totalFiles} ({mainPercent}%) — {fileName}";
+                    MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
                     var srtPath = Path.ChangeExtension(filePath, "srt") ?? filePath + ".srt";
                     if (ConvertFile(subtitleEditPath, filePath, srtPath))
                         writtenPaths.Add(srtPath);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", Path.GetFileName(filePath), percentComplete: filePercent, recordType: ProgressRecordType.Completed);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Completed);
                 }
             }
             else
             {
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", pathDisplayName, percentComplete: 100, recordType: ProgressRecordType.Processing);
+                fileIndex++;
+                var mainPercent = totalFiles > 0 ? (int)((fileIndex * 100.0) / totalFiles) : 0;
+                var mainStatus = $"File {fileIndex} of {totalFiles} ({mainPercent}%) — {pathDisplayName}";
+                MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", pathDisplayName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
                 var defaultOutput = Path.ChangeExtension(resolvedPath, "srt") ?? resolvedPath + ".srt";
-                var outputPath = resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath)
-                    ? PathResolverImpl.ResolveOutputPathOrNull(PathResolver, OutputPath!, e => WriteError(e))
-                    : defaultOutput;
+                var outputPath = defaultOutput;
+                if (resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath))
+                {
+                    if (!TryResolveOutputPath(PathResolver, OutputPath!, out var resolvedOutputPath))
+                        continue;
+
+                    outputPath = resolvedOutputPath;
+                }
+
                 if (outputPath != null && ConvertFile(subtitleEditPath, resolvedPath, outputPath))
                     writtenPaths.Add(outputPath);
                 MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);

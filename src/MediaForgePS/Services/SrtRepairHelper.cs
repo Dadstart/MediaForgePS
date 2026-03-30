@@ -92,14 +92,13 @@ public static class SrtRepairHelper
         IPathResolver pathResolver,
         IReadOnlyList<string> srtPaths,
         bool shouldRepair,
-        string? backupPath,
-        Action<string> writeObject)
+        string? backupPath)
     {
         var repairItems = srtPaths
             .Select(path => new SrtRepairItem(path, path))
             .ToList();
 
-        RunRepairLoop(cmdlet, logger, pathResolver, repairItems, shouldRepair, backupPath, writeObject);
+        RunRepairLoop(cmdlet, logger, pathResolver, repairItems, shouldRepair, backupPath);
     }
 
     /// <summary>
@@ -111,8 +110,7 @@ public static class SrtRepairHelper
         IPathResolver pathResolver,
         IReadOnlyList<SrtRepairItem> repairItems,
         bool shouldRepair,
-        string? backupPath,
-        Action<string> writeObject)
+        string? backupPath)
     {
         if (repairItems.Count == 0)
             return;
@@ -137,11 +135,8 @@ public static class SrtRepairHelper
                         continue;
                 }
 
-                if (RepairFileWithReporting(cmdlet, logger, repairItem.InputPath, repairItem.OutputPath))
-                    writeObject(repairItem.OutputPath);
+                RepairFileWithReporting(cmdlet, logger, repairItem.InputPath, repairItem.OutputPath);
             }
-            else
-                writeObject(repairItem.OutputPath);
         }
         MediaConversionHelper.WriteProgressCompleted(cmdlet, "Repairing subtitles", "Current file");
     }

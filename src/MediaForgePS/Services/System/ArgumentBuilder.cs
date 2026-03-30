@@ -4,10 +4,9 @@ namespace Dadstart.Labs.MediaForge.Services.System;
 /// Builder for constructing command-line arguments.
 /// Supports flags, key-value pairs, and multiple occurrences of the same key.
 /// </summary>
-public class ArgumentBuilder(IPlatformService platformService) : IArgumentBuilder
+public class ArgumentBuilder : IArgumentBuilder
 {
     private readonly List<Argument> _arguments = new();
-    private readonly IPlatformService _platformService = platformService;
 
     /// <summary>
     /// Adds a flag argument (e.g., "-y").
@@ -60,18 +59,8 @@ public class ArgumentBuilder(IPlatformService platformService) : IArgumentBuilde
         {
             yield return arg.Key;
             if (arg.Value != null)
-                yield return QuoteArgumentValue(arg.Value);
+                yield return arg.Value;
         }
-    }
-
-    /// <summary>
-    /// Quotes and escapes an argument value according to platform-specific rules.
-    /// </summary>
-    /// <param name="value">The argument value to quote.</param>
-    /// <returns>A properly quoted and escaped argument value.</returns>
-    private string QuoteArgumentValue(string value)
-    {
-        return _platformService.QuoteArgument(value);
     }
 
     /// <summary>

@@ -6,10 +6,9 @@ namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 /// Builder for constructing Ffmpeg command-line arguments.
 /// Supports flags, key-value pairs, and multiple occurrences of the same key.
 /// </summary>
-public class FfmpegArgumentBuilder(IPlatformService platformService)
+public class FfmpegArgumentBuilder
 {
-    private readonly IPlatformService _platformService = platformService;
-    private readonly IArgumentBuilder _argumentBuilder = new ArgumentBuilder(platformService);
+    private readonly IArgumentBuilder _argumentBuilder = new ArgumentBuilder();
 
     /// <summary>
     /// Adds a source map argument to select a specific stream from the input.
@@ -75,8 +74,7 @@ public class FfmpegArgumentBuilder(IPlatformService platformService)
         if (string.IsNullOrWhiteSpace(title))
             return this;
 
-        var quotedTitle = _platformService.QuoteArgument(title);
-        _argumentBuilder.AddOption($"-metadata:s:{streamType}:{destinationIndex}", $"title={quotedTitle}");
+        _argumentBuilder.AddOption($"-metadata:s:{streamType}:{destinationIndex}", $"title={title}");
         return this;
     }
 

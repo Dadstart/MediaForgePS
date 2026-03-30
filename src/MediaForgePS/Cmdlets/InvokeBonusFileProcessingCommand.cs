@@ -31,6 +31,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
     private IMediaReaderService? _mediaReaderService;
     private IMediaConversionService? _mediaConversionService;
+    private IPathResolver? _pathResolverService;
+    private IExecutableService? _executableService;
 
     private static readonly (string FolderName, string Suffix)[] _plexLayout =
     {
@@ -43,6 +45,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         ("Trailers", "trailer"),
         ("Other", "other")
     };
+
+    private static readonly string[] SubtitleExtensions = { "srt", "vtt" };
 
     /// <summary>
     /// Source directory containing media files to process.
@@ -73,9 +77,43 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     [ValidateSet("x264", "x265", "nvenc", IgnoreCase = true)]
     public string DefaultVideoEncoder { get; set; } = "nvenc";
 
+    /// <summary>
+    /// When specified, skips extracting subtitles from bonus files.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip subtitle extraction from bonus files.")]
+    public SwitchParameter SkipSubtitles { get; set; }
+
+    /// <summary>
+    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
+    /// </summary>
+    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
+    public SwitchParameter SkipOcr { get; set; }
+
+    /// <summary>
+    /// When specified, skips the SRT repair step after extraction or OCR.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip SRT repair after extraction or OCR.")]
+    public SwitchParameter SkipRepair { get; set; }
+
+    /// <summary>
+    /// Directory to copy all SRT files to before repairing. Only used when repair runs.
+    /// </summary>
+    [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
+    public string? BackupPath { get; set; }
+
+    /// <summary>
+    /// Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.
+    /// </summary>
+    [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously when OCR is enabled.")]
+    public int ThrottleLimit { get; set; } = 10;
+
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
 
     private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
+
+    private IPathResolver PathResolverService => _pathResolverService ??= ModuleServices.GetRequiredService<IPathResolver>();
+
+    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
 
     /// <summary>
     /// Executes the bonus file processing workflow.
@@ -95,30 +133,12 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             return;
         }
 
-        if (!TryResolveDirectoryPath(OutputPath, requireExists: false, out var outputFullPath))
-        {
-            WriteError(CreateErrorRecord(
-                new InvalidOperationException($"Failed to resolve output path: {OutputPath}"),
-                "OutputPathResolutionFailed",
-                ErrorCategory.InvalidArgument,
-                OutputPath));
+        if (!TryResolveOutputPath(PathResolverService, OutputPath, out var outputFullPath))
             return;
-        }
 
         WriteHostMessage("Starting Bonus File Processing", ConsoleColor.Cyan);
         WriteHostMessage($"  Input:  {inputFullPath}", ConsoleColor.Gray);
         WriteHostMessage($"  Output: {outputFullPath}", ConsoleColor.Gray);
-
-        if (!Directory.Exists(inputFullPath))
-        {
-            var error = new ErrorRecord(
-                new DirectoryNotFoundException($"Input path does not exist or is not a directory: '{inputFullPath}'"),
-                "InputPathNotFound",
-                ErrorCategory.InvalidArgument,
-                inputFullPath);
-            WriteError(error);
-            return;
-        }
 
         if (!ValidatePlexOutputPath(outputFullPath))
             return;
@@ -151,6 +171,44 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 inputFullPath));
             WriteWarning("Continuing with file organization for Plex despite conversion error.");
             bonusFileCount = _conversionResults.Count(summary => summary.Success);
+        }
+
+        if (!SkipSubtitles.IsPresent)
+        {
+            try
+            {
+                WriteHostMessage(string.Empty);
+                WriteHostMessage("Step 2: Extracting subtitles from bonus files...", ConsoleColor.Cyan);
+                var exportedPaths = ExtractSubtitlesFromBonusFiles(inputFullPath);
+                if (exportedPaths.Count > 0)
+                {
+                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
+                    var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+                    var result = SubtitleOcrRepairWorkflow.Run(
+                        this,
+                        Logger,
+                        ExecutableService,
+                        PathResolverService,
+                        imagePaths,
+                        srtPaths,
+                        performOcr: !SkipOcr.IsPresent,
+                        ThrottleLimit,
+                        shouldRepair: !SkipRepair.IsPresent,
+                        BackupPath);
+
+                    if (result == null && !SkipRepair.IsPresent && srtPaths.Count > 0)
+                    {
+                        WriteHostMessage("  OCR unavailable; repairing existing SRT files...", ConsoleColor.Yellow);
+                        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolverService, srtPaths, shouldRepair: true, BackupPath);
+                    }
+                }
+                WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to extract or process subtitles from bonus files");
+                WriteWarning($"Continuing with file organization despite subtitle error: {ex.Message}");
+            }
         }
 
         try
@@ -400,6 +458,111 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         }
     }
 
+    private static List<string> GetBonusMkvPaths(string inputDirectory)
+    {
+        var bonusSuffixes = _plexLayout.Select(p => p.Suffix).ToArray();
+        var allMkvFiles = Directory.EnumerateFiles(inputDirectory, "*.mkv", SearchOption.TopDirectoryOnly);
+        return allMkvFiles
+            .Where(path =>
+            {
+                var baseName = Path.GetFileNameWithoutExtension(path);
+                return bonusSuffixes.Any(suffix =>
+                    baseName.EndsWith($"-{suffix}", StringComparison.OrdinalIgnoreCase));
+            })
+            .ToList();
+    }
+
+    private List<string> ExtractSubtitlesFromBonusFiles(string inputDirectory)
+    {
+        var bonusMkvPaths = GetBonusMkvPaths(inputDirectory);
+        if (bonusMkvPaths.Count == 0)
+            return new List<string>();
+
+        WriteHostMessage($"Extracting subtitles from {bonusMkvPaths.Count} bonus file(s)...", ConsoleColor.Cyan);
+        var exportedPaths = new List<string>();
+        var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
+        var totalFiles = bonusMkvPaths.Count;
+
+        for (var i = 0; i < bonusMkvPaths.Count; i++)
+        {
+            var mkvPath = bonusMkvPaths[i];
+            var fileIndex = i + 1;
+            var fileName = Path.GetFileName(mkvPath);
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Extracting... - {fileName}", recordType: ProgressRecordType.Processing);
+
+            MediaFile? mediaFile;
+            try
+            {
+                mediaFile = MediaReaderService.GetMediaFileAsync(mkvPath, CancellationToken.None)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not read media file for subtitle extraction: {Path}", mkvPath);
+                continue;
+            }
+
+            if (mediaFile == null)
+                continue;
+
+            var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
+                .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
+                    (s.Language ?? "").StartsWith("en", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (subtitles.Count == 0)
+            {
+                WriteVerbose($"No English subtitles in {fileName}");
+                continue;
+            }
+
+            foreach (var sub in subtitles)
+            {
+                if (ExportSingleSubtitle(sub, mediaFile, subtitles.Count, out var path))
+                    exportedPaths.Add(path);
+            }
+
+            MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Completed - {fileName}", recordType: ProgressRecordType.Completed);
+        }
+
+        MediaConversionHelper.WriteProgressCompleted(this, "Subtitle extraction", "Current file");
+        return exportedPaths;
+    }
+
+    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount, out string resolvedOutput)
+    {
+        resolvedOutput = string.Empty;
+        if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
+        {
+            WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension");
+            ext = "bin";
+        }
+
+        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
+        if (!TryResolveOutputPath(PathResolverService, newPath, out var resolved))
+            return false;
+
+        resolvedOutput = resolved;
+
+        try
+        {
+            SubtitleExportHelper.ExtractSubtitle(
+                ExecutableService,
+                stream,
+                mediaFile.Path,
+                resolved,
+                WindowsExecutablePathHelper.GetMkvextractPath());
+            WriteVerbose($"Extracted {Path.GetFileName(resolved)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
+            WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path);
+            return false;
+        }
+    }
+
     private void WriteConversionSummary()
     {
         var succeeded = _conversionResults.Where(r => r.Success).ToList();
@@ -460,10 +623,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 Directory.CreateDirectory(destFolder);
 
             var videoPattern = $"*-{suffix}.mp4";
-            var subtitlePattern = $"*-{suffix}.*srt";
 
             var videoFiles = Directory.EnumerateFiles(sourceDirectory, videoPattern, SearchOption.AllDirectories);
-            var subtitleFiles = Directory.EnumerateFiles(sourceDirectory, subtitlePattern, SearchOption.AllDirectories);
+            var subtitleFiles = SubtitleExtensions
+                .SelectMany(ext => Directory.EnumerateFiles(sourceDirectory, $"*-{suffix}.*{ext}", SearchOption.AllDirectories));
             var sourceFiles = videoFiles.Concat(subtitleFiles).ToList();
 
             if (sourceFiles.Count > 0)
@@ -638,4 +801,3 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             : 0;
     }
 }
-

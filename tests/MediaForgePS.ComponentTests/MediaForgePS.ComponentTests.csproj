@@ -8,4 +8,10 @@
     <ProjectReference Include="..\..\src\MediaForgePS\MediaForgePS.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="TestAssets\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -18,6 +18,23 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 public abstract class CmdletBase : PSCmdlet
 {
     /// <summary>
+    /// Shared error identifiers used by cmdlets in this module.
+    /// </summary>
+    protected static class ErrorIds
+    {
+        public const string FileNotFound = "FileNotFound";
+        public const string OutputPathResolutionFailed = "OutputPathResolutionFailed";
+        public const string MediaFileReadFailed = "MediaFileReadFailed";
+        public const string ConversionFailed = "ConversionFailed";
+        public const string SubtitleExportFailed = "SubtitleExportFailed";
+        public const string SplitChaptersFailed = "SplitChaptersFailed";
+        public const string InvalidChapterRanges = "InvalidChapterRanges";
+        public const string OutputFileExists = "OutputFileExists";
+        public const string FfmpegExecutionFailed = "FfmpegExecutionFailed";
+        public const string FfmpegExecutionException = "FfmpegExecutionException";
+    }
+
+    /// <summary>
     /// Activity ID for the main operation in progress records (e.g. batch or top-level task).
     /// </summary>
     protected static int MainActivityId => ProgressActivityIds.Main;
@@ -143,6 +160,18 @@ public abstract class CmdletBase : PSCmdlet
     }
 
     /// <summary>
+    /// Writes a standardized error record.
+    /// </summary>
+    protected void WriteStandardError(
+        Exception exception,
+        string errorId,
+        ErrorCategory errorCategory,
+        object? targetObject)
+    {
+        WriteError(CreateErrorRecord(exception, errorId, errorCategory, targetObject));
+    }
+
+    /// <summary>
     /// Resolves an input path and writes a standardized not-found error when resolution fails.
     /// </summary>
     /// <param name="pathResolver">Path resolver service.</param>
@@ -156,7 +185,7 @@ public abstract class CmdletBase : PSCmdlet
 
         WriteError(CreateErrorRecord(
             new FileNotFoundException($"Media file not found: {inputPath}"),
-            "FileNotFound",
+            ErrorIds.FileNotFound,
             ErrorCategory.ObjectNotFound,
             inputPath));
 
@@ -177,7 +206,7 @@ public abstract class CmdletBase : PSCmdlet
 
         WriteError(CreateErrorRecord(
             new InvalidOperationException($"Failed to resolve output path: {outputPath}"),
-            "OutputPathResolutionFailed",
+            ErrorIds.OutputPathResolutionFailed,
             ErrorCategory.InvalidArgument,
             outputPath));
 
@@ -205,7 +234,7 @@ public abstract class CmdletBase : PSCmdlet
                 Logger.LogWarning("Media file information is null for: {ResolvedPath}", resolvedPath);
                 WriteError(CreateErrorRecord(
                     new InvalidOperationException($"Failed to get media file information: {resolvedPath}"),
-                    "MediaFileReadFailed",
+                    ErrorIds.MediaFileReadFailed,
                     ErrorCategory.ReadError,
                     resolvedPath));
                 mediaFile = null!;
@@ -220,7 +249,7 @@ public abstract class CmdletBase : PSCmdlet
             Logger.LogError(ex, "Failed to read media file information for: {ResolvedPath}", resolvedPath);
             WriteError(CreateErrorRecord(
                 ex,
-                "MediaFileReadFailed",
+                ErrorIds.MediaFileReadFailed,
                 ErrorCategory.ReadError,
                 resolvedPath));
             mediaFile = null!;

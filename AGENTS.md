@@ -101,6 +101,12 @@
 - Prompt to add component testing
 - Prompt to add functional testing
 
+### Component tests
+- Live in `tests/MediaForgePS.ComponentTests`. They exercise PowerShell cmdlets (e.g. `Get-MediaFile`, `Convert-MediaFiles`) with real `ModuleServices`, `FfprobeService`, and `FfmpegService` (no mocks).
+- **Requirement:** `ffmpeg` and `ffprobe` must be on `PATH` where tests run. If they are missing, tests are skipped via `[SkippableFact]` and `Skip.If(...)`.
+- **Test media assets:** `tests/MediaForgePS.ComponentTests/TestAssets` (e.g. `sample-1s.mkv`, `invalid-media.mkv`). Assets are copied to test output via project Content. If assets are missing, component tests are skipped. See `TestAssets/README.md` for how to generate them.
+- Run with `dotnet test` for the solution or the component test project.
+
 ### C#
 - Use xUnit for C# testing
 - Use Moq for C# mocks
