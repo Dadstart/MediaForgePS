@@ -51,34 +51,37 @@ jobs:
 
       - name: Ensure PowerShell 7.6+ (Linux)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
-          $current = [Version]$PSVersionTable.PSVersion.ToString()
-          $minimum = [Version]'${{ env.MinPowerShellVersion }}'
-          if ($current -ge $minimum) {
-            Write-Host "PowerShell $current already meets minimum version."
+          current="$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+          minimum="${{ env.MinPowerShellVersion }}"
+          if [ "$(printf '%s\n' "$minimum" "$current" | sort -V | head -n 1)" = "$minimum" ]; then
+            echo "PowerShell $current already meets minimum version."
             exit 0
-          }
+          fi
 
           sudo apt-get update
           sudo apt-get install --yes powershell
 
       - name: Ensure PowerShell 7.6+ (macOS)
         if: runner.os == 'macOS'
+        shell: bash
         run: |
-          $current = [Version]$PSVersionTable.PSVersion.ToString()
-          $minimum = [Version]'${{ env.MinPowerShellVersion }}'
-          if ($current -ge $minimum) {
-            Write-Host "PowerShell $current already meets minimum version."
+          current="$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+          minimum="${{ env.MinPowerShellVersion }}"
+          if [ "$(printf '%s\n' "$minimum" "$current" | sort -V | head -n 1)" = "$minimum" ]; then
+            echo "PowerShell $current already meets minimum version."
             exit 0
-          }
+          fi
 
           brew update
           brew install --cask powershell
 
       - name: Ensure PowerShell 7.6+ (Windows)
         if: runner.os == 'Windows'
+        shell: powershell
         run: |
-          $current = [Version]$PSVersionTable.PSVersion.ToString()
+          $current = [Version](pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
           $minimum = [Version]'${{ env.MinPowerShellVersion }}'
           if ($current -lt $minimum) {
             winget install --id Microsoft.PowerShell --source winget --accept-package-agreements --accept-source-agreements
