@@ -29,7 +29,7 @@ jobs:
 
       # 🔥 The fix: install PowerShell 7.6 on ALL platforms
       - name: Install PowerShell 7.6
-        uses: actions/setup-powershell@v2
+        uses: PowerShell/PowerShell@v2
         with:
           pwsh-version: '7.6.x'
 
