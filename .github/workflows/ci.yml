@@ -39,10 +39,9 @@ jobs:
 
     - name: Install PowerShell 7.6 (macOS)
       if: runner.os == 'macOS'
-      shell: bash
+      shell: pwsh
       run: |
-        brew install --cask powershell@preview
-        brew upgrade --cask powershell@preview || true
+        $PSVersionTable
 
     - name: Install PowerShell 7.6 (Windows)
       if: runner.os == 'Windows'
