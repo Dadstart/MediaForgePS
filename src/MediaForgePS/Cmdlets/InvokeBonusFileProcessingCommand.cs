@@ -46,7 +46,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         ("Other", "other")
     };
 
-    private static readonly string[] SubtitleExtensions = { "srt", "vtt" };
+    private static readonly string[] _subtitleExtensions = { "srt", "vtt" };
 
     /// <summary>
     /// Source directory containing media files to process.
@@ -625,7 +625,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             var videoPattern = $"*-{suffix}.mp4";
 
             var videoFiles = Directory.EnumerateFiles(sourceDirectory, videoPattern, SearchOption.AllDirectories);
-            var subtitleFiles = SubtitleExtensions
+            var subtitleFiles = _subtitleExtensions
                 .SelectMany(ext => Directory.EnumerateFiles(sourceDirectory, $"*-{suffix}.*{ext}", SearchOption.AllDirectories));
             var sourceFiles = videoFiles.Concat(subtitleFiles).ToList();
 

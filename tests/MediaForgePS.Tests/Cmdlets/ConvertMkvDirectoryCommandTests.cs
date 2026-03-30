@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -112,6 +113,64 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
             It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
+    public void ConvertMkvDirectory_WritesProgressAndHostStatusStreams()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var firstMkv = Path.Combine(root, "one.mkv");
+        var secondMkv = Path.Combine(root, "two.mkv");
+        File.WriteAllText(firstMkv, "x");
+        File.WriteAllText(secondMkv, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(firstMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(firstMkv));
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(secondMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(secondMkv));
+
+        var firstOutput = Path.Combine(output, "one.mp4");
+        var secondOutput = Path.Combine(output, "two.mp4");
+        SetupOutputPathResolution(firstOutput);
+        SetupOutputPathResolution(secondOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MkvDirectory")
+            .AddParameter("InputDirectory", root)
+            .AddParameter("OutputDirectory", output);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+
+        var progress = ps.Streams.Progress.ReadAll();
+        Assert.NotEmpty(progress);
+        Assert.Contains(
+            progress,
+            p => string.Equals(p.Activity, "MKV directory conversion", StringComparison.Ordinal));
+        Assert.Contains(
+            progress,
+            p => string.Equals(p.Activity, "File conversion", StringComparison.Ordinal));
+        Assert.Contains(
+            progress,
+            p => p.StatusDescription.Contains("File 1 of 2", StringComparison.Ordinal)
+                || p.StatusDescription.Contains("File 2 of 2", StringComparison.Ordinal));
+
+        var information = ps.Streams.Information.ReadAll();
+        Assert.Contains(
+            information,
+            r => r.MessageData is HostInformationMessage host
+                && host.Message.Contains("Converting 2 MKV", StringComparison.Ordinal));
     }
 
     [Fact]
