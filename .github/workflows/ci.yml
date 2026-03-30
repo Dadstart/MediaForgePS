@@ -75,7 +75,7 @@ jobs:
           fi
 
           brew update
-          brew install --cask powershell
+          brew install powershell
 
       - name: Ensure PowerShell 7.6+ (Windows)
         if: runner.os == 'Windows'
