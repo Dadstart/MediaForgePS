@@ -77,6 +77,28 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     [Parameter(Mandatory = false, HelpMessage = "Additional x265 params (passed to ffmpeg via -x265-params).")]
     public string? X265Params { get; set; }
 
+    /// <summary>
+    /// When specified, skips caption extraction after file conversion.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip caption extraction after converting MKV files.")]
+    public SwitchParameter SkipSubtitles { get; set; }
+
+    /// <summary>
+    /// When specified, skips OCR conversion of image-based captions (SUP, SUB). Has no effect when -SkipSubtitles is specified.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip OCR conversion of image captions to SRT.")]
+    public SwitchParameter SkipOcr { get; set; }
+
+    /// <summary>
+    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// </summary>
+    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    public SwitchParameter SkipRepair { get; set; }
+
+    private const int DefaultOcrThrottleLimit = 10;
+
+    private IExecutableService? _executableService;
+
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     private IMediaReaderService MediaReaderService => _mediaReaderService ??= ModuleServices.GetRequiredService<IMediaReaderService>();
@@ -84,6 +106,8 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     private IAudioTrackMappingService AudioTrackMappingService => _audioTrackMappingService ??= ModuleServices.GetRequiredService<IAudioTrackMappingService>();
 
     private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
+
+    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
 
     protected override void Process()
     {
@@ -168,6 +192,73 @@ public class ConvertMkvDirectoryCommand : CmdletBase
 
         _batchStopwatch?.Stop();
         MediaConversionHelper.WriteProgressCompleted(this, "MKV directory conversion", "File conversion");
+
+        if (!SkipSubtitles.IsPresent)
+        {
+            var successes = _results.Where(r => r.Success).ToList();
+            var extractedCaptionPaths = new List<string>();
+            if (successes.Count > 0)
+            {
+                WriteHostMessage(string.Empty);
+                WriteHostMessage("Extracting captions...", ConsoleColor.Cyan);
+                var total = successes.Count;
+                for (var i = 0; i < successes.Count; i++)
+                {
+                    var r = successes[i];
+                    var current = i + 1;
+                    var name = GetFileName(r.InputPath);
+                    var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, name);
+                    MediaConversionHelper.WriteMainProgress(this, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Extracting captions...", name, recordType: ProgressRecordType.Processing);
+
+                    extractedCaptionPaths.AddRange(ExtractEnglishSubtitlesToOutputSidecars(r.InputPath, r.OutputPath));
+
+                    (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, name);
+                    MediaConversionHelper.WriteMainProgress(this, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", name, recordType: ProgressRecordType.Completed);
+                }
+
+                MediaConversionHelper.WriteProgressCompleted(this, "Caption extraction", "Current file");
+                WriteHostMessage(
+                    $"  Processed {total} file(s), {extractedCaptionPaths.Count} caption file(s) extracted.",
+                    ConsoleColor.Green);
+                WriteVerbose($"Caption extraction - files: {total}, paths: {extractedCaptionPaths.Count}.");
+
+                if (!SkipOcr.IsPresent)
+                {
+                    if (extractedCaptionPaths.Count > 0)
+                    {
+                        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(extractedCaptionPaths);
+                        var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
+
+                        if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
+                        {
+                            WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
+
+                            var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                                this,
+                                Logger,
+                                ExecutableService,
+                                PathResolver,
+                                imagePaths,
+                                srtPathsFromCaptions,
+                                performOcr: true,
+                                DefaultOcrThrottleLimit,
+                                shouldRepair: !SkipRepair.IsPresent,
+                                backupPath: null);
+
+                            if (allSrtPaths == null)
+                                return;
+
+                            if (allSrtPaths.Count == 0)
+                                WriteHostMessage("  No SRT files to repair (only non-SRT formats were extracted).", ConsoleColor.Green);
+                            else
+                                WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
+                        }
+                    }
+                }
+            }
+        }
 
         var ok = _results.Count(r => r.Success);
         var failed = _results.Count - ok;
@@ -441,6 +532,68 @@ public class ConvertMkvDirectoryCommand : CmdletBase
         var relativePath = Path.GetRelativePath(inputRoot, inputPath);
         var outputRelativePath = Path.ChangeExtension(relativePath, ".mp4");
         return Path.Combine(outputRoot, outputRelativePath);
+    }
+
+    private IReadOnlyList<string> ExtractEnglishSubtitlesToOutputSidecars(string sourceMkvPath, string resolvedOutputMp4Path)
+    {
+        MediaFile? mediaFile;
+        try
+        {
+            mediaFile = MediaReaderService.GetMediaFileAsync(sourceMkvPath, CancellationToken.None)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not read media file for caption extraction: {Path}", sourceMkvPath);
+            return Array.Empty<string>();
+        }
+
+        if (mediaFile == null)
+            return Array.Empty<string>();
+
+        var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
+            .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
+                (s.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (subtitles.Count == 0)
+        {
+            WriteVerbose($"No English subtitles in {GetFileName(sourceMkvPath)}");
+            return Array.Empty<string>();
+        }
+
+        var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
+        var extractedPaths = new List<string>();
+
+        foreach (var stream in subtitles)
+        {
+            if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext))
+                ext = "bin";
+
+            var outputPath = SubtitleExportHelper.GetOutputPath(resolvedOutputMp4Path, stream.Index, subtitles.Count, ext);
+            if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
+            {
+                Logger.LogWarning("Failed to resolve caption output path: {Path}", outputPath);
+                continue;
+            }
+
+            try
+            {
+                SubtitleExportHelper.ExtractSubtitle(
+                    ExecutableService,
+                    stream,
+                    sourceMkvPath,
+                    resolvedOutputPath,
+                    mkvextractPath);
+                extractedPaths.Add(resolvedOutputPath);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, sourceMkvPath);
+            }
+        }
+
+        return extractedPaths;
     }
 
     private bool TryResolveDirectoryPath(string path, bool requireExists, out string resolvedPath)
