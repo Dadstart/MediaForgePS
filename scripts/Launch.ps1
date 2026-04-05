@@ -67,6 +67,7 @@ Write-Host "`$(`$PSStyle.Dim)Started new PowerShell process `$(`$PSStyle.DimOff)
 & "$($importScriptPath)" -Configuration "$Configuration"
 Set-Alias -Name 'bonus' -Value 'Invoke-BonusFileProcessing' -Scope Global
 Set-Alias -Name 'sub' -Value 'Export-Subtitles' -Scope Global
+Set-Alias -Name 'mkv' -Value 'Convert-MkvDirectory' -Scope Global
 "@
 pwsh -NoExit -Command $command
 
