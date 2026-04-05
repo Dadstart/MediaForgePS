@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
 using System.Management.Automation;
+using System.Management.Automation.Host;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
@@ -141,6 +143,67 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
             Times.Once);
     }
 
+    [Fact]
+    public void ConvertMediaFileAdvanced_WhenWindowTitleSupported_SetsAndRestoresTerminalTitle()
+    {
+        var inputPath = "C:\\in.mkv";
+        var outputPath = "C:\\out.mp4";
+        var resolvedInputPath = "C:\\in.mkv";
+        var resolvedOutputPath = "C:\\out.mp4";
+
+        _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedInputPath))
+            .Returns(true);
+        _pathResolverMock.Setup(p => p.TryResolveOutputPath(outputPath, out resolvedOutputPath))
+            .Returns(true);
+
+        string? titleDuringConversion = null;
+        _mediaConversionServiceMock.Setup(
+            s => s.ExecuteConversion(
+                resolvedInputPath,
+                resolvedOutputPath,
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>()))
+            .Callback(() =>
+            {
+                var currentCmdlet = CmdletContext.Current as PSCmdlet;
+                if (currentCmdlet == null)
+                    return;
+
+                try
+                {
+                    titleDuringConversion = currentCmdlet.Host.UI.RawUI.WindowTitle;
+                }
+                catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+                {
+                    titleDuringConversion = null;
+                }
+            });
+
+        using var ps = CreatePowerShell();
+        var originalTitle = TryReadWindowTitle(ps);
+        ps.Commands.Clear();
+
+        ps.AddCommand("Convert-MediaFileAdvanced")
+            .AddParameter("InputPath", inputPath)
+            .AddParameter("OutputPath", outputPath)
+            .AddParameter("VideoEncodingSettings", CreateVideoSettings(codec: "libx265"))
+            .AddParameter("AudioTrackMappings", CreateAudioTrackMappings())
+            .AddParameter("X265Params", "aq-mode=3");
+
+        _ = ps.Invoke().ToList();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+
+        var finalTitle = TryReadWindowTitle(ps);
+        if (originalTitle == null || finalTitle == null || titleDuringConversion == null)
+            return;
+
+        Assert.Contains("Convert-MediaFileAdvanced", titleDuringConversion, StringComparison.Ordinal);
+        Assert.Equal(originalTitle, finalTitle);
+    }
+
     private static ConstantRateVideoEncodingSettings CreateVideoSettings(string codec = "libx264")
     {
         return new ConstantRateVideoEncodingSettings(
@@ -160,5 +223,18 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
     private static PowerShell CreatePowerShell()
     {
         return PowerShellCmdletTestHost.Create<ConvertMediaFileAdvancedCommand>("Convert-MediaFileAdvanced");
+    }
+
+    private static string? TryReadWindowTitle(PowerShell powerShell)
+    {
+        powerShell.Commands.Clear();
+        powerShell.Streams.Error.Clear();
+        powerShell.AddScript("$Host.UI.RawUI.WindowTitle");
+        var results = powerShell.Invoke<string>().ToList();
+        var errors = powerShell.Streams.Error.ReadAll();
+        if (errors.Count > 0)
+            return null;
+
+        return results.FirstOrDefault();
     }
 }

@@ -22,6 +22,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(MkvDirectoryConversionResult))]
 public class ConvertMkvDirectoryCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     private IPathResolver? _pathResolver;
     private IMediaReaderService? _mediaReaderService;
     private IAudioTrackMappingService? _audioTrackMappingService;

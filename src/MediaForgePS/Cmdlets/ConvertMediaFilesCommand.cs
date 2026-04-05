@@ -51,6 +51,8 @@ internal class FileProcessingStats
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     private const string DefaultEncoderParameterSet = "DefaultEncoder";
     private const string ExplicitSettingsParameterSet = "ExplicitSettings";
     private static class HelpMessages

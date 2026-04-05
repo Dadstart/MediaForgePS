@@ -26,6 +26,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(void))]
 public class InvokeBonusFileProcessingCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     private readonly List<ConversionSummary> _conversionResults = new();
     private readonly List<BonusFileProcessingStats> _fileProcessingStats = new();
 

@@ -20,6 +20,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(void))]
 public class ExportMediaStreamCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Path to the input media file. Can be a relative or absolute path, and supports
     /// PowerShell path resolution including wildcards and provider paths.

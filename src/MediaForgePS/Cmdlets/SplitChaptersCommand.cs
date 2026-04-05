@@ -19,6 +19,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string[]))]
 public class SplitChaptersCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Path to the input video file.
     /// </summary>
