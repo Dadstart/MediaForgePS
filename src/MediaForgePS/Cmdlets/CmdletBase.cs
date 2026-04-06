@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Management.Automation;
+using System.Management.Automation.Host;
+using System.Reflection;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
@@ -46,6 +48,8 @@ public abstract class CmdletBase : PSCmdlet
 
     private IDebuggerService? _debugger;
     private ILogger? _logger;
+    private IDisposable? _commandTitleScope;
+    private string? _powerShellCommandName;
 
     /// <summary>
     /// Logger instance for the derived cmdlet type.
@@ -56,6 +60,8 @@ public abstract class CmdletBase : PSCmdlet
     protected IDebuggerService Debugger => _debugger ??= ModuleServices.GetRequiredService<IDebuggerService>();
 
     public string CmdletName => GetType().Name;
+    protected string PowerShellCommandName => _powerShellCommandName ??= ResolvePowerShellCommandName();
+    protected virtual bool ShouldSetCommandTerminalTitle => false;
 
     protected CmdletBase()
     {
@@ -72,8 +78,20 @@ public abstract class CmdletBase : PSCmdlet
         CmdletContext.Current = this;
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
-        Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
-        Begin();
+        if (ShouldSetCommandTerminalTitle)
+            _commandTitleScope = TrySetTerminalTitle(BuildTerminalTitle(PowerShellCommandName));
+
+        try
+        {
+            Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
+            Begin();
+        }
+        catch
+        {
+            _commandTitleScope?.Dispose();
+            _commandTitleScope = null;
+            throw;
+        }
     }
 
     /// <summary>
@@ -93,12 +111,27 @@ public abstract class CmdletBase : PSCmdlet
     /// </summary>
     protected sealed override void EndProcessing()
     {
-        Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
+        try
+        {
+            Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
 
-        Logger.LogDebug("End processing {CmdletName} command", CmdletName);
-        End();
+            Logger.LogDebug("End processing {CmdletName} command", CmdletName);
+            End();
+        }
+        finally
+        {
+            _commandTitleScope?.Dispose();
+            _commandTitleScope = null;
+            CmdletContext.Current = null;
+        }
+    }
 
-        CmdletContext.Current = null;
+    protected IDisposable PushOperationTerminalTitle(string operationName)
+    {
+        if (!ShouldSetCommandTerminalTitle || string.IsNullOrWhiteSpace(operationName))
+            return NoOpTerminalTitleScope.Instance;
+
+        return TrySetTerminalTitle(BuildTerminalTitle(PowerShellCommandName, operationName));
     }
 
     /// <summary>
@@ -254,6 +287,98 @@ public abstract class CmdletBase : PSCmdlet
                 resolvedPath));
             mediaFile = null!;
             return false;
+        }
+    }
+
+    protected static string BuildTerminalTitle(string commandName, string? operationName = null)
+    {
+        if (string.IsNullOrWhiteSpace(commandName))
+            return "MF: Other";
+
+        if (string.IsNullOrWhiteSpace(operationName))
+            return $"MF: {commandName}";
+
+        return $"MF: {commandName}: {operationName}";
+    }
+
+    private string ResolvePowerShellCommandName()
+    {
+        var cmdletAttribute = GetType().GetCustomAttribute<CmdletAttribute>(inherit: true);
+        if (cmdletAttribute == null)
+            return CmdletName;
+
+        return $"{cmdletAttribute.VerbName}-{cmdletAttribute.NounName}";
+    }
+
+    private IDisposable TrySetTerminalTitle(string title)
+    {
+        var rawUi = TryGetRawUi();
+        if (rawUi == null)
+            return NoOpTerminalTitleScope.Instance;
+
+        string previousTitle;
+        try
+        {
+            previousTitle = rawUi.WindowTitle;
+            rawUi.WindowTitle = title;
+        }
+        catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+        {
+            Logger.LogDebug(ex, "Terminal title updates are unavailable for {CmdletName}", CmdletName);
+            return NoOpTerminalTitleScope.Instance;
+        }
+
+        return new TerminalTitleScope(rawUi, previousTitle);
+    }
+
+    private PSHostRawUserInterface? TryGetRawUi()
+    {
+        try
+        {
+            return Host?.UI?.RawUI;
+        }
+        catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+        {
+            Logger.LogDebug(ex, "Raw host UI is unavailable for {CmdletName}", CmdletName);
+            return null;
+        }
+    }
+
+    private sealed class TerminalTitleScope : IDisposable
+    {
+        private readonly PSHostRawUserInterface _rawUi;
+        private readonly string _previousTitle;
+        private bool _isDisposed;
+
+        public TerminalTitleScope(PSHostRawUserInterface rawUi, string previousTitle)
+        {
+            _rawUi = rawUi;
+            _previousTitle = previousTitle;
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+                return;
+
+            _isDisposed = true;
+            try
+            {
+                _rawUi.WindowTitle = _previousTitle;
+            }
+            catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+            {
+                // Best effort restore; ignore hosts that do not support title updates.
+            }
+        }
+    }
+
+    private sealed class NoOpTerminalTitleScope : IDisposable
+    {
+        public static readonly NoOpTerminalTitleScope Instance = new();
+
+        public void Dispose()
+        {
         }
     }
 }

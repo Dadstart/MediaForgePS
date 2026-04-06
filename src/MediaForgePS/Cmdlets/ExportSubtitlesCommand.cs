@@ -22,6 +22,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string))]
 public class ExportSubtitlesCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Media file path(s) or folder path(s). For folders, all .mkv files are processed. Pipeline accepts path strings or MediaFile objects from Get-MediaFile.
     /// </summary>

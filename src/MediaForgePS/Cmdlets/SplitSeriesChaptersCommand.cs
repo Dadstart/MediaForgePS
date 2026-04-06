@@ -22,6 +22,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string[]))]
 public class SplitSeriesChaptersCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Series title used in output file names.
     /// </summary>

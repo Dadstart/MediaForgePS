@@ -17,6 +17,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(void))]
 public class InvokeSeriesProcessingCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Series title used for TVDb lookup and output folder/file naming.
     /// </summary>

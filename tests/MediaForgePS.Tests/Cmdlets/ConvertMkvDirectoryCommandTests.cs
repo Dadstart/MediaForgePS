@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -21,6 +22,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     private readonly Mock<IMediaReaderService> _mediaReaderServiceMock = new();
     private readonly Mock<IAudioTrackMappingService> _audioTrackMappingServiceMock = new();
     private readonly Mock<IMediaConversionService> _mediaConversionServiceMock = new();
+    private readonly Mock<IExecutableService> _executableServiceMock = new();
     private readonly Mock<ILoggerFactory> _loggerFactoryMock = new();
     private readonly Mock<ILogger<ConvertMkvDirectoryCommand>> _loggerMock = new();
     private readonly Mock<IDebuggerService> _debuggerServiceMock = new();
@@ -38,6 +40,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         services.AddSingleton(_mediaReaderServiceMock.Object);
         services.AddSingleton(_audioTrackMappingServiceMock.Object);
         services.AddSingleton(_mediaConversionServiceMock.Object);
+        services.AddSingleton(_executableServiceMock.Object);
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
 
@@ -115,6 +118,64 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertMkvDirectory_WritesProgressAndHostStatusStreams()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var firstMkv = Path.Combine(root, "one.mkv");
+        var secondMkv = Path.Combine(root, "two.mkv");
+        File.WriteAllText(firstMkv, "x");
+        File.WriteAllText(secondMkv, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(firstMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(firstMkv));
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(secondMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(secondMkv));
+
+        var firstOutput = Path.Combine(output, "one.mp4");
+        var secondOutput = Path.Combine(output, "two.mp4");
+        SetupOutputPathResolution(firstOutput);
+        SetupOutputPathResolution(secondOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MkvDirectory")
+            .AddParameter("InputDirectory", root)
+            .AddParameter("OutputDirectory", output);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+
+        var progress = ps.Streams.Progress.ReadAll();
+        Assert.NotEmpty(progress);
+        Assert.Contains(
+            progress,
+            p => string.Equals(p.Activity, "MKV directory conversion", StringComparison.Ordinal));
+        Assert.Contains(
+            progress,
+            p => string.Equals(p.Activity, "File conversion", StringComparison.Ordinal));
+        Assert.Contains(
+            progress,
+            p => p.StatusDescription.Contains("File 1 of 2", StringComparison.Ordinal)
+                || p.StatusDescription.Contains("File 2 of 2", StringComparison.Ordinal));
+
+        var information = ps.Streams.Information.ReadAll();
+        Assert.Contains(
+            information,
+            r => r.MessageData is HostInformationMessage host
+                && host.Message.Contains("Converting 2 MKV", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ConvertMkvDirectory_WithRecurse_ConvertsNestedMkvFiles()
     {
         var root = CreateTempDirectory();
@@ -156,6 +217,93 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
             It.IsAny<string[]?>()), Times.Once);
     }
 
+    [Fact]
+    public void ConvertMkvDirectory_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
+    {
+        _executableServiceMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFileWithEnglishSubrip(mkvPath));
+
+        var mp4Output = Path.Combine(output, "one.mp4");
+        var srtOutput = Path.Combine(output, "one.eng.sdh.srt");
+        SetupOutputPathResolution(mp4Output);
+        SetupOutputPathResolution(srtOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MkvDirectory")
+            .AddParameter("InputDirectory", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipOcr");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _executableServiceMock.Verify(
+            service => service.ExecuteAsync(
+                "ffmpeg",
+                It.Is<IEnumerable<string>>(args => args.Contains("-map") && args.Contains("0:2")),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public void ConvertMkvDirectory_SkipSubtitles_DoesNotExtractSubtitles()
+    {
+        _executableServiceMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFileWithEnglishSubrip(mkvPath));
+
+        var mp4Output = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(mp4Output);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MkvDirectory")
+            .AddParameter("InputDirectory", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _executableServiceMock.Verify(
+            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private void SetupOutputPathResolution(string outputPath)
     {
         var resolved = outputPath;
@@ -185,6 +333,49 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
                 new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
                 stream
             },
+            "{}");
+    }
+
+    private static MediaFile CreateMediaFileWithEnglishSubrip(string path)
+    {
+        var video = new MediaStream(
+            "video",
+            0,
+            "h264",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string>(),
+            TimeSpan.Zero,
+            null,
+            @"{""index"":0,""codec_type"":""video""}");
+
+        var audio = new MediaStream(
+            "audio",
+            1,
+            "aac",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng",
+            @"{""index"":1,""codec_type"":""audio""}");
+
+        var subtitle = new MediaStream(
+            "subtitle",
+            2,
+            "subrip",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng",
+            @"{""index"":2,""codec_type"":""subtitle""}");
+
+        return new MediaFile(
+            path,
+            new MediaFormat(path, 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            new[] { video, audio, subtitle },
             "{}");
     }
 
