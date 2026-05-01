@@ -90,7 +90,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", root)
+            .AddParameter("InputPath", root)
             .AddParameter("OutputDirectory", output);
 
         _ = ps.Invoke();
@@ -147,7 +147,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", root)
+            .AddParameter("InputPath", root)
             .AddParameter("OutputDirectory", output);
 
         _ = ps.Invoke();
@@ -201,7 +201,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", root)
+            .AddParameter("InputPath", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("Recurse");
 
@@ -242,7 +242,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell("Convert-VideoFile");
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", mkvPath)
+            .AddParameter("InputPath", mkvPath)
             .AddParameter("OutputDirectory", output);
 
         _ = ps.Invoke();
@@ -257,6 +257,64 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string[]?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             otherMkvPath,
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_WithArrayOfMkvFiles_ConvertsOnlySpecifiedFiles()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var firstMkvPath = Path.Combine(root, "one.mkv");
+        var secondMkvPath = Path.Combine(root, "two.mkv");
+        var ignoredMkvPath = Path.Combine(root, "three.mkv");
+        File.WriteAllText(firstMkvPath, "x");
+        File.WriteAllText(secondMkvPath, "x");
+        File.WriteAllText(ignoredMkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(firstMkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(firstMkvPath));
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(secondMkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(secondMkvPath));
+
+        var firstOutput = Path.Combine(output, "one.mp4");
+        var secondOutput = Path.Combine(output, "two.mp4");
+        SetupOutputPathResolution(firstOutput);
+        SetupOutputPathResolution(secondOutput);
+
+        using var ps = CreatePowerShell("Convert-VideoFile");
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", new[] { firstMkvPath, secondMkvPath })
+            .AddParameter("OutputDirectory", output);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            firstMkvPath,
+            firstOutput,
+            It.IsAny<VideoEncodingSettings>(),
+            mapping,
+            It.IsAny<string[]?>()), Times.Once);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            secondMkvPath,
+            secondOutput,
+            It.IsAny<VideoEncodingSettings>(),
+            mapping,
+            It.IsAny<string[]?>()), Times.Once);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            ignoredMkvPath,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
@@ -293,7 +351,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", root)
+            .AddParameter("InputPath", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipOcr");
 
@@ -337,7 +395,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
-            .AddParameter("InputDirectory", root)
+            .AddParameter("InputPath", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipSubtitles");
 
