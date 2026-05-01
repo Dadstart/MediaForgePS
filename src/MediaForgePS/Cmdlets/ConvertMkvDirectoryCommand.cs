@@ -18,7 +18,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <summary>
 /// Converts all MKV files in a directory using module conversion services.
 /// </summary>
-[Cmdlet(VerbsData.Convert, "MkvDirectory")]
+[Cmdlet(VerbsData.Convert, "VideoFile")]
+[Alias("Convert-MkvDirectory")]
 [OutputType(typeof(MkvDirectoryConversionResult))]
 public class ConvertMkvDirectoryCommand : CmdletBase
 {
@@ -40,12 +41,12 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     private TimeSpan? _currentFileEstimatedTime;
 
     /// <summary>
-    /// Directory containing MKV files to convert.
+    /// Directory containing MKV files to convert, or a single MKV file path.
     /// </summary>
     [Parameter(
         Mandatory = true,
         Position = 0,
-        HelpMessage = "Directory containing MKV files to convert")]
+        HelpMessage = "Directory containing MKV files to convert, or a single MKV file path.")]
     [ValidateNotNullOrEmpty]
     public string InputDirectory { get; set; } = string.Empty;
 
@@ -119,14 +120,49 @@ public class ConvertMkvDirectoryCommand : CmdletBase
         _batchCompletedBytes = 0;
         _currentFileIndex = 0;
 
-        if (!TryResolveDirectoryPath(InputDirectory, requireExists: true, out var resolvedInputDirectory))
+        var resolvedEntries = global::Dadstart.Labs.MediaForge.Services.System.PathResolver.ResolveFileOrDirectoryPaths(
+            this,
+            new[] { InputDirectory },
+            Logger,
+            WriteError);
+        if (resolvedEntries.Count == 0)
+            return;
+
+        var (resolvedInputPath, isDirectory) = resolvedEntries[0];
+        if (!isDirectory && !string.Equals(Path.GetExtension(resolvedInputPath), ".mkv", StringComparison.OrdinalIgnoreCase))
         {
             WriteError(CreateErrorRecord(
-                new DirectoryNotFoundException($"Input directory does not exist: {InputDirectory}"),
-                "InputDirectoryNotFound",
-                ErrorCategory.ObjectNotFound,
+                new ArgumentException($"Input path must be a directory or an MKV file: {InputDirectory}"),
+                "InvalidInputPath",
+                ErrorCategory.InvalidArgument,
                 InputDirectory));
             return;
+        }
+
+        string resolvedInputDirectory;
+        string[] mkvFiles;
+        if (isDirectory)
+        {
+            resolvedInputDirectory = resolvedInputPath;
+            var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            mkvFiles = Directory.EnumerateFiles(resolvedInputDirectory, "*.mkv", searchOption)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        else
+        {
+            resolvedInputDirectory = Path.GetDirectoryName(resolvedInputPath) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(resolvedInputDirectory))
+            {
+                WriteError(CreateErrorRecord(
+                    new InvalidOperationException($"Could not determine containing directory for file: {InputDirectory}"),
+                    ErrorIds.OutputPathResolutionFailed,
+                    ErrorCategory.InvalidArgument,
+                    InputDirectory));
+                return;
+            }
+
+            mkvFiles = new[] { resolvedInputPath };
         }
 
         var outputDirectory = string.IsNullOrWhiteSpace(OutputDirectory) ? resolvedInputDirectory : OutputDirectory!;
@@ -141,11 +177,6 @@ public class ConvertMkvDirectoryCommand : CmdletBase
         }
 
         Directory.CreateDirectory(resolvedOutputDirectory);
-
-        var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var mkvFiles = Directory.EnumerateFiles(resolvedInputDirectory, "*.mkv", searchOption)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
 
         if (mkvFiles.Length == 0)
         {

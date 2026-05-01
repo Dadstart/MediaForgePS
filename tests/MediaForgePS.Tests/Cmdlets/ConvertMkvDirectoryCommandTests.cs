@@ -218,6 +218,52 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertVideoFile_WithSingleMkvInput_ConvertsOnlySpecifiedFile()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        var otherMkvPath = Path.Combine(root, "two.mkv");
+        File.WriteAllText(mkvPath, "x");
+        File.WriteAllText(otherMkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        using var ps = CreatePowerShell("Convert-VideoFile");
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputDirectory", mkvPath)
+            .AddParameter("OutputDirectory", output);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            mkvPath,
+            expectedOutput,
+            It.IsAny<VideoEncodingSettings>(),
+            mapping,
+            It.IsAny<string[]?>()), Times.Once);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            otherMkvPath,
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
     public void ConvertMkvDirectory_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
     {
         _executableServiceMock
@@ -379,7 +425,8 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
             "{}");
     }
 
-    private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertMkvDirectoryCommand>("Convert-MkvDirectory");
+    private static PowerShell CreatePowerShell(string commandName = "Convert-MkvDirectory") =>
+        PowerShellCmdletTestHost.Create<ConvertMkvDirectoryCommand>(commandName);
 
     private static string CreateTempDirectory()
     {

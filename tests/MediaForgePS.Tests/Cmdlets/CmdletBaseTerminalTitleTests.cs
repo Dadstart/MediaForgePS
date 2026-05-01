@@ -44,6 +44,20 @@ public sealed class CmdletBaseTerminalTitleTests
         AssertTerminalTitleOptIn(typeof(GetMediaFileCommand), expectedOptIn: false);
     }
 
+    [Fact]
+    public void ConvertMkvDirectoryCommand_UsesConvertVideoFileName_WithLegacyAlias()
+    {
+        var cmdletAttribute = typeof(ConvertMkvDirectoryCommand).GetCustomAttribute<CmdletAttribute>();
+        var aliasAttribute = typeof(ConvertMkvDirectoryCommand).GetCustomAttribute<AliasAttribute>();
+
+        Assert.NotNull(cmdletAttribute);
+        Assert.Equal("Convert", cmdletAttribute!.VerbName);
+        Assert.Equal("VideoFile", cmdletAttribute.NounName);
+
+        Assert.NotNull(aliasAttribute);
+        Assert.Contains("Convert-MkvDirectory", aliasAttribute!.AliasNames, StringComparer.Ordinal);
+    }
+
     private static void AssertTerminalTitleOptIn(Type cmdletType, bool expectedOptIn)
     {
         var property = cmdletType.GetProperty(
