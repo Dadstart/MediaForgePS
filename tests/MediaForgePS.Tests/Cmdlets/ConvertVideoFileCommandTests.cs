@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public sealed class ConvertMkvDirectoryCommandTests : IDisposable
+public sealed class ConvertVideoFileCommandTests : IDisposable
 {
     private readonly Mock<IPathResolver> _pathResolverMock = new();
     private readonly Mock<IMediaReaderService> _mediaReaderServiceMock = new();
@@ -24,12 +24,12 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     private readonly Mock<IMediaConversionService> _mediaConversionServiceMock = new();
     private readonly Mock<IExecutableService> _executableServiceMock = new();
     private readonly Mock<ILoggerFactory> _loggerFactoryMock = new();
-    private readonly Mock<ILogger<ConvertMkvDirectoryCommand>> _loggerMock = new();
+    private readonly Mock<ILogger<ConvertVideoFileCommand>> _loggerMock = new();
     private readonly Mock<IDebuggerService> _debuggerServiceMock = new();
     private readonly ServiceProvider _serviceProvider;
     private readonly ModuleServicesTestScope _moduleServicesScope;
 
-    public ConvertMkvDirectoryCommandTests()
+    public ConvertVideoFileCommandTests()
     {
         _loggerFactoryMock.Setup(factory => factory.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
@@ -55,7 +55,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMkvDirectory_WithoutRecurse_ConvertsOnlyTopLevelMkvFiles()
+    public void ConvertVideoFile_WithoutRecurse_ConvertsOnlyTopLevelMkvFiles()
     {
         var root = CreateTempDirectory();
         var output = CreateTempDirectory();
@@ -89,7 +89,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(secondOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output);
 
@@ -118,7 +118,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMkvDirectory_WritesProgressAndHostStatusStreams()
+    public void ConvertVideoFile_WritesProgressAndHostStatusStreams()
     {
         var root = CreateTempDirectory();
         var output = CreateTempDirectory();
@@ -146,7 +146,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(secondOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output);
 
@@ -176,7 +176,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMkvDirectory_WithRecurse_ConvertsNestedMkvFiles()
+    public void ConvertVideoFile_WithRecurse_ConvertsNestedMkvFiles()
     {
         var root = CreateTempDirectory();
         var output = CreateTempDirectory();
@@ -200,7 +200,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(expectedOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("Recurse");
@@ -264,7 +264,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMkvDirectory_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
+    public void ConvertVideoFile_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
     {
         _executableServiceMock
             .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
@@ -292,7 +292,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(srtOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipOcr");
@@ -310,7 +310,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertMkvDirectory_SkipSubtitles_DoesNotExtractSubtitles()
+    public void ConvertVideoFile_SkipSubtitles_DoesNotExtractSubtitles()
     {
         _executableServiceMock
             .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
@@ -336,7 +336,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(mp4Output);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipSubtitles");
@@ -425,8 +425,8 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
             "{}");
     }
 
-    private static PowerShell CreatePowerShell(string commandName = "Convert-MkvDirectory") =>
-        PowerShellCmdletTestHost.Create<ConvertMkvDirectoryCommand>(commandName);
+    private static PowerShell CreatePowerShell(string commandName = "Convert-VideoFile") =>
+        PowerShellCmdletTestHost.Create<ConvertVideoFileCommand>(commandName);
 
     private static string CreateTempDirectory()
     {
