@@ -10,8 +10,8 @@ public sealed class CmdletBaseTerminalTitleTests
 {
     [Theory]
     [InlineData("", null, "MF: Other")]
-    [InlineData("Convert-MkvDirectory", null, "MF: Convert-MkvDirectory")]
-    [InlineData("Convert-MkvDirectory", "Encoding", "MF: Convert-MkvDirectory: Encoding")]
+    [InlineData("Convert-VideoFile", null, "MF: Convert-VideoFile")]
+    [InlineData("Convert-VideoFile", "Encoding", "MF: Convert-VideoFile: Encoding")]
     public void BuildTerminalTitle_ReturnsExpectedText(string commandName, string? operationName, string expected)
     {
         var actual = TerminalTitleProbeCmdlet.FormatTerminalTitle(commandName, operationName);
@@ -25,7 +25,7 @@ public sealed class CmdletBaseTerminalTitleTests
         {
             typeof(ConvertMediaFileAdvancedCommand),
             typeof(ConvertMediaFilesCommand),
-            typeof(ConvertMkvDirectoryCommand),
+            typeof(ConvertVideoFileCommand),
             typeof(ExportMediaStreamCommand),
             typeof(ExportSubtitlesCommand),
             typeof(InvokeBonusFileProcessingCommand),

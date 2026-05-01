@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public sealed class ConvertMkvDirectoryCommandTests : IDisposable
+public sealed class ConvertVideoFileCommandTests : IDisposable
 {
     private readonly Mock<IPathResolver> _pathResolverMock = new();
     private readonly Mock<IMediaReaderService> _mediaReaderServiceMock = new();
@@ -24,12 +24,12 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     private readonly Mock<IMediaConversionService> _mediaConversionServiceMock = new();
     private readonly Mock<IExecutableService> _executableServiceMock = new();
     private readonly Mock<ILoggerFactory> _loggerFactoryMock = new();
-    private readonly Mock<ILogger<ConvertMkvDirectoryCommand>> _loggerMock = new();
+    private readonly Mock<ILogger<ConvertVideoFileCommand>> _loggerMock = new();
     private readonly Mock<IDebuggerService> _debuggerServiceMock = new();
     private readonly ServiceProvider _serviceProvider;
     private readonly ModuleServicesTestScope _moduleServicesScope;
 
-    public ConvertMkvDirectoryCommandTests()
+    public ConvertVideoFileCommandTests()
     {
         _loggerFactoryMock.Setup(factory => factory.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
@@ -89,7 +89,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(secondOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output);
 
@@ -146,7 +146,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(secondOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output);
 
@@ -200,7 +200,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(expectedOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("Recurse");
@@ -239,7 +239,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(outputPath);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipSubtitles");
@@ -284,7 +284,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(srtOutput);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipOcr");
@@ -328,7 +328,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
         SetupOutputPathResolution(mp4Output);
 
         using var ps = CreatePowerShell();
-        ps.AddCommand("Convert-MkvDirectory")
+        ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputDirectory", root)
             .AddParameter("OutputDirectory", output)
             .AddParameter("SkipSubtitles");
@@ -417,7 +417,7 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
             "{}");
     }
 
-    private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertMkvDirectoryCommand>("Convert-MkvDirectory");
+    private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertVideoFileCommand>("Convert-VideoFile");
 
     private static string CreateTempDirectory()
     {
