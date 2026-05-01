@@ -218,6 +218,44 @@ public sealed class ConvertMkvDirectoryCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertMkvDirectory_ReturnsDisplayResultWithFileNameFolderNameAndStatusOnly()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var outputPath = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(outputPath);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MkvDirectory")
+            .AddParameter("InputDirectory", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        var first = Assert.Single(results);
+        Assert.Equal("one.mkv", first.Properties["InputPath"]?.Value);
+        Assert.Equal(Path.GetFileName(output), first.Properties["OutputPath"]?.Value);
+        Assert.Equal("Success", first.Properties["Status"]?.Value);
+        Assert.Null(first.Properties["Success"]);
+    }
+
+    [Fact]
     public void ConvertMkvDirectory_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
     {
         _executableServiceMock

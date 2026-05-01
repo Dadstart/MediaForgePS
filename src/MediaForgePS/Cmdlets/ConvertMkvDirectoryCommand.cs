@@ -19,7 +19,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Converts all MKV files in a directory using module conversion services.
 /// </summary>
 [Cmdlet(VerbsData.Convert, "MkvDirectory")]
-[OutputType(typeof(MkvDirectoryConversionResult))]
+[OutputType(typeof(MkvDirectoryDisplayResult))]
 public class ConvertMkvDirectoryCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -186,7 +186,7 @@ public class ConvertMkvDirectoryCommand : CmdletBase
                 additionalArguments);
 
             _results.Add(result);
-            WriteObject(result);
+            WriteObject(MkvDirectoryDisplayResult.FromResult(result));
 
             if (result.Success)
                 _batchCompletedBytes += fileSize;
@@ -622,3 +622,30 @@ public class ConvertMkvDirectoryCommand : CmdletBase
 /// Result of converting a single MKV file from a directory batch.
 /// </summary>
 public record MkvDirectoryConversionResult(string InputPath, string OutputPath, bool Success, string Status);
+
+/// <summary>
+/// Display result returned to the pipeline for MKV directory conversion.
+/// </summary>
+public record MkvDirectoryDisplayResult(string InputPath, string OutputPath, string Status)
+{
+    public static MkvDirectoryDisplayResult FromResult(MkvDirectoryConversionResult result)
+    {
+        var inputFileName = Path.GetFileName(result.InputPath);
+        var outputFolderName = GetFolderName(result.OutputPath);
+        return new MkvDirectoryDisplayResult(inputFileName, outputFolderName, result.Status);
+    }
+
+    private static string GetFolderName(string path)
+    {
+        var directoryPath = Path.GetDirectoryName(path);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+            return string.Empty;
+
+        var trimmedPath = directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.IsNullOrWhiteSpace(trimmedPath))
+            return directoryPath;
+
+        var folderName = Path.GetFileName(trimmedPath);
+        return string.IsNullOrWhiteSpace(folderName) ? directoryPath : folderName;
+    }
+}
