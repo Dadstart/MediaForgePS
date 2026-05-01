@@ -19,7 +19,6 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Converts all MKV files in a directory using module conversion services.
 /// </summary>
 [Cmdlet(VerbsData.Convert, "VideoFile")]
-[Alias("Convert-MkvDirectory")]
 [OutputType(typeof(VideoFileConversionResult))]
 public class ConvertVideoFileCommand : CmdletBase
 {
