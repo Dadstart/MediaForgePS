@@ -87,13 +87,27 @@ Import-Module $moduleScriptPath -Force
 # Refresh existing .md to match current cmdlet parameters and syntax
 Update-MarkdownHelp -Path $docsPath
 
-# Add .md for any cmdlets that do not yet have a file (does not overwrite existing)
-New-MarkdownHelp -Module MediaForgePS -OutputFolder $docsPath
+# Add .md only for cmdlets that do not yet have a help file (avoids New-MarkdownHelp -Force wiping edits)
+$documentedNames = Get-ChildItem -Path $docsPath -Filter '*.md' -File |
+    Where-Object { $_.Name -ne 'README.md' } |
+    ForEach-Object { $_.BaseName }
+foreach ($cmdlet in Get-Command -Module MediaForgePS -CommandType Cmdlet) {
+    if ($cmdlet.Name -in $documentedNames) {
+        continue
+    }
+
+    Write-Host "Creating help for $($cmdlet.Name)..." -ForegroundColor Cyan
+    try {
+        $cmdlet | New-MarkdownHelp -OutputFolder $docsPath -Force | Out-Null
+    } catch {
+        Write-Warning "platyPS could not scaffold $($cmdlet.Name): $($_.Exception.Message). Add src\MediaForgePS\docs\$($cmdlet.Name).md manually."
+    }
+}
 
 # Step 3: Publish to en-US XML
 Write-Host "Generating $helpXmlName..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $enUsPath -Force | Out-Null
-New-ExternalHelp -Path $docsPath -OutputPath $enUsPath
+New-ExternalHelp -Path $docsPath -OutputPath $enUsPath -Force
 
 # platyPS may write MediaForgePS-help.xml; normalize to MediaForgePS.dll-Help.xml for the module
 $altName = 'MediaForgePS-help.xml'

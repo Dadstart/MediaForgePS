@@ -734,6 +734,10 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     </command:examples>
     <command:relatedLinks>
       <maml:navigationLink>
+        <maml:linkText>Convert-VideoFile</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
         <maml:linkText>Convert-MediaFileAdvanced</maml:linkText>
         <maml:uri></maml:uri>
       </maml:navigationLink>
@@ -751,6 +755,320 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       </maml:navigationLink>
       <maml:navigationLink>
         <maml:linkText>New-AudioTrackMapping</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+    </command:relatedLinks>
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp">
+    <command:details>
+      <command:name>Convert-VideoFile</command:name>
+      <command:verb>Convert</command:verb>
+      <command:noun>VideoFile</command:noun>
+      <maml:description>
+        <maml:para>Converts MKV files in a directory (or specified paths) to MP4 with automatic audio mapping and optional caption extraction.</maml:para>
+      </maml:description>
+    </command:details>
+    <maml:description>
+      <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for MKV sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.</maml:para>
+      <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams from each source MKV next to the output MP4 (using mkvextract). Unless -SkipOcr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -SkipOcr has no effect when -SkipSubtitles is set.</maml:para>
+      <maml:para>Default video encoding follows -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). The default encoder is nvenc. Pass -X265Params for extra x265 options when using x265.</maml:para>
+      <maml:para>InputPath accepts a directory, a single MKV file, or multiple MKV paths. Aliases: InputDirectory, Path. When -OutputDirectory is omitted, output is written alongside each input (same directory as the source file or input root). Use -Recurse to include MKV files in subdirectories when InputPath is a directory.</maml:para>
+      <maml:para>Progress reporting includes per-file and batch ETA based on completed file sizes.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Convert-VideoFile</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="InputDirectory, Path">
+          <maml:name>InputPath</maml:name>
+          <maml:description>
+            <maml:para>Directory containing MKV files, a single MKV file path, or an array of MKV file paths.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+          <dev:type>
+            <maml:name>String[]</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
+          <maml:name>OutputDirectory</maml:name>
+          <maml:description>
+            <maml:para>Directory where converted files are written. Defaults to the input location (same folder as each source file).</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>DefaultVideoEncoder</maml:name>
+          <maml:description>
+            <maml:para>Default encoder: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). Default is nvenc.</maml:para>
+          </maml:description>
+          <command:parameterValueGroup>
+            <command:parameterValue required="false" command:variableLength="false">x264</command:parameterValue>
+            <command:parameterValue required="false" command:variableLength="false">x265</command:parameterValue>
+            <command:parameterValue required="false" command:variableLength="false">nvenc</command:parameterValue>
+          </command:parameterValueGroup>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>nvenc</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>Recurse</maml:name>
+          <maml:description>
+            <maml:para>When InputPath is a directory, include MKV files in subdirectories.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>SkipOcr</maml:name>
+          <maml:description>
+            <maml:para>Skip OCR conversion of image captions (SUP, SUB) to SRT. Has no effect when -SkipSubtitles is specified.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>SkipRepair</maml:name>
+          <maml:description>
+            <maml:para>Skip SRT repair during default OCR processing. Has no effect when -SkipOcr or -SkipSubtitles is specified.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>SkipSubtitles</maml:name>
+          <maml:description>
+            <maml:para>Skip caption extraction after converting MKV files.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>X265Params</maml:name>
+          <maml:description>
+            <maml:para>Additional x265 params passed to ffmpeg via -x265-params. Applies when -DefaultVideoEncoder is x265.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>DefaultVideoEncoder</maml:name>
+        <maml:description>
+          <maml:para>Default encoder: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). Default is nvenc.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>nvenc</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="InputDirectory, Path">
+        <maml:name>InputPath</maml:name>
+        <maml:description>
+          <maml:para>Directory containing MKV files, a single MKV file path, or an array of MKV file paths.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type>
+          <maml:name>String[]</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
+        <maml:name>OutputDirectory</maml:name>
+        <maml:description>
+          <maml:para>Directory where converted files are written. Defaults to the input location (same folder as each source file).</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Recurse</maml:name>
+        <maml:description>
+          <maml:para>When InputPath is a directory, include MKV files in subdirectories.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SkipOcr</maml:name>
+        <maml:description>
+          <maml:para>Skip OCR conversion of image captions (SUP, SUB) to SRT. Has no effect when -SkipSubtitles is specified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SkipRepair</maml:name>
+        <maml:description>
+          <maml:para>Skip SRT repair during default OCR processing. Has no effect when -SkipOcr or -SkipSubtitles is specified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SkipSubtitles</maml:name>
+        <maml:description>
+          <maml:para>Skip caption extraction after converting MKV files.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>X265Params</maml:name>
+        <maml:description>
+          <maml:para>Additional x265 params passed to ffmpeg via -x265-params. Applies when -DefaultVideoEncoder is x265.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to hide progress.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>System.String[]</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>Directory path, MKV file path(s), or piped paths. Aliases: InputDirectory, Path.</maml:para>
+        </maml:description>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>VideoFileConversionResult</maml:name>
+        </dev:type>
+        <maml:description>
+          <maml:para>For each processed file: InputPath, OutputPath, Success, Status.</maml:para>
+        </maml:description>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para>Requires FFmpeg and ffprobe. Caption extraction requires mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -SkipOcr is not specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.</maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1: Convert all MKV files in a folder with NVENC (default)</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "C:\Videos\Season1"</dev:code>
+        <dev:remarks>
+          <maml:para>Converts each .mkv under C:\Videos\Season1 to .mp4 in the same folder, extracts English captions, and runs OCR plus SRT repair on image-based tracks.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>- Example 2: Convert to a separate output directory with x265 -</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "C:\Source" -OutputDirectory "C:\Out" -DefaultVideoEncoder x265 -Recurse</dev:code>
+        <dev:remarks>
+          <maml:para>Converts all MKV files under C:\Source (including subfolders) to C:\Out preserving relative paths, using libx265 defaults.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------- Example 3: Convert without caption extraction --------</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "D:\movie.mkv" -SkipSubtitles</dev:code>
+        <dev:remarks>
+          <maml:para>Converts only the video and audio; skips subtitle extraction and OCR.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title> Example 4: Convert and extract captions without OCR or repair </maml:title>
+        <dev:code>Convert-VideoFile -InputPath "C:\In" -SkipOcr</dev:code>
+        <dev:remarks>
+          <maml:para>Extracts English subtitle sidecars but does not convert SUP/SUB to SRT or repair SRT files.</maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
+    <command:relatedLinks>
+      <maml:navigationLink>
+        <maml:linkText>Convert-MediaFiles</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Export-Subtitles</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Get-AudioStreams</maml:linkText>
+        <maml:uri></maml:uri>
+      </maml:navigationLink>
+      <maml:navigationLink>
+        <maml:linkText>Invoke-SubtitleOcrRepair</maml:linkText>
         <maml:uri></maml:uri>
       </maml:navigationLink>
     </command:relatedLinks>
