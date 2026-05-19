@@ -182,6 +182,7 @@ Requires FFmpeg. Output extension is .mp4. Failed files are reported in the outp
 
 ## RELATED LINKS
 
+[Convert-VideoFile](Convert-VideoFile.md)
 [Convert-MediaFileAdvanced](Convert-MediaFileAdvanced.md)
 [Get-MediaFile](Get-MediaFile.md)
 [Get-AudioStreams](Get-AudioStreams.md)

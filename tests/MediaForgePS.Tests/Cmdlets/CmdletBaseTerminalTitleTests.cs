@@ -10,8 +10,8 @@ public sealed class CmdletBaseTerminalTitleTests
 {
     [Theory]
     [InlineData("", null, "MF: Other")]
-    [InlineData("Convert-MkvDirectory", null, "MF: Convert-MkvDirectory")]
-    [InlineData("Convert-MkvDirectory", "Encoding", "MF: Convert-MkvDirectory: Encoding")]
+    [InlineData("Convert-VideoFile", null, "MF: Convert-VideoFile")]
+    [InlineData("Convert-VideoFile", "Encoding", "MF: Convert-VideoFile: Encoding")]
     public void BuildTerminalTitle_ReturnsExpectedText(string commandName, string? operationName, string expected)
     {
         var actual = TerminalTitleProbeCmdlet.FormatTerminalTitle(commandName, operationName);
@@ -25,7 +25,7 @@ public sealed class CmdletBaseTerminalTitleTests
         {
             typeof(ConvertMediaFileAdvancedCommand),
             typeof(ConvertMediaFilesCommand),
-            typeof(ConvertMkvDirectoryCommand),
+            typeof(ConvertVideoFileCommand),
             typeof(ExportMediaStreamCommand),
             typeof(ExportSubtitlesCommand),
             typeof(InvokeBonusFileProcessingCommand),
@@ -42,6 +42,16 @@ public sealed class CmdletBaseTerminalTitleTests
     public void ShortRunningCmdlets_DoNotOverrideTerminalTitleOptIn()
     {
         AssertTerminalTitleOptIn(typeof(GetMediaFileCommand), expectedOptIn: false);
+    }
+
+    [Fact]
+    public void ConvertVideoFileCommand_UsesConvertVideoFileName()
+    {
+        var cmdletAttribute = typeof(ConvertVideoFileCommand).GetCustomAttribute<CmdletAttribute>();
+
+        Assert.NotNull(cmdletAttribute);
+        Assert.Equal("Convert", cmdletAttribute!.VerbName);
+        Assert.Equal("VideoFile", cmdletAttribute.NounName);
     }
 
     private static void AssertTerminalTitleOptIn(Type cmdletType, bool expectedOptIn)

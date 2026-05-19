@@ -13,8 +13,8 @@ Exports English subtitle streams from media files and converts image subtitles t
 ## SYNTAX
 
 ```
-Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr] [-SkipRepair]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr]
+ [-SkipRepair] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION

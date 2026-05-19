@@ -18,9 +18,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <summary>
 /// Converts all MKV files in a directory using module conversion services.
 /// </summary>
-[Cmdlet(VerbsData.Convert, "MkvDirectory")]
-[OutputType(typeof(MkvDirectoryConversionResult))]
-public class ConvertMkvDirectoryCommand : CmdletBase
+[Cmdlet(VerbsData.Convert, "VideoFile")]
+[OutputType(typeof(VideoFileConversionResult))]
+public class ConvertVideoFileCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 
@@ -28,9 +28,9 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     private IMediaReaderService? _mediaReaderService;
     private IAudioTrackMappingService? _audioTrackMappingService;
     private IMediaConversionService? _mediaConversionService;
-    private readonly List<MkvDirectoryConversionResult> _results = new();
+    private readonly List<VideoFileConversionResult> _results = new();
     private readonly List<(long FileSizeBytes, TimeSpan ProcessingTime)> _completedFileStats = new();
-    private List<(string Path, long Size)>? _sizedMkvFiles;
+    private List<(string Path, string InputRoot, string OutputRoot, long Size)>? _sizedVideoFiles;
     private Stopwatch? _batchStopwatch;
     private Stopwatch? _fileStopwatch;
     private int _currentFileIndex;
@@ -40,22 +40,25 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     private TimeSpan? _currentFileEstimatedTime;
 
     /// <summary>
-    /// Directory containing MKV files to convert.
+    /// Directory containing MKV files, a single MKV file path, or an array of MKV file paths.
     /// </summary>
     [Parameter(
         Mandatory = true,
         Position = 0,
-        HelpMessage = "Directory containing MKV files to convert")]
+        ValueFromPipeline = true,
+        ValueFromPipelineByPropertyName = true,
+        HelpMessage = "Directory containing MKV files, a single MKV file path, or an array of MKV file paths.")]
+    [Alias("InputDirectory", "Path")]
     [ValidateNotNullOrEmpty]
-    public string InputDirectory { get; set; } = string.Empty;
+    public string[] InputPath { get; set; } = [];
 
     /// <summary>
-    /// Directory where converted files are written. Defaults to InputDirectory.
+    /// Directory where converted files are written. Defaults to InputPath.
     /// </summary>
     [Parameter(
         Mandatory = false,
         Position = 1,
-        HelpMessage = "Directory where converted files are written. Defaults to InputDirectory.")]
+        HelpMessage = "Directory where converted files are written. Defaults to InputPath.")]
     public string? OutputDirectory { get; set; }
 
     /// <summary>
@@ -115,59 +118,106 @@ public class ConvertMkvDirectoryCommand : CmdletBase
     {
         _results.Clear();
         _completedFileStats.Clear();
-        _sizedMkvFiles = null;
+        _sizedVideoFiles = null;
         _batchCompletedBytes = 0;
         _currentFileIndex = 0;
 
-        if (!TryResolveDirectoryPath(InputDirectory, requireExists: true, out var resolvedInputDirectory))
-        {
-            WriteError(CreateErrorRecord(
-                new DirectoryNotFoundException($"Input directory does not exist: {InputDirectory}"),
-                "InputDirectoryNotFound",
-                ErrorCategory.ObjectNotFound,
-                InputDirectory));
+        var resolvedEntries = global::Dadstart.Labs.MediaForge.Services.System.PathResolver.ResolveFileOrDirectoryPaths(
+            this,
+            InputPath,
+            Logger,
+            WriteError);
+        if (resolvedEntries.Count == 0)
             return;
-        }
 
-        var outputDirectory = string.IsNullOrWhiteSpace(OutputDirectory) ? resolvedInputDirectory : OutputDirectory!;
-        if (!TryResolveDirectoryPath(outputDirectory, requireExists: false, out var resolvedOutputDirectory))
+        string? configuredOutputDirectory = null;
+        if (!string.IsNullOrWhiteSpace(OutputDirectory) && !TryResolveDirectoryPath(OutputDirectory!, requireExists: false, out configuredOutputDirectory))
         {
             WriteError(CreateErrorRecord(
-                new InvalidOperationException($"Failed to resolve output directory: {outputDirectory}"),
+                new InvalidOperationException($"Failed to resolve output directory: {OutputDirectory}"),
                 ErrorIds.OutputPathResolutionFailed,
                 ErrorCategory.InvalidArgument,
-                outputDirectory));
+                OutputDirectory));
             return;
         }
 
-        Directory.CreateDirectory(resolvedOutputDirectory);
+        if (!string.IsNullOrWhiteSpace(configuredOutputDirectory))
+            Directory.CreateDirectory(configuredOutputDirectory);
 
-        var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        var mkvFiles = Directory.EnumerateFiles(resolvedInputDirectory, "*.mkv", searchOption)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (mkvFiles.Length == 0)
+        var videoFileInputs = new List<(string Path, string InputRoot, string OutputRoot)>();
+        var seenVideoPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (resolvedInputPath, isDirectory) in resolvedEntries)
         {
-            WriteWarning($"No MKV files found in: {resolvedInputDirectory}");
+            if (isDirectory)
+            {
+                var searchOption = Recurse.IsPresent ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                var directoryFiles = Directory.EnumerateFiles(resolvedInputPath, "*.mkv", searchOption)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+                foreach (var directoryFile in directoryFiles)
+                {
+                    if (seenVideoPaths.Add(directoryFile))
+                    {
+                        var outputRoot = configuredOutputDirectory ?? resolvedInputPath;
+                        videoFileInputs.Add((directoryFile, resolvedInputPath, outputRoot));
+                    }
+                }
+            }
+            else
+            {
+                if (!string.Equals(Path.GetExtension(resolvedInputPath), ".mkv", StringComparison.OrdinalIgnoreCase))
+                {
+                    WriteError(CreateErrorRecord(
+                        new ArgumentException($"Input file must have .mkv extension: {resolvedInputPath}"),
+                        "InvalidInputPath",
+                        ErrorCategory.InvalidArgument,
+                        resolvedInputPath));
+                    return;
+                }
+
+                var inputRoot = Path.GetDirectoryName(resolvedInputPath) ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(inputRoot))
+                {
+                    WriteError(CreateErrorRecord(
+                        new InvalidOperationException($"Could not determine containing directory for file: {resolvedInputPath}"),
+                        ErrorIds.OutputPathResolutionFailed,
+                        ErrorCategory.InvalidArgument,
+                        resolvedInputPath));
+                    return;
+                }
+
+                if (seenVideoPaths.Add(resolvedInputPath))
+                {
+                    var outputRoot = configuredOutputDirectory ?? inputRoot;
+                    videoFileInputs.Add((resolvedInputPath, inputRoot, outputRoot));
+                }
+            }
+        }
+
+        if (videoFileInputs.Count == 0)
+        {
+            WriteWarning("No MKV files found in the specified input paths.");
             return;
         }
 
-        var sized = MediaConversionHelper.BuildItemsWithSizes(mkvFiles, static path => path, out var totalBytes);
-        _sizedMkvFiles = sized.Select(entry => (entry.Item, entry.Size)).ToList();
+        var sized = MediaConversionHelper.BuildItemsWithSizes(videoFileInputs, static item => item.Path, out var totalBytes);
+        _sizedVideoFiles = sized.Select(entry => (entry.Item.Path, entry.Item.InputRoot, entry.Item.OutputRoot, entry.Size)).ToList();
         _batchTotalBytes = totalBytes;
-        _batchTotalFiles = _sizedMkvFiles.Count;
+        _batchTotalFiles = _sizedVideoFiles.Count;
         _batchStopwatch = Stopwatch.StartNew();
 
         WriteHostMessage(
             $"Converting {_batchTotalFiles} MKV file(s) (total size: {MediaConversionHelper.FormatByteCount(_batchTotalBytes)})",
             ConsoleColor.Cyan);
-        WriteHostMessage($"  Output: {resolvedOutputDirectory}", ConsoleColor.Gray);
+        WriteHostMessage(
+            string.IsNullOrWhiteSpace(configuredOutputDirectory)
+                ? "  Output: source directories"
+                : $"  Output: {configuredOutputDirectory}",
+            ConsoleColor.Gray);
 
         var videoSettings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
         var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
 
-        foreach (var (inputPath, fileSize) in _sizedMkvFiles)
+        foreach (var (inputPath, inputRoot, outputRoot, fileSize) in _sizedVideoFiles)
         {
             _currentFileIndex++;
             var fileName = GetFileName(inputPath);
@@ -178,8 +228,8 @@ public class ConvertMkvDirectoryCommand : CmdletBase
                 this, "MKV directory conversion", status, percent, batchEta, ProgressRecordType.Processing);
 
             var result = ConvertSingleFile(
-                resolvedInputDirectory,
-                resolvedOutputDirectory,
+                inputRoot,
+                outputRoot,
                 inputPath,
                 fileName,
                 videoSettings,
@@ -270,7 +320,7 @@ public class ConvertMkvDirectoryCommand : CmdletBase
             WriteHostMessage($"Directory conversion finished: {ok} succeeded, {failed} failed.", ConsoleColor.Yellow);
     }
 
-    private MkvDirectoryConversionResult ConvertSingleFile(
+    private VideoFileConversionResult ConvertSingleFile(
         string resolvedInputDirectory,
         string resolvedOutputDirectory,
         string inputPath,
@@ -288,7 +338,7 @@ public class ConvertMkvDirectoryCommand : CmdletBase
             {
                 _fileStopwatch.Stop();
                 UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
-                return new MkvDirectoryConversionResult(inputPath, inputPath, false, "Failed to read media metadata.");
+                return new VideoFileConversionResult(inputPath, inputPath, false, "Failed to read media metadata.");
             }
 
             UpdateFileProgress("Building audio track mappings", fileName);
@@ -304,7 +354,7 @@ public class ConvertMkvDirectoryCommand : CmdletBase
             {
                 _fileStopwatch.Stop();
                 UpdateFileProgress("Failed to resolve output path", fileName, recordType: ProgressRecordType.Completed);
-                return new MkvDirectoryConversionResult(
+                return new VideoFileConversionResult(
                     inputPath,
                     outputPath,
                     false,
@@ -330,20 +380,20 @@ public class ConvertMkvDirectoryCommand : CmdletBase
             _fileStopwatch.Stop();
             RecordFileProcessingStats(inputPath);
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
-            return new MkvDirectoryConversionResult(inputPath, resolvedOutputPath, true, "Success");
+            return new VideoFileConversionResult(inputPath, resolvedOutputPath, true, "Success");
         }
         catch (FfmpegConversionException ex)
         {
             _fileStopwatch?.Stop();
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             UpdateFileProgress("Conversion failed", fileName, recordType: ProgressRecordType.Completed);
-            return new MkvDirectoryConversionResult(inputPath, inputPath, false, statusMessage);
+            return new VideoFileConversionResult(inputPath, inputPath, false, statusMessage);
         }
         catch (Exception ex)
         {
             _fileStopwatch?.Stop();
             UpdateFileProgress("Error", fileName, recordType: ProgressRecordType.Completed);
-            return new MkvDirectoryConversionResult(inputPath, inputPath, false, ex.Message);
+            return new VideoFileConversionResult(inputPath, inputPath, false, ex.Message);
         }
     }
 
@@ -452,10 +502,10 @@ public class ConvertMkvDirectoryCommand : CmdletBase
             return null;
         }
 
-        if (_sizedMkvFiles == null)
+        if (_sizedVideoFiles == null)
             return null;
 
-        var remainingPaths = _sizedMkvFiles.Skip(_currentFileIndex).Take(remainingFilesCount);
+        var remainingPaths = _sizedVideoFiles.Skip(_currentFileIndex).Take(remainingFilesCount);
         foreach (var entry in remainingPaths)
         {
             try
@@ -621,4 +671,4 @@ public class ConvertMkvDirectoryCommand : CmdletBase
 /// <summary>
 /// Result of converting a single MKV file from a directory batch.
 /// </summary>
-public record MkvDirectoryConversionResult(string InputPath, string OutputPath, bool Success, string Status);
+public record VideoFileConversionResult(string InputPath, string OutputPath, bool Success, string Status);
