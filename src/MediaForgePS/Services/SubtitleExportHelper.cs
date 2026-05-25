@@ -97,7 +97,9 @@ public static class SubtitleExportHelper
     }
 
     /// <summary>
-    /// Extracts a single subtitle stream to a file using FFmpeg or mkvextract. Throws on failure.
+    /// Extracts a single subtitle stream to a file. Uses mkvextract for VobSub (dvd_subtitle) streams in
+    /// Matroska (.mkv) sources because it reliably produces the .idx companion. For all other combinations
+    /// (non-Matroska sources or non-VobSub codecs) falls back to Ffmpeg with stream copy. Throws on failure.
     /// </summary>
     public static void ExtractSubtitle(
         IExecutableService executableService,
@@ -106,21 +108,31 @@ public static class SubtitleExportHelper
         string resolvedOutputPath,
         string? mkvextractPath)
     {
-        if (string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase))
+        var isMatroskaSource = string.Equals(Path.GetExtension(mediaFilePath), ".mkv", StringComparison.OrdinalIgnoreCase);
+        var isVobSub = string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase);
+
+        if (isMatroskaSource && isVobSub)
         {
             if (string.IsNullOrEmpty(mkvextractPath))
                 throw new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec.");
+
             var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{resolvedOutputPath}" };
-            var result = executableService.ExecuteAsync(mkvextractPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (result.ExitCode != 0)
-                throw new InvalidOperationException($"mkvextract failed with exit code {result.ExitCode}. {result.ErrorOutput}");
+            var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (mkvResult.ExitCode != 0)
+                throw new InvalidOperationException($"mkvextract failed with exit code {mkvResult.ExitCode}. {mkvResult.ErrorOutput}");
+
+            return;
         }
-        else
-        {
-            var ffmpegArgs = new List<string> { "-i", mediaFilePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", resolvedOutputPath };
-            var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (result.ExitCode != 0)
-                throw new InvalidOperationException($"FFmpeg failed with exit code {result.ExitCode}. {result.ErrorOutput}");
-        }
+
+        // For VobSub from non-Matroska containers, target the .idx companion path so Ffmpeg's vobsub
+        // muxer writes both the .idx and .sub files alongside each other (matching mkvextract output).
+        var ffmpegOutputPath = isVobSub
+            ? Path.ChangeExtension(resolvedOutputPath, ".idx")
+            : resolvedOutputPath;
+
+        var ffmpegArgs = new List<string> { "-i", mediaFilePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", ffmpegOutputPath };
+        var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        if (ffmpegResult.ExitCode != 0)
+            throw new InvalidOperationException($"FFmpeg failed with exit code {ffmpegResult.ExitCode}. {ffmpegResult.ErrorOutput}");
     }
 }
