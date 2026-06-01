@@ -15,15 +15,23 @@ public class SubtitleExportHelperTests
 {
     private const string MkvextractPath = @"C:\tools\mkvextract.exe";
 
-    private static MediaStream CreateStream(string codec, int index = 2) =>
+    private static MediaStream CreateStream(string codec, int index = 2, string? type = "subtitle", string? language = "eng") =>
         new(
-            Type: "subtitle",
+            Type: type ?? string.Empty,
             Index: index,
             Codec: codec,
             Profile: string.Empty,
             CodecLongName: string.Empty,
             Tags: new Dictionary<string, string>(),
-            Language: "eng");
+            Language: language);
+
+    private static MediaFile CreateMediaFile(string path, params MediaStream[] streams) =>
+        new(
+            Path: path,
+            Format: new MediaFormat(path, streams.Length, "matroska", "Matroska", 0, 1, 0, 0, new Dictionary<string, string>()),
+            Chapters: [],
+            Streams: streams,
+            Raw: string.Empty);
 
     private static (Mock<IExecutableService> Mock, List<(string Exe, string[] Args)> Calls) CreateExecutableMock()
     {
@@ -199,5 +207,192 @@ public class SubtitleExportHelperTests
                 MkvextractPath));
         Assert.Contains("mkvextract failed", ex.Message);
         Assert.Contains("broken", ex.Message);
+    }
+
+    // ---- GetEnglishSubtitleStreams ----
+
+    [Fact]
+    public void GetEnglishSubtitleStreams_ReturnsOnlyEnglishSubtitleStreams()
+    {
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("h264", index: 0, type: "video", language: "eng"),
+            CreateStream("aac", index: 1, type: "audio", language: "eng"),
+            CreateStream("subrip", index: 2, language: "eng"),
+            CreateStream("subrip", index: 3, language: "spa"),
+            CreateStream("hdmv_pgs_subtitle", index: 4, language: "en-US"),
+            CreateStream("subrip", index: 5, language: null));
+
+        var result = SubtitleExportHelper.GetEnglishSubtitleStreams(media);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, s => s.Index == 2);
+        Assert.Contains(result, s => s.Index == 4);
+    }
+
+    [Fact]
+    public void GetEnglishSubtitleStreams_NullStreams_ReturnsEmpty()
+    {
+        var media = new MediaFile(@"C:\media\movie.mkv",
+            new MediaFormat(@"C:\media\movie.mkv", 0, "matroska", "Matroska", 0, 1, 0, 0, new Dictionary<string, string>()),
+            [], null!, string.Empty);
+
+        var result = SubtitleExportHelper.GetEnglishSubtitleStreams(media);
+
+        Assert.Empty(result);
+    }
+
+    // ---- ExtractEnglishSubtitles ----
+
+    [Fact]
+    public void ExtractEnglishSubtitles_NoEnglishStreams_InvokesCallbackAndReturnsEmpty()
+    {
+        var (mock, _) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "spa"));
+        var noEnglishCalled = false;
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: _ => throw new InvalidOperationException("should not be called"),
+            onNoEnglishSubtitles: () => noEnglishCalled = true);
+
+        Assert.Empty(result);
+        Assert.True(noEnglishCalled);
+        mock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_SingleSrt_OmitsStreamIndex_AndExtracts()
+    {
+        var (mock, calls) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "eng"));
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+
+        var path = Assert.Single(result);
+        Assert.Equal(@"C:\media\movie.eng.sdh.srt", path);
+        var call = Assert.Single(calls);
+        Assert.Equal("ffmpeg", call.Exe);
+        Assert.Contains(@"C:\media\movie.eng.sdh.srt", call.Args);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_MixedExtensions_OmitsIndexPerExtension()
+    {
+        var (mock, calls) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "eng"),
+            CreateStream("hdmv_pgs_subtitle", index: 3, language: "eng"));
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(@"C:\media\movie.eng.sdh.srt", result);
+        Assert.Contains(@"C:\media\movie.eng.sdh.sup", result);
+        Assert.Equal(2, calls.Count);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_MultipleSameExtension_IncludesStreamIndex()
+    {
+        var (mock, _) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "eng"),
+            CreateStream("subrip", index: 3, language: "eng"));
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(@"C:\media\movie.2.eng.sdh.srt", result);
+        Assert.Contains(@"C:\media\movie.3.eng.sdh.srt", result);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_UnknownCodec_InvokesCallbackAndUsesBin()
+    {
+        var (mock, _) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("mystery_codec", index: 2, language: "eng"));
+        var reported = new List<MediaStream>();
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+            onUnknownCodec: stream => reported.Add(stream));
+
+        var path = Assert.Single(result);
+        Assert.EndsWith(".bin", path);
+        var reportedStream = Assert.Single(reported);
+        Assert.Equal("mystery_codec", reportedStream.Codec);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_FinalizeReturnsNull_SkipsStream()
+    {
+        var (mock, calls) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "eng"),
+            CreateStream("subrip", index: 3, language: "eng"));
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+            finalizeOutputPath: candidate => candidate.Contains(".2.") ? null : candidate);
+
+        var path = Assert.Single(result);
+        Assert.Equal(@"C:\media\movie.3.eng.sdh.srt", path);
+        Assert.Single(calls);
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_ExtractionThrows_InvokesCallbackAndContinues()
+    {
+        var mock = new Mock<IExecutableService>();
+        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+                args.Any(a => a.Contains(".2.")) ? new ExecutableResult(string.Empty, "boom", 1) : new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("subrip", index: 2, language: "eng"),
+            CreateStream("subrip", index: 3, language: "eng"));
+        var failures = new List<(MediaStream, Exception)>();
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+            onExtractFailed: (s, ex) => failures.Add((s, ex)));
+
+        var path = Assert.Single(result);
+        Assert.Contains(".3.", path);
+        var (failedStream, failedEx) = Assert.Single(failures);
+        Assert.Equal(2, failedStream.Index);
+        Assert.IsType<InvalidOperationException>(failedEx);
     }
 }

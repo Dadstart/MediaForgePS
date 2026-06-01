@@ -616,49 +616,26 @@ public class ConvertVideoFileCommand : CmdletBase
         if (mediaFile == null)
             return Array.Empty<string>();
 
-        var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
-            .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
-                (s.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (subtitles.Count == 0)
-        {
-            WriteVerbose($"No English subtitles in {GetFileName(sourceMkvPath)}");
-            return Array.Empty<string>();
-        }
-
         var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
-        var extractedPaths = new List<string>();
-        var extensionCounts = SubtitleExportHelper.BuildExtensionCounts(subtitles);
+        var fileName = Path.GetFileName(sourceMkvPath);
 
-        foreach (var stream in subtitles)
-        {
-            var ext = SubtitleExportHelper.GetExtensionForStream(stream);
-            var countForExtension = extensionCounts.TryGetValue(ext, out var c) ? c : 1;
-            var outputPath = SubtitleExportHelper.GetOutputPath(resolvedOutputMp4Path, stream.Index, countForExtension, ext);
-            if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
+        return SubtitleExportHelper.ExtractEnglishSubtitles(
+            ExecutableService,
+            mediaFile,
+            mkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                resolvedOutputMp4Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+            finalizeOutputPath: candidate =>
             {
-                Logger.LogWarning("Failed to resolve caption output path: {Path}", outputPath);
-                continue;
-            }
-
-            try
-            {
-                SubtitleExportHelper.ExtractSubtitle(
-                    ExecutableService,
-                    stream,
-                    sourceMkvPath,
-                    resolvedOutputPath,
-                    mkvextractPath);
-                extractedPaths.Add(resolvedOutputPath);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, sourceMkvPath);
-            }
-        }
-
-        return extractedPaths;
+                if (PathResolver.TryResolveOutputPath(candidate, out var resolved))
+                    return resolved;
+                Logger.LogWarning("Failed to resolve caption output path: {Path}", candidate);
+                return null;
+            },
+            onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
+            onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath),
+            onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
+            Logger);
     }
 
     private bool TryResolveDirectoryPath(string path, bool requireExists, out string resolvedPath)

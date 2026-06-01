@@ -63,6 +63,106 @@ public static class SubtitleExportHelper
     }
 
     /// <summary>
+    /// Returns the English subtitle streams in a media file. Centralizes the filter so all subtitle
+    /// export paths agree on what "English" means (codec_type == subtitle and language starts with "en").
+    /// </summary>
+    public static IReadOnlyList<MediaStream> GetEnglishSubtitleStreams(MediaFile media)
+    {
+        return (media.Streams ?? Array.Empty<MediaStream>())
+            .Where(IsEnglishSubtitle)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Whether the given stream is an English subtitle stream (codec_type == subtitle and language starts with "en").
+    /// </summary>
+    public static bool IsEnglishSubtitle(MediaStream stream) =>
+        string.Equals(stream.Type, "subtitle", StringComparison.OrdinalIgnoreCase)
+        && (stream.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Per-stream plan produced by <see cref="ExtractEnglishSubtitles"/> when iterating extractable subtitle streams.
+    /// <paramref name="SameExtensionCount"/> is the number of subtitle streams that share <paramref name="Extension"/>
+    /// in the source file; pass it to <see cref="GetOutputPath"/> to decide whether to include the stream index.
+    /// </summary>
+    public readonly record struct SubtitleExportPlan(
+        MediaStream Stream,
+        string Extension,
+        int SameExtensionCount,
+        bool IsKnownCodec);
+
+    /// <summary>
+    /// Iterates the English subtitle streams in a media file and extracts each via <see cref="ExtractSubtitle"/>.
+    /// Callers supply <paramref name="buildOutputPath"/> to compute the candidate output path for each plan
+    /// (typically by calling <see cref="GetOutputPath"/> with a caller-chosen base path) and optionally
+    /// <paramref name="finalizeOutputPath"/> to resolve/redirect or skip (return <c>null</c>) the path.
+    /// </summary>
+    /// <param name="executableService">Used to invoke ffmpeg or mkvextract.</param>
+    /// <param name="media">Source media file.</param>
+    /// <param name="mkvextractPath">Path to mkvextract.exe (required for VobSub streams in Matroska sources).</param>
+    /// <param name="buildOutputPath">Maps a plan to a candidate output file path.</param>
+    /// <param name="finalizeOutputPath">Optional path post-processor; return null to skip the stream.</param>
+    /// <param name="onUnknownCodec">Invoked once per stream whose codec is not in <see cref="CodecToExtension"/>.</param>
+    /// <param name="onExtractFailed">Invoked when extraction of a stream throws.</param>
+    /// <param name="onNoEnglishSubtitles">Invoked when the file has no English subtitle streams.</param>
+    /// <param name="logger">Optional logger used for failure logging.</param>
+    /// <returns>Paths of successfully extracted subtitle streams.</returns>
+    public static IReadOnlyList<string> ExtractEnglishSubtitles(
+        IExecutableService executableService,
+        MediaFile media,
+        string? mkvextractPath,
+        Func<SubtitleExportPlan, string> buildOutputPath,
+        Func<string, string?>? finalizeOutputPath = null,
+        Action<MediaStream>? onUnknownCodec = null,
+        Action<MediaStream, Exception>? onExtractFailed = null,
+        Action? onNoEnglishSubtitles = null,
+        ILogger? logger = null)
+    {
+        ArgumentNullException.ThrowIfNull(executableService);
+        ArgumentNullException.ThrowIfNull(media);
+        ArgumentNullException.ThrowIfNull(buildOutputPath);
+
+        var subtitles = GetEnglishSubtitleStreams(media);
+        if (subtitles.Count == 0)
+        {
+            onNoEnglishSubtitles?.Invoke();
+            return Array.Empty<string>();
+        }
+
+        var counts = BuildExtensionCounts(subtitles);
+        var results = new List<string>(subtitles.Count);
+
+        foreach (var stream in subtitles)
+        {
+            var isKnown = CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext);
+            ext ??= "bin";
+            if (!isKnown)
+                onUnknownCodec?.Invoke(stream);
+
+            var sameExtCount = counts.TryGetValue(ext, out var c) ? c : 1;
+            var plan = new SubtitleExportPlan(stream, ext, sameExtCount, isKnown);
+
+            var candidatePath = buildOutputPath(plan);
+            var finalPath = finalizeOutputPath == null ? candidatePath : finalizeOutputPath(candidatePath);
+            if (finalPath == null)
+                continue;
+
+            try
+            {
+                ExtractSubtitle(executableService, stream, media.Path, finalPath, mkvextractPath);
+                results.Add(finalPath);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, media.Path);
+                onExtractFailed?.Invoke(stream, ex);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Resolves path or MediaFile inputs to a sequence of MediaFile instances (expands directories to .mkv files).
     /// </summary>
     public static IEnumerable<MediaFile> ResolveMediaFiles(
