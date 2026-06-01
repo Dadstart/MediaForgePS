@@ -30,13 +30,36 @@ public static class SubtitleExportHelper
 
     /// <summary>
     /// Builds the output file path for an exported subtitle stream (e.g. movie.eng.sdh.srt or movie.2.eng.sdh.sup).
+    /// The stream index is included only when more than one subtitle shares the same extension.
     /// </summary>
-    public static string GetOutputPath(string mediaFilePath, int streamIndex, int totalSubtitleCount, string extension)
+    public static string GetOutputPath(string mediaFilePath, int streamIndex, int sameExtensionCount, string extension)
     {
         var basePath = Path.ChangeExtension(mediaFilePath, null)?.TrimEnd('.') ?? mediaFilePath;
-        return totalSubtitleCount > 1
+        return sameExtensionCount > 1
             ? basePath + $".{streamIndex}.eng.sdh.{extension}"
             : basePath + $".eng.sdh.{extension}";
+    }
+
+    /// <summary>
+    /// Resolves the output extension for a subtitle stream's codec, falling back to "bin" if unknown.
+    /// </summary>
+    public static string GetExtensionForStream(MediaStream stream)
+    {
+        return CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext)
+            ? ext
+            : "bin";
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of output extension → number of subtitle streams that will use that extension.
+    /// Use the returned count when calling <see cref="GetOutputPath"/> so the stream index is omitted when an
+    /// extension is unique within the file.
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> BuildExtensionCounts(IEnumerable<MediaStream> subtitles)
+    {
+        return subtitles
+            .GroupBy(GetExtensionForStream, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

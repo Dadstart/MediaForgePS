@@ -75,12 +75,13 @@ internal sealed class SeriesCaptionExtractionPhase(
 
             var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
             var extractedPaths = new List<string>();
+            var extensionCounts = SubtitleExportHelper.BuildExtensionCounts(subtitles);
 
             foreach (var stream in subtitles)
             {
-                if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext))
-                    ext = "bin";
-                var outputPathSameNaming = SubtitleExportHelper.GetOutputPath(filePath, stream.Index, subtitles.Count, ext);
+                var ext = SubtitleExportHelper.GetExtensionForStream(stream);
+                var countForExtension = extensionCounts.TryGetValue(ext, out var c) ? c : 1;
+                var outputPathSameNaming = SubtitleExportHelper.GetOutputPath(filePath, stream.Index, countForExtension, ext);
                 var outputPath = Path.Combine(captionDir, Path.GetFileName(outputPathSameNaming));
 
                 try

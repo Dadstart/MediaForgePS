@@ -629,13 +629,13 @@ public class ConvertVideoFileCommand : CmdletBase
 
         var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
         var extractedPaths = new List<string>();
+        var extensionCounts = SubtitleExportHelper.BuildExtensionCounts(subtitles);
 
         foreach (var stream in subtitles)
         {
-            if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext))
-                ext = "bin";
-
-            var outputPath = SubtitleExportHelper.GetOutputPath(resolvedOutputMp4Path, stream.Index, subtitles.Count, ext);
+            var ext = SubtitleExportHelper.GetExtensionForStream(stream);
+            var countForExtension = extensionCounts.TryGetValue(ext, out var c) ? c : 1;
+            var outputPath = SubtitleExportHelper.GetOutputPath(resolvedOutputMp4Path, stream.Index, countForExtension, ext);
             if (!PathResolver.TryResolveOutputPath(outputPath, out var resolvedOutputPath))
             {
                 Logger.LogWarning("Failed to resolve caption output path: {Path}", outputPath);

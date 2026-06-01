@@ -518,9 +518,10 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 continue;
             }
 
+            var extensionCounts = SubtitleExportHelper.BuildExtensionCounts(subtitles);
             foreach (var sub in subtitles)
             {
-                if (ExportSingleSubtitle(sub, mediaFile, subtitles.Count, out var path))
+                if (ExportSingleSubtitle(sub, mediaFile, extensionCounts, out var path))
                     exportedPaths.Add(path);
             }
 
@@ -531,7 +532,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         return exportedPaths;
     }
 
-    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount, out string resolvedOutput)
+    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, IReadOnlyDictionary<string, int> extensionCounts, out string resolvedOutput)
     {
         resolvedOutput = string.Empty;
         if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
@@ -540,7 +541,8 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             ext = "bin";
         }
 
-        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
+        var countForExtension = extensionCounts.TryGetValue(ext, out var c) ? c : 1;
+        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, countForExtension, ext);
         if (!TryResolveOutputPath(PathResolverService, newPath, out var resolved))
             return false;
 

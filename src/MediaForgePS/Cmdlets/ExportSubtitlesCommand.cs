@@ -172,19 +172,20 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
+        var extensionCounts = SubtitleExportHelper.BuildExtensionCounts(subtitles);
         var subIndex = 0;
         foreach (var sub in subtitles)
         {
             subIndex++;
             var percent = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0);
             MediaConversionHelper.WriteCurrentItemProgress(this, fileName, $"Stream {sub.Index} ({sub.Codec})", percentComplete: percent);
-            if (ExportSingleSubtitle(sub, mediaFile, subtitles.Count, out var path))
+            if (ExportSingleSubtitle(sub, mediaFile, extensionCounts, out var path))
                 exportedPaths.Add(path);
         }
         MediaConversionHelper.WriteCurrentItemProgress(this, fileName, "Complete", recordType: ProgressRecordType.Completed);
     }
 
-    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount, out string resolvedOutput)
+    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, IReadOnlyDictionary<string, int> extensionCounts, out string resolvedOutput)
     {
         resolvedOutput = string.Empty;
         if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
@@ -193,7 +194,8 @@ public class ExportSubtitlesCommand : CmdletBase
             ext = "bin";
         }
 
-        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
+        var countForExtension = extensionCounts.TryGetValue(ext, out var c) ? c : 1;
+        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, countForExtension, ext);
         if (!TryResolveOutputPath(PathResolver, newPath, out var resolved))
             return false;
 
