@@ -4,8 +4,17 @@ PowerShell module for managing video files (MP4, MKV, etc.) directly from the te
 
 ## Requirements
 
-- .NET 10 SDK
-- PowerShell 7.5
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (10.0.300 or later; see `global.json`)
+- [PowerShell 7.5+](https://github.com/PowerShell/PowerShell/releases)
+- [FFmpeg](https://ffmpeg.org/) (`ffmpeg` and `ffprobe` on `PATH`) — required for most cmdlets
+
+Optional tools used by specific workflows:
+
+| Tool | Used by |
+|------|---------|
+| [mkvtoolnix](https://mkvtoolnix.download/) (`mkvextract`) | Matroska VobSub extraction in `Convert-VideoFile`, `Export-Subtitles`, and related workflows |
+| [Subtitle Edit](https://www.nikse.dk/subtitleedit/) | OCR subtitle conversion (`Convert-ImageSubtitlesToSrt`, `Export-Subtitles`, `Invoke-SubtitleOcrRepair`) |
+| [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) | Image subtitle OCR (used with Subtitle Edit) |
 
 ## Building
 
@@ -13,45 +22,68 @@ PowerShell module for managing video files (MP4, MKV, etc.) directly from the te
 dotnet build
 ```
 
+## Using the module (development)
+
+Build the module, then launch an interactive session with the module imported:
+
+```powershell
+.\scripts\Launch.ps1
+```
+
+`Launch.ps1` builds if needed, opens a new PowerShell 7.5 window, imports the Debug build, and prints the process ID for attaching a debugger. Use `-Configuration Release` for a Release build.
+
 ## Testing
 
 ### Run all tests
+
 ```powershell
 dotnet test
 ```
 
 ### Run C# unit tests only
+
 ```powershell
 dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 ```
 
-### Run PowerShell unit tests (Pester)
+### Run component tests
 
-**Note:** The module will be automatically built if needed when running Pester tests.
+Component tests exercise cmdlets with real `ffmpeg`/`ffprobe` (no mocks). They are skipped automatically when media tools or test assets are missing.
 
 ```powershell
-# From repository root
-$configPath = "tests/MediaForgePS.Tests/PesterConfig.psd1"
-$config = Import-PowerShellDataFile -Path $configPath
-$pesterConfig = New-PesterConfiguration -Hashtable $config
-$pesterConfig.Run.Path = "tests/MediaForgePS.Tests/PowerShell"
-Invoke-Pester -Configuration $pesterConfig
+dotnet test tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj
 ```
 
-Or run with inline parameters (simpler):
+See [tests/MediaForgePS.ComponentTests/TestAssets/README.md](tests/MediaForgePS.ComponentTests/TestAssets/README.md) for test media assets.
+
+### Run PowerShell unit tests (Pester)
+
+**Note:** The module is built automatically when needed.
+
+Recommended — use the provided script:
+
 ```powershell
-# From repository root
+.\tests\MediaForgePS.Tests\Run-PesterTests.ps1
+```
+
+Or run manually from the repository root:
+
+```powershell
 Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -OutputFile TestResults/PesterResults.xml -OutputFormat NUnitXml -Verbosity Detailed
 ```
 
-**Note:** If you prefer to build manually first:
+To build manually first:
+
 ```powershell
 dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug
 ```
 
+See [tests/README.md](tests/README.md) for more detail on each test project.
+
 ## Code Quality
 
 Before committing, ensure:
+
 - `dotnet build` passes without errors
 - `dotnet format --verify-no-changes` passes
 - All tests pass
@@ -63,11 +95,15 @@ MediaForgePS/
 ├── src/
 │   └── MediaForgePS/          # Main module project
 │       ├── Cmdlets/           # C# cmdlet implementations
+│       ├── Models/            # Media and encoding types
+│       ├── Services/          # FFmpeg, conversion, and workflow services
+│       ├── docs/              # platyPS Markdown help source
 │       └── MediaForgePS.psm1  # Module root script
 ├── tests/
 │   ├── MediaForgePS.Tests/           # Unit tests (xUnit + Pester)
-│   ├── MediaForgePS.ComponentTests/  # Component test infrastructure
-│   └── MediaForgePS.E2ETests/        # E2E test infrastructure
+│   ├── MediaForgePS.ComponentTests/  # Cmdlet tests with real ffmpeg/ffprobe
+│   └── MediaForgePS.E2ETests/        # End-to-end test infrastructure
+├── scripts/                   # Build, help, and dev-session scripts
 └── .github/workflows/         # CI/CD workflows
 ```
 
@@ -87,7 +123,7 @@ Full `Get-Help` text is built from Markdown under `src/MediaForgePS/docs`. Regen
 
 | Cmdlet | Description |
 |--------|-------------|
-| `Convert-VideoFile` | Batch MKV → MP4 with auto audio mapping and optional captions |
+| `Convert-VideoFile` | Batch video-to-MP4 conversion with auto audio mapping and optional captions (MKV, MP4, MOV, AVI, WebM, and more) |
 | `Convert-MediaFiles` | Batch conversion with configurable encoder and audio mappings |
 | `Convert-MediaFileAdvanced` | Single-file conversion with explicit encoding settings |
 | `New-VideoEncodingSettings` | Build `VideoEncodingSettings` for conversion cmdlets |
