@@ -17,6 +17,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [OutputType(typeof(string))]
 public class InvokeSubtitleOcrRepairCommand : CmdletBase
 {
+    protected override bool ShouldSetCommandTerminalTitle => true;
+
     /// <summary>
     /// Path(s) to .sup, .sub, or .srt file(s), or directory/directories containing them. Pipeline accepts path strings.
     /// </summary>

@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Management.Automation;
 using System.Threading;
-using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -65,41 +63,19 @@ internal sealed class SeriesCaptionExtractionPhase(
             if (media == null)
                 return Array.Empty<string>();
 
-            var subtitles = (media.Streams ?? Array.Empty<MediaStream>())
-                .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
-                    (s.Language ?? string.Empty).StartsWith("en", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (subtitles.Count == 0)
-                return Array.Empty<string>();
-
             var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
-            var extractedPaths = new List<string>();
 
-            foreach (var stream in subtitles)
-            {
-                if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext))
-                    ext = "bin";
-                var outputPathSameNaming = SubtitleExportHelper.GetOutputPath(filePath, stream.Index, subtitles.Count, ext);
-                var outputPath = Path.Combine(captionDir, Path.GetFileName(outputPathSameNaming));
-
-                try
+            return SubtitleExportHelper.ExtractEnglishSubtitles(
+                executableService,
+                media,
+                mkvextractPath,
+                buildOutputPath: plan =>
                 {
-                    SubtitleExportHelper.ExtractSubtitle(
-                        executableService,
-                        stream,
-                        filePath,
-                        outputPath,
-                        mkvextractPath);
-                    extractedPaths.Add(outputPath);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, filePath);
-                }
-            }
-
-            return extractedPaths;
+                    var sameNamingPath = SubtitleExportHelper.GetOutputPath(
+                        filePath, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount);
+                    return Path.Combine(captionDir, Path.GetFileName(sameNamingPath));
+                },
+                logger: logger);
         }
         catch (Exception ex)
         {

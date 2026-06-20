@@ -765,14 +765,15 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:verb>Convert</command:verb>
       <command:noun>VideoFile</command:noun>
       <maml:description>
-        <maml:para>Converts MKV files in a directory (or specified paths) to MP4 with automatic audio mapping and optional caption extraction.</maml:para>
+        <maml:para>Converts video files in a directory (or specified paths) to MP4 with automatic audio mapping and optional caption extraction. Supports common container formats including MKV, MP4, MOV, AVI, WebM, and more.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for MKV sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.</maml:para>
-      <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams from each source MKV next to the output MP4 (using mkvextract). Unless -SkipOcr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -SkipOcr has no effect when -SkipSubtitles is set.</maml:para>
+      <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.</maml:para>
+      <maml:para>Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.</maml:para>
+      <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced. Unless -SkipOcr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -SkipOcr has no effect when -SkipSubtitles is set.</maml:para>
       <maml:para>Default video encoding follows -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). The default encoder is nvenc. Pass -X265Params for extra x265 options when using x265.</maml:para>
-      <maml:para>InputPath accepts a directory, a single MKV file, or multiple MKV paths. Aliases: InputDirectory, Path. When -OutputDirectory is omitted, output is written alongside each input (same directory as the source file or input root). Use -Recurse to include MKV files in subdirectories when InputPath is a directory.</maml:para>
+      <maml:para>InputPath accepts a directory, a single video file, or multiple video file paths. Aliases: InputDirectory, Path. When -OutputDirectory is omitted, output is written alongside each input (same directory as the source file or input root). Use -Recurse to include video files in subdirectories when InputPath is a directory.</maml:para>
       <maml:para>Progress reporting includes per-file and batch ETA based on completed file sizes.</maml:para>
     </maml:description>
     <command:syntax>
@@ -781,7 +782,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="InputDirectory, Path">
           <maml:name>InputPath</maml:name>
           <maml:description>
-            <maml:para>Directory containing MKV files, a single MKV file path, or an array of MKV file paths.</maml:para>
+            <maml:para>Directory containing video files, a single video file path, or an array of video file paths. Supported extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf` (case-insensitive).</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
           <dev:type>
@@ -822,7 +823,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>Recurse</maml:name>
           <maml:description>
-            <maml:para>When InputPath is a directory, include MKV files in subdirectories.</maml:para>
+            <maml:para>When InputPath is a directory, include video files in subdirectories.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -855,7 +856,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipSubtitles</maml:name>
           <maml:description>
-            <maml:para>Skip caption extraction after converting MKV files.</maml:para>
+            <maml:para>Skip caption extraction after converting video files.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -905,7 +906,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="InputDirectory, Path">
         <maml:name>InputPath</maml:name>
         <maml:description>
-          <maml:para>Directory containing MKV files, a single MKV file path, or an array of MKV file paths.</maml:para>
+          <maml:para>Directory containing video files, a single video file path, or an array of video file paths. Supported extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf` (case-insensitive).</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
         <dev:type>
@@ -929,7 +930,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>Recurse</maml:name>
         <maml:description>
-          <maml:para>When InputPath is a directory, include MKV files in subdirectories.</maml:para>
+          <maml:para>When InputPath is a directory, include video files in subdirectories.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -965,7 +966,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>SkipSubtitles</maml:name>
         <maml:description>
-          <maml:para>Skip caption extraction after converting MKV files.</maml:para>
+          <maml:para>Skip caption extraction after converting video files.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -1005,7 +1006,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
           <maml:name>System.String[]</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Directory path, MKV file path(s), or piped paths. Aliases: InputDirectory, Path.</maml:para>
+          <maml:para>Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Path.</maml:para>
         </maml:description>
       </command:inputType>
     </command:inputTypes>
@@ -1021,22 +1022,22 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires FFmpeg and ffprobe. Caption extraction requires mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -SkipOcr is not specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.</maml:para>
+        <maml:para>Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -SkipOcr is not specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>
-        <maml:title>Example 1: Convert all MKV files in a folder with NVENC (default)</maml:title>
+        <maml:title>Example 1: Convert all video files in a folder with NVENC (default)</maml:title>
         <dev:code>Convert-VideoFile -InputPath "C:\Videos\Season1"</dev:code>
         <dev:remarks>
-          <maml:para>Converts each .mkv under C:\Videos\Season1 to .mp4 in the same folder, extracts English captions, and runs OCR plus SRT repair on image-based tracks.</maml:para>
+          <maml:para>Converts each supported video file under C:\Videos\Season1 to .mp4 in the same folder, extracts English captions, and runs OCR plus SRT repair on image-based tracks.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
         <maml:title>- Example 2: Convert to a separate output directory with x265 -</maml:title>
         <dev:code>Convert-VideoFile -InputPath "C:\Source" -OutputDirectory "C:\Out" -DefaultVideoEncoder x265 -Recurse</dev:code>
         <dev:remarks>
-          <maml:para>Converts all MKV files under C:\Source (including subfolders) to C:\Out preserving relative paths, using libx265 defaults.</maml:para>
+          <maml:para>Converts all supported video files under C:\Source (including subfolders) to C:\Out preserving relative paths, using libx265 defaults.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
@@ -1051,6 +1052,13 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <dev:code>Convert-VideoFile -InputPath "C:\In" -SkipOcr</dev:code>
         <dev:remarks>
           <maml:para>Extracts English subtitle sidecars but does not convert SUP/SUB to SRT or repair SRT files.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-- Example 5: Convert a non-Matroska source (e.g. MP4 or MOV) --</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "D:\Cameras\clip.mov" -OutputDirectory "D:\Out"</dev:code>
+        <dev:remarks>
+          <maml:para>Accepts any supported container as input. Subtitle extraction uses ffmpeg for non-Matroska sources.</maml:para>
         </dev:remarks>
       </command:example>
     </command:examples>

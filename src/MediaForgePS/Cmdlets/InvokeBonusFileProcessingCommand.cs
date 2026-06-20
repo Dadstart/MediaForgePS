@@ -483,12 +483,9 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
         WriteHostMessage($"Extracting subtitles from {bonusMkvPaths.Count} bonus file(s)...", ConsoleColor.Cyan);
         var exportedPaths = new List<string>();
         var mkvextractPath = WindowsExecutablePathHelper.GetMkvextractPath();
-        var totalFiles = bonusMkvPaths.Count;
 
-        for (var i = 0; i < bonusMkvPaths.Count; i++)
+        foreach (var mkvPath in bonusMkvPaths)
         {
-            var mkvPath = bonusMkvPaths[i];
-            var fileIndex = i + 1;
             var fileName = Path.GetFileName(mkvPath);
             MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Extracting... - {fileName}", recordType: ProgressRecordType.Processing);
 
@@ -507,21 +504,22 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
             if (mediaFile == null)
                 continue;
 
-            var subtitles = (mediaFile.Streams ?? Array.Empty<MediaStream>())
-                .Where(s => string.Equals(s.Type, "subtitle", StringComparison.OrdinalIgnoreCase) &&
-                    (s.Language ?? "").StartsWith("en", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var extracted = SubtitleExportHelper.ExtractEnglishSubtitles(
+                ExecutableService,
+                mediaFile,
+                mkvextractPath,
+                buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                    mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
+                finalizeOutputPath: candidate => TryResolveOutputPath(PathResolverService, candidate, out var resolved) ? resolved : null,
+                onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
+                onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
+                onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
+                Logger);
 
-            if (subtitles.Count == 0)
+            foreach (var path in extracted)
             {
-                WriteVerbose($"No English subtitles in {fileName}");
-                continue;
-            }
-
-            foreach (var sub in subtitles)
-            {
-                if (ExportSingleSubtitle(sub, mediaFile, subtitles.Count, out var path))
-                    exportedPaths.Add(path);
+                WriteVerbose($"Extracted {Path.GetFileName(path)}");
+                exportedPaths.Add(path);
             }
 
             MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Completed - {fileName}", recordType: ProgressRecordType.Completed);
@@ -529,40 +527,6 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
 
         MediaConversionHelper.WriteProgressCompleted(this, "Subtitle extraction", "Current file");
         return exportedPaths;
-    }
-
-    private bool ExportSingleSubtitle(MediaStream stream, MediaFile mediaFile, int totalSubtitleCount, out string resolvedOutput)
-    {
-        resolvedOutput = string.Empty;
-        if (!SubtitleExportHelper.CodecToExtension.TryGetValue(stream.Codec ?? "", out var ext))
-        {
-            WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension");
-            ext = "bin";
-        }
-
-        var newPath = SubtitleExportHelper.GetOutputPath(mediaFile.Path, stream.Index, totalSubtitleCount, ext);
-        if (!TryResolveOutputPath(PathResolverService, newPath, out var resolved))
-            return false;
-
-        resolvedOutput = resolved;
-
-        try
-        {
-            SubtitleExportHelper.ExtractSubtitle(
-                ExecutableService,
-                stream,
-                mediaFile.Path,
-                resolved,
-                WindowsExecutablePathHelper.GetMkvextractPath());
-            WriteVerbose($"Extracted {Path.GetFileName(resolved)}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, mediaFile.Path);
-            WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path);
-            return false;
-        }
     }
 
     private void WriteConversionSummary()

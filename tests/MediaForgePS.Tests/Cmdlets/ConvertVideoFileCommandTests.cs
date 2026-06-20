@@ -159,7 +159,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         Assert.NotEmpty(progress);
         Assert.Contains(
             progress,
-            p => string.Equals(p.Activity, "MKV directory conversion", StringComparison.Ordinal));
+            p => string.Equals(p.Activity, "Video file conversion", StringComparison.Ordinal));
         Assert.Contains(
             progress,
             p => string.Equals(p.Activity, "File conversion", StringComparison.Ordinal));
@@ -172,7 +172,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         Assert.Contains(
             information,
             r => r.MessageData is HostInformationMessage host
-                && host.Message.Contains("Converting 2 MKV", StringComparison.Ordinal));
+                && host.Message.Contains("Converting 2 video file", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -408,6 +408,223 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             Times.Never);
     }
 
+    [Fact]
+    public void ConvertVideoFile_WithMp4SingleInput_ConvertsFile()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mp4Path = Path.Combine(root, "clip.mp4");
+        File.WriteAllText(mp4Path, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mp4Path, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mp4Path));
+
+        var expectedOutput = Path.Combine(output, "clip.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", mp4Path)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            mp4Path,
+            expectedOutput,
+            It.IsAny<VideoEncodingSettings>(),
+            mapping,
+            It.IsAny<string[]?>()), Times.Once);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_DirectoryWithMixedVideoExtensions_ConvertsAllSupportedFiles()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var mkvPath = Path.Combine(root, "alpha.mkv");
+        var mp4Path = Path.Combine(root, "bravo.mp4");
+        var movPath = Path.Combine(root, "charlie.mov");
+        var aviPath = Path.Combine(root, "delta.AVI");
+        var textPath = Path.Combine(root, "notes.txt");
+
+        File.WriteAllText(mkvPath, "x");
+        File.WriteAllText(mp4Path, "x");
+        File.WriteAllText(movPath, "x");
+        File.WriteAllText(aviPath, "x");
+        File.WriteAllText(textPath, "ignored");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+
+        foreach (var path in new[] { mkvPath, mp4Path, movPath, aviPath })
+        {
+            _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(path, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(CreateMediaFile(path));
+        }
+
+        var mkvOutput = Path.Combine(output, "alpha.mp4");
+        var mp4Output = Path.Combine(output, "bravo.mp4");
+        var movOutput = Path.Combine(output, "charlie.mp4");
+        var aviOutput = Path.Combine(output, "delta.mp4");
+        SetupOutputPathResolution(mkvOutput);
+        SetupOutputPathResolution(mp4Output);
+        SetupOutputPathResolution(movOutput);
+        SetupOutputPathResolution(aviOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        foreach (var (input, expected) in new[]
+        {
+            (mkvPath, mkvOutput),
+            (mp4Path, mp4Output),
+            (movPath, movOutput),
+            (aviPath, aviOutput),
+        })
+        {
+            _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+                input,
+                expected,
+                It.IsAny<VideoEncodingSettings>(),
+                mapping,
+                It.IsAny<string[]?>()), Times.Once);
+        }
+
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            textPath,
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_WithUnsupportedExtension_WritesErrorAndDoesNotConvert()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var unsupportedPath = Path.Combine(root, "notes.txt");
+        File.WriteAllText(unsupportedPath, "x");
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", unsupportedPath)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        var error = Assert.Single(errors);
+        Assert.Equal("InvalidInputPath", error.FullyQualifiedErrorId.Split(',')[0]);
+        Assert.Contains("not a supported video format", error.Exception.Message, StringComparison.OrdinalIgnoreCase);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_DirectoryWithOnlyNonVideoFiles_WritesNoSupportedVideoFilesWarning()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        File.WriteAllText(Path.Combine(root, "readme.txt"), "x");
+        File.WriteAllText(Path.Combine(root, "image.png"), "x");
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var warnings = ps.Streams.Warning.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(warnings, w => w.Message.Contains("No supported video files", StringComparison.OrdinalIgnoreCase));
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>()), Times.Never);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_Mp4SourceWithVobSubSubtitle_FallsBackToFfmpegTargetingIdx()
+    {
+        _executableServiceMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mp4Path = Path.Combine(root, "clip.mp4");
+        File.WriteAllText(mp4Path, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mp4Path, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFileWithEnglishVobSub(mp4Path));
+
+        var mp4Output = Path.Combine(output, "clip.mp4");
+        var idxOutput = Path.Combine(output, "clip.eng.sdh.idx");
+        var subOutput = Path.Combine(output, "clip.eng.sdh.sub");
+        SetupOutputPathResolution(mp4Output);
+        SetupOutputPathResolution(subOutput);
+        SetupOutputPathResolution(idxOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", root)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipOcr");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _executableServiceMock.Verify(
+            service => service.ExecuteAsync(
+                "ffmpeg",
+                It.Is<IEnumerable<string>>(args => args.Contains(idxOutput)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     private void SetupOutputPathResolution(string outputPath)
     {
         var resolved = outputPath;
@@ -478,6 +695,49 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         return new MediaFile(
             path,
             new MediaFormat(path, 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            new[] { video, audio, subtitle },
+            "{}");
+    }
+
+    private static MediaFile CreateMediaFileWithEnglishVobSub(string path)
+    {
+        var video = new MediaStream(
+            "video",
+            0,
+            "h264",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string>(),
+            TimeSpan.Zero,
+            null,
+            @"{""index"":0,""codec_type"":""video""}");
+
+        var audio = new MediaStream(
+            "audio",
+            1,
+            "aac",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng",
+            @"{""index"":1,""codec_type"":""audio""}");
+
+        var subtitle = new MediaStream(
+            "subtitle",
+            2,
+            "dvd_subtitle",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng",
+            @"{""index"":2,""codec_type"":""subtitle""}");
+
+        return new MediaFile(
+            path,
+            new MediaFormat(path, 3, "mov,mp4,m4a,3gp,3g2,mj2", "QuickTime", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             new[] { video, audio, subtitle },
             "{}");

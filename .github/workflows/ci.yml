@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DotnetVersion: 10.0.x
+  DotnetVersion: 10.0.300
   MinPowerShellVersion: 7.6.0
 
 jobs:
