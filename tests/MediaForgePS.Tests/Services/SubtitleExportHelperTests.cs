@@ -275,7 +275,7 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
 
         var path = Assert.Single(result);
         Assert.Equal(@"C:\media\movie.eng.sdh.srt", path);
@@ -285,7 +285,7 @@ public class SubtitleExportHelperTests
     }
 
     [Fact]
-    public void ExtractEnglishSubtitles_MixedExtensions_OmitsIndexPerExtension()
+    public void ExtractEnglishSubtitles_MixedExtensions_OmitsIndexForLoneTextSrt_IndexesImageTrack()
     {
         var (mock, calls) = CreateExecutableMock();
         var media = CreateMediaFile(@"C:\media\movie.mkv",
@@ -297,12 +297,33 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
 
         Assert.Equal(2, result.Count);
         Assert.Contains(@"C:\media\movie.eng.sdh.srt", result);
-        Assert.Contains(@"C:\media\movie.eng.sdh.sup", result);
+        Assert.Contains(@"C:\media\movie.3.eng.sdh.sup", result);
         Assert.Equal(2, calls.Count);
+    }
+
+    [Fact]
+    public void GetOutputPath_MixedTextAndImageSubtitles_OcrTargetDoesNotCollideWithTextSrt()
+    {
+        var textSrt = SubtitleExportHelper.GetOutputPath(@"C:\out\foo.mp4", streamIndex: 2, sameExtensionCount: 1, extension: "srt", englishSubtitleCount: 2);
+        var imageSup = SubtitleExportHelper.GetOutputPath(@"C:\out\foo.mp4", streamIndex: 3, sameExtensionCount: 1, extension: "sup", englishSubtitleCount: 2);
+        var ocrSrt = Path.ChangeExtension(imageSup, "srt");
+
+        Assert.Equal(@"C:\out\foo.eng.sdh.srt", textSrt);
+        Assert.Equal(@"C:\out\foo.3.eng.sdh.sup", imageSup);
+        Assert.Equal(@"C:\out\foo.3.eng.sdh.srt", ocrSrt);
+        Assert.NotEqual(textSrt, ocrSrt);
+    }
+
+    [Fact]
+    public void GetOutputPath_SingleSrtAmongMultipleEnglishSubtitles_OmitsStreamIndex()
+    {
+        var path = SubtitleExportHelper.GetOutputPath(@"C:\out\foo.mp4", streamIndex: 6, sameExtensionCount: 1, extension: "srt", englishSubtitleCount: 3);
+
+        Assert.Equal(@"C:\out\foo.eng.sdh.srt", path);
     }
 
     [Fact]
@@ -318,7 +339,7 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
 
         Assert.Equal(2, result.Count);
         Assert.Contains(@"C:\media\movie.2.eng.sdh.srt", result);
@@ -338,7 +359,7 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
             onUnknownCodec: stream => reported.Add(stream));
 
         var path = Assert.Single(result);
@@ -360,7 +381,7 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
             finalizeOutputPath: candidate => candidate.Contains(".2.") ? null : candidate);
 
         var path = Assert.Single(result);
@@ -386,7 +407,7 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
             onExtractFailed: (s, ex) => failures.Add((s, ex)));
 
         var path = Assert.Single(result);

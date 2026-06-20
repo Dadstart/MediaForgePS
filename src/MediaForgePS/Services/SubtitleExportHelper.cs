@@ -30,15 +30,27 @@ public static class SubtitleExportHelper
 
     /// <summary>
     /// Builds the output file path for an exported subtitle stream (e.g. movie.eng.sdh.srt or movie.2.eng.sdh.sup).
-    /// The stream index is included only when more than one subtitle shares the same extension.
+    /// The stream index is included when more than one subtitle shares the same extension, or when an image-based
+    /// track (SUP/SUB) would OCR to the same .srt path as a lone unindexed text subtitle in the same file.
     /// </summary>
-    public static string GetOutputPath(string mediaFilePath, int streamIndex, int sameExtensionCount, string extension)
+    public static string GetOutputPath(
+        string mediaFilePath,
+        int streamIndex,
+        int sameExtensionCount,
+        string extension,
+        int englishSubtitleCount)
     {
         var basePath = Path.ChangeExtension(mediaFilePath, null)?.TrimEnd('.') ?? mediaFilePath;
-        return sameExtensionCount > 1
+        var includeStreamIndex = sameExtensionCount > 1
+            || (englishSubtitleCount > 1 && IsImageBasedExportExtension(extension));
+        return includeStreamIndex
             ? basePath + $".{streamIndex}.eng.sdh.{extension}"
             : basePath + $".eng.sdh.{extension}";
     }
+
+    private static bool IsImageBasedExportExtension(string extension) =>
+        extension.Equals("sup", StringComparison.OrdinalIgnoreCase)
+        || extension.Equals("sub", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Resolves the output extension for a subtitle stream's codec, falling back to "bin" if unknown.
@@ -52,8 +64,6 @@ public static class SubtitleExportHelper
 
     /// <summary>
     /// Builds a case-insensitive map of output extension → number of subtitle streams that will use that extension.
-    /// Use the returned count when calling <see cref="GetOutputPath"/> so the stream index is omitted when an
-    /// extension is unique within the file.
     /// </summary>
     public static IReadOnlyDictionary<string, int> BuildExtensionCounts(IEnumerable<MediaStream> subtitles)
     {
@@ -82,13 +92,12 @@ public static class SubtitleExportHelper
 
     /// <summary>
     /// Per-stream plan produced by <see cref="ExtractEnglishSubtitles"/> when iterating extractable subtitle streams.
-    /// <paramref name="SameExtensionCount"/> is the number of subtitle streams that share <paramref name="Extension"/>
-    /// in the source file; pass it to <see cref="GetOutputPath"/> to decide whether to include the stream index.
     /// </summary>
     public readonly record struct SubtitleExportPlan(
         MediaStream Stream,
         string Extension,
         int SameExtensionCount,
+        int EnglishSubtitleCount,
         bool IsKnownCodec);
 
     /// <summary>
@@ -129,8 +138,9 @@ public static class SubtitleExportHelper
             return Array.Empty<string>();
         }
 
-        var counts = BuildExtensionCounts(subtitles);
-        var results = new List<string>(subtitles.Count);
+        var englishSubtitleCount = subtitles.Count;
+        var extensionCounts = BuildExtensionCounts(subtitles);
+        var results = new List<string>(englishSubtitleCount);
 
         foreach (var stream in subtitles)
         {
@@ -139,8 +149,8 @@ public static class SubtitleExportHelper
             if (!isKnown)
                 onUnknownCodec?.Invoke(stream);
 
-            var sameExtCount = counts.TryGetValue(ext, out var c) ? c : 1;
-            var plan = new SubtitleExportPlan(stream, ext, sameExtCount, isKnown);
+            var sameExtensionCount = extensionCounts.TryGetValue(ext, out var count) ? count : 1;
+            var plan = new SubtitleExportPlan(stream, ext, sameExtensionCount, englishSubtitleCount, isKnown);
 
             var candidatePath = buildOutputPath(plan);
             var finalPath = finalizeOutputPath == null ? candidatePath : finalizeOutputPath(candidatePath);

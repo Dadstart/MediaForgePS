@@ -72,7 +72,7 @@ internal sealed class SeriesCaptionExtractionPhase(
                 buildOutputPath: plan =>
                 {
                     var sameNamingPath = SubtitleExportHelper.GetOutputPath(
-                        filePath, plan.Stream.Index, plan.SameExtensionCount, plan.Extension);
+                        filePath, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount);
                     return Path.Combine(captionDir, Path.GetFileName(sameNamingPath));
                 },
                 logger: logger);

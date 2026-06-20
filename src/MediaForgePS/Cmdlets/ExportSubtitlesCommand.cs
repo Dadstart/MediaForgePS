@@ -175,7 +175,7 @@ public class ExportSubtitlesCommand : CmdletBase
                 var percent = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0);
                 MediaConversionHelper.WriteCurrentItemProgress(this, fileName, $"Stream {plan.Stream.Index} ({plan.Stream.Codec})", percentComplete: percent);
                 return SubtitleExportHelper.GetOutputPath(
-                    mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension);
+                    mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount);
             },
             finalizeOutputPath: candidate => TryResolveOutputPath(PathResolver, candidate, out var resolved) ? resolved : null,
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),

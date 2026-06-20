@@ -624,7 +624,7 @@ public class ConvertVideoFileCommand : CmdletBase
             mediaFile,
             mkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                resolvedOutputMp4Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+                resolvedOutputMp4Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
             finalizeOutputPath: candidate =>
             {
                 if (PathResolver.TryResolveOutputPath(candidate, out var resolved))

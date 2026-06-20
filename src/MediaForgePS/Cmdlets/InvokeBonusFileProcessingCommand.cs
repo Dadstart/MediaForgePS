@@ -509,7 +509,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 mediaFile,
                 mkvextractPath,
                 buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                    mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension),
+                    mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
                 finalizeOutputPath: candidate => TryResolveOutputPath(PathResolverService, candidate, out var resolved) ? resolved : null,
                 onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
                 onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
