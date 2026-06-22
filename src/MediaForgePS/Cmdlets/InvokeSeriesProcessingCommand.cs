@@ -95,13 +95,13 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based captions (SUP, SUB).
+    /// When specified, converts image-based captions (SUP, SUB) to SRT via OCR and repairs SRT files unless -SkipRepair is specified.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image captions to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "Convert image captions to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is not specified.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
     public SwitchParameter SkipRepair { get; set; }
@@ -193,7 +193,7 @@ public class InvokeSeriesProcessingCommand : CmdletBase
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
 
-            if (!SkipOcr.IsPresent)
+            if (Ocr.IsPresent)
             {
                 var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
                 if (extractedCaptionPaths.Count > 0)

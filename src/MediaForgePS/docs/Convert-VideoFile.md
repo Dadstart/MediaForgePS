@@ -14,7 +14,7 @@ Converts video files in a directory (or specified paths) to MP4 with automatic a
 
 ```
 Convert-VideoFile [-InputPath] <String[]> [[-OutputDirectory] <String>] [-Recurse]
- [-DefaultVideoEncoder <String>] [-X265Params <String>] [-SkipSubtitles] [-SkipOcr] [-SkipRepair]
+ [-DefaultVideoEncoder <String>] [-X265Params <String>] [-SkipSubtitles] [-Ocr] [-SkipRepair]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
@@ -23,7 +23,7 @@ Convert-VideoFile is the primary batch conversion cmdlet for video sources. For 
 
 Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.
 
-Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced. Unless -SkipOcr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -SkipOcr has no effect when -SkipSubtitles is set.
+Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced. When -Ocr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -Ocr has no effect when -SkipSubtitles is set.
 
 Default video encoding follows -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). The default encoder is nvenc. Pass -X265Params for extra x265 options when using x265.
 
@@ -38,7 +38,7 @@ Progress reporting includes per-file and batch ETA based on completed file sizes
 Convert-VideoFile -InputPath "C:\Videos\Season1"
 ```
 
-Converts each supported video file under C:\Videos\Season1 to .mp4 in the same folder, extracts English captions, and runs OCR plus SRT repair on image-based tracks.
+Converts each supported video file under C:\Videos\Season1 to .mp4 in the same folder and extracts English caption sidecars.
 
 ### Example 2: Convert to a separate output directory with x265
 ```powershell
@@ -54,12 +54,12 @@ Convert-VideoFile -InputPath "D:\movie.mkv" -SkipSubtitles
 
 Converts only the video and audio; skips subtitle extraction and OCR.
 
-### Example 4: Convert and extract captions without OCR or repair
+### Example 4: Convert and extract captions with OCR and repair
 ```powershell
-Convert-VideoFile -InputPath "C:\In" -SkipOcr
+Convert-VideoFile -InputPath "C:\In" -Ocr
 ```
 
-Extracts English subtitle sidecars but does not convert SUP/SUB to SRT or repair SRT files.
+Extracts English subtitle sidecars, converts SUP/SUB to SRT via OCR, and repairs SRT files.
 
 ### Example 5: Convert a non-Matroska source (e.g. MP4 or MOV)
 ```powershell
@@ -131,23 +131,8 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -SkipOcr
-Skip OCR conversion of image captions (SUP, SUB) to SRT. Has no effect when -SkipSubtitles is specified.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: False
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
 ### -SkipRepair
-Skip SRT repair during default OCR processing. Has no effect when -SkipOcr or -SkipSubtitles is specified.
+Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified or -SkipSubtitles is specified.
 
 ```yaml
 Type: SwitchParameter
@@ -206,6 +191,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Ocr
+Convert image captions to SRT via OCR and repair SRT files.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -220,7 +220,7 @@ Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Pat
 For each processed file: InputPath, OutputPath, Success, Status.
 
 ## NOTES
-Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -SkipOcr is not specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.
+Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -Ocr is specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.
 
 ## RELATED LINKS
 

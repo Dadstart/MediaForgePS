@@ -8,19 +8,19 @@ schema: 2.0.0
 # Export-Subtitles
 
 ## SYNOPSIS
-Exports English subtitle streams from media files and converts image subtitles to SRT via OCR unless skipped.
+Exports English subtitle streams from media files. Use -Ocr to convert image subtitles to SRT and repair SRT files.
 
 ## SYNTAX
 
 ```
-Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipOcr]
- [-SkipRepair] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr] [-SkipRepair]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Export-Subtitles extracts English subtitle tracks from media files (MKV and others). For each file it finds subtitle streams whose language matches English and exports them next to the source file with an appropriate extension (e.g. .srt, .sup).
 
-Unless you specify -SkipOcr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -SkipRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
+When -Ocr is specified, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -SkipRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
 
 ## EXAMPLES
 
@@ -33,14 +33,14 @@ Exports all English subtitle streams from movie.mkv to files alongside the video
 
 ### Example 2: Export from a folder and convert image subtitles to SRT with repair
 ```powershell
-Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -BackupPath "C:\Backup\srts"
+Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -Ocr -BackupPath "C:\Backup\srts"
 ```
 
 Exports subtitles from all MKV files in C:\Videos. Image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then repaired. Resulting SRT paths are emitted to the pipeline.
 
 ### Example 3: Export and convert without SRT repair
 ```powershell
-Export-Subtitles -InputPath "C:\Videos\season1" -SkipRepair
+Export-Subtitles -InputPath "C:\Videos\season1" -Ocr -SkipRepair
 ```
 
 Exports and converts image subtitles to SRT but skips the repair step.
@@ -78,22 +78,7 @@ Accept wildcard characters: False
 ```
 
 ### -SkipRepair
-Skip SRT repair during default OCR processing.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -SkipOcr
-Skip OCR conversion of image subtitles to SRT.
+Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.
 
 ```yaml
 Type: SwitchParameter
@@ -108,7 +93,7 @@ Accept wildcard characters: False
 ```
 
 ### -ThrottleLimit
-Maximum number of image-to-SRT conversions to run in parallel. Only applies unless -SkipOcr is specified. Default is 10.
+Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.
 
 ```yaml
 Type: Int32
@@ -129,6 +114,21 @@ Specifies how the cmdlet responds to progress updates (e.g. Write-Progress). Use
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Ocr
+Convert image subtitles to SRT via OCR and repair SRT files.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
 
 Required: False
 Position: Named

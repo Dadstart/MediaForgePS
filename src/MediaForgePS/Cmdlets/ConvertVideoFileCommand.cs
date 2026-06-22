@@ -93,13 +93,13 @@ public class ConvertVideoFileCommand : CmdletBase
     public SwitchParameter SkipSubtitles { get; set; }
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based captions (SUP, SUB). Has no effect when -SkipSubtitles is specified.
+    /// When specified, converts image-based captions (SUP, SUB) to SRT via OCR and repairs SRT files unless -SkipRepair is specified. Has no effect when -SkipSubtitles is specified.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image captions to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "Convert image captions to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is not specified.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
     public SwitchParameter SkipRepair { get; set; }
@@ -289,7 +289,7 @@ public class ConvertVideoFileCommand : CmdletBase
                     ConsoleColor.Green);
                 WriteVerbose($"Caption extraction - files: {total}, paths: {extractedCaptionPaths.Count}.");
 
-                if (!SkipOcr.IsPresent)
+                if (Ocr.IsPresent)
                 {
                     if (extractedCaptionPaths.Count > 0)
                     {

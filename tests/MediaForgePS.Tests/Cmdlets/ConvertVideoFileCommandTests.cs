@@ -352,8 +352,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", root)
-            .AddParameter("OutputDirectory", output)
-            .AddParameter("SkipOcr");
+            .AddParameter("OutputDirectory", output);
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
@@ -610,8 +609,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", root)
-            .AddParameter("OutputDirectory", output)
-            .AddParameter("SkipOcr");
+            .AddParameter("OutputDirectory", output);
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();

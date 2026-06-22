@@ -114,17 +114,17 @@ public class ExportSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ExportSubtitles_UsesSkipOcrParameter()
+    public void ExportSubtitles_UsesOcrParameter()
     {
         var cmdlet = new ExportSubtitlesCommand();
 
-        Assert.False(cmdlet.SkipOcr.IsPresent);
-        Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.SkipOcr)));
-        Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("Ocr"));
+        Assert.False(cmdlet.Ocr.IsPresent);
+        Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.Ocr)));
+        Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("SkipOcr"));
     }
 
     [Fact]
-    public void ExportSubtitles_DefaultsToRepairingExtractedSrt_WhenSkipOcrIsNotSpecified()
+    public void ExportSubtitles_WithoutOcr_SkipsRepairWorkflowForExtractedSrt()
     {
         using var tempDir = new TemporaryDirectory();
         var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
@@ -149,12 +149,11 @@ public class ExportSubtitlesCommandTests : IDisposable
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
 
-        var error = Assert.Single(errors);
-        Assert.Contains("RepairSubtitlesFailed", error.FullyQualifiedErrorId, StringComparison.Ordinal);
+        Assert.Empty(errors);
     }
 
     [Fact]
-    public void ExportSubtitles_SkipOcr_SkipsRepairWorkflowForExtractedSrt()
+    public void ExportSubtitles_WithOcr_RepairsExtractedSrt()
     {
         using var tempDir = new TemporaryDirectory();
         var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
@@ -176,12 +175,13 @@ public class ExportSubtitlesCommandTests : IDisposable
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
         ps.AddCommand("Export-Subtitles")
             .AddParameter("InputPath", new[] { mediaPath })
-            .AddParameter("SkipOcr");
+            .AddParameter("Ocr");
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
 
-        Assert.Empty(errors);
+        var error = Assert.Single(errors);
+        Assert.Contains("RepairSubtitlesFailed", error.FullyQualifiedErrorId, StringComparison.Ordinal);
     }
 
     private static MediaFile CreateMediaFile(string mediaPath, string subtitleCodec)

@@ -123,7 +123,7 @@ Full `Get-Help` text is built from Markdown under `src/MediaForgePS/docs`. Regen
 
 | Cmdlet | Description |
 |--------|-------------|
-| `Convert-VideoFile` | Batch video-to-MP4 conversion with auto audio mapping and optional captions (MKV, MP4, MOV, AVI, WebM, and more) |
+| `Convert-VideoFile` | Batch video-to-MP4 conversion with auto audio mapping and optional caption extraction (use `-Ocr` for image subtitle OCR) |
 | `Convert-MediaFiles` | Batch conversion with configurable encoder and audio mappings |
 | `Convert-MediaFileAdvanced` | Single-file conversion with explicit encoding settings |
 | `New-VideoEncodingSettings` | Build `VideoEncodingSettings` for conversion cmdlets |
@@ -133,7 +133,7 @@ Full `Get-Help` text is built from Markdown under `src/MediaForgePS/docs`. Regen
 
 | Cmdlet | Description |
 |--------|-------------|
-| `Export-Subtitles` | Extract English subtitles; optional OCR and SRT repair |
+| `Export-Subtitles` | Extract English subtitles; use `-Ocr` for image subtitle OCR and SRT repair |
 | `Convert-ImageSubtitlesToSrt` | SUP/SUB → SRT via Subtitle Edit and Tesseract |
 | `Repair-Subtitles` | Fix common OCR errors in SRT files |
 | `Invoke-SubtitleOcrRepair` | OCR image subtitles then repair SRT files on disk |

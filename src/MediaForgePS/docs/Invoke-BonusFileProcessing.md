@@ -8,18 +8,18 @@ schema: 2.0.0
 # Invoke-BonusFileProcessing
 
 ## SYNOPSIS
-Converts bonus MKV files, extracts subtitles (with OCR by default and repair), and organizes them into Plex-style bonus content folders.
+Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style bonus content folders.
 
 ## SYNTAX
 
 ```
 Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-DefaultVideoEncoder <String>]
- [-SkipSubtitles] [-SkipOcr] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
+ [-SkipSubtitles] [-Ocr] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -SkipSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). Unless -SkipOcr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
+Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -SkipSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). When -Ocr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
 
 ## EXAMPLES
 
@@ -39,7 +39,7 @@ Converts bonus files with libx265 and organizes under P:\Movies\Title.
 
 ### Example 3: Extract subtitles with OCR and repair
 ```powershell
-Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie"
+Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -Ocr
 ```
 
 Converts bonus files, extracts subtitles, converts image-based (SUP/SUB) subtitles to SRT via OCR, repairs SRT files, then organizes into Plex folders. Use -SkipRepair to skip the repair step; use -SkipSubtitles to skip subtitle extraction entirely.
@@ -64,21 +64,6 @@ Accept wildcard characters: False
 
 ### -SkipSubtitles
 Skip extracting subtitles from bonus files. By default, English subtitle streams are extracted from each bonus MKV before organization.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: False
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -SkipOcr
-Skip OCR conversion of image-based subtitles (SUP, SUB). By default, extracted image subtitle files are converted to SRT before repair when OCR dependencies are available.
 
 ```yaml
 Type: SwitchParameter
@@ -123,7 +108,7 @@ Accept wildcard characters: False
 ```
 
 ### -ThrottleLimit
-Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.
+Maximum number of image-to-SRT conversions to run in parallel when -Ocr is specified. Default is 10.
 
 ```yaml
 Type: Int32
@@ -174,6 +159,21 @@ Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to h
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Ocr
+Convert image subtitles to SRT via OCR.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
 
 Required: False
 Position: Named

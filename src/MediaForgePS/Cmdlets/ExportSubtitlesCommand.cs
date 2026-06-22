@@ -11,10 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports English subtitle streams from media files. By default, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
+/// Exports English subtitle streams from media files. Use -Ocr to convert image-based formats (SUP, SUB) to SRT and optionally repair SRT files.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. Unless -SkipOcr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
+/// Always extracts subtitle tracks matching English language. When -Ocr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
 /// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
@@ -38,19 +38,19 @@ public class ExportSubtitlesCommand : CmdletBase
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies unless -SkipOcr is specified.
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is specified.
     /// </summary>
     [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
+    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR and repairs SRT files unless -SkipRepair is specified.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR and repair SRT files.")]
+    public SwitchParameter Ocr { get; set; }
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is not specified.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
     public SwitchParameter SkipRepair { get; set; }
@@ -139,9 +139,9 @@ public class ExportSubtitlesCommand : CmdletBase
             PathResolver,
             imagePaths,
             srtPathsFromExport,
-            performOcr: !SkipOcr.IsPresent,
+            performOcr: Ocr.IsPresent,
             ThrottleLimit,
-            shouldRepair: !SkipOcr.IsPresent && !SkipRepair.IsPresent,
+            shouldRepair: Ocr.IsPresent && !SkipRepair.IsPresent,
             BackupPath);
 
         if (allSrtPaths == null)
