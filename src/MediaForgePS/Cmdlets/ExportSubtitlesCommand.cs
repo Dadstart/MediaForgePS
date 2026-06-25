@@ -11,10 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports English subtitle streams from media files. Use -Ocr to convert image-based formats (SUP, SUB) to SRT and optionally repair SRT files.
+/// Exports English subtitle streams from media files. Use -Ocr to control image-based subtitle OCR and SRT repair.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. When -Ocr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
+/// Always extracts subtitle tracks matching English language. When -Ocr is Force or Auto, converts selected .sup/.sub files to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified. Auto converts image subtitles only when no SRT was exported for the same source.
 /// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
@@ -38,19 +38,20 @@ public class ExportSubtitlesCommand : CmdletBase
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is specified.
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is Force or Auto.
     /// </summary>
     [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// When specified, converts image-based subtitles (SUP, SUB) to SRT via OCR and repairs SRT files unless -SkipRepair is specified.
+    /// Controls OCR of image-based subtitles (SUP, SUB). Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles only when no SRT was exported for the same source.
     /// </summary>
-    [Parameter(HelpMessage = "Convert image subtitles to SRT via OCR and repair SRT files.")]
-    public SwitchParameter Ocr { get; set; }
+    [Parameter(HelpMessage = "OCR mode for image subtitles: Auto, Skip, or Force.")]
+    [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
+    public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is not specified.
+    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is Skip.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
     public SwitchParameter SkipRepair { get; set; }
@@ -129,8 +130,19 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
+        if (!SubtitleOcrMode.RequiresOcrProcessing(Ocr))
+        {
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
+            return;
+        }
+
+        var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
         var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+        if (imagePaths.Count == 0 && srtPathsFromExport.Count == 0)
+        {
+            WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
+            return;
+        }
 
         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
             this,
@@ -139,9 +151,9 @@ public class ExportSubtitlesCommand : CmdletBase
             PathResolver,
             imagePaths,
             srtPathsFromExport,
-            performOcr: Ocr.IsPresent,
+            performOcr: imagePaths.Count > 0,
             ThrottleLimit,
-            shouldRepair: Ocr.IsPresent && !SkipRepair.IsPresent,
+            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
             BackupPath);
 
         if (allSrtPaths == null)

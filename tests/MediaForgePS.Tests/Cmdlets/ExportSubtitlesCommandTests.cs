@@ -118,7 +118,7 @@ public class ExportSubtitlesCommandTests : IDisposable
     {
         var cmdlet = new ExportSubtitlesCommand();
 
-        Assert.False(cmdlet.Ocr.IsPresent);
+        Assert.Equal(SubtitleOcrMode.Skip, cmdlet.Ocr);
         Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.Ocr)));
         Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("SkipOcr"));
     }
@@ -175,7 +175,7 @@ public class ExportSubtitlesCommandTests : IDisposable
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
         ps.AddCommand("Export-Subtitles")
             .AddParameter("InputPath", new[] { mediaPath })
-            .AddParameter("Ocr");
+            .AddParameter("Ocr", SubtitleOcrMode.Force);
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();

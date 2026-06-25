@@ -20,7 +20,7 @@ public class InvokeBonusFileProcessingCommandTests
         Assert.Equal("nvenc", cmdlet.DefaultVideoEncoder);
         Assert.Equal(string.Empty, cmdlet.InputPath);
         Assert.Equal(string.Empty, cmdlet.OutputPath);
-        Assert.False(cmdlet.Ocr.IsPresent);
+        Assert.Equal(SubtitleOcrMode.Skip, cmdlet.Ocr);
     }
 
     [Fact]
