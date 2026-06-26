@@ -6,11 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Creates a new audio track mapping configuration for media file conversion.
+/// Creates an <see cref="AudioTrackMapping"/> for copy or encode use with conversion cmdlets.
 /// </summary>
 /// <remarks>
-/// This cmdlet creates either a copy mapping (to copy audio streams without re-encoding) or
-/// an encode mapping (to encode audio streams with specific codec, bitrate, and channel settings).
+/// Combine multiple mappings in an array for -AudioTrackMappings.
+/// When -Bitrate is omitted on encode mappings, defaults apply by channel count (see <see cref="AudioTrackMappingService"/>).
 /// </remarks>
 [Cmdlet(VerbsCommon.New, nameof(AudioTrackMapping), DefaultParameterSetName = CopyParameterSet)]
 [OutputType(typeof(AudioTrackMapping))]

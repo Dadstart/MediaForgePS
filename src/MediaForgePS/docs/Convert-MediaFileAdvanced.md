@@ -36,6 +36,7 @@ Converts movie.mkv to movie.mp4 using the specified encoding and audio mappings.
 ### Example 2: Add extra x265 parameters
 ```powershell
 $settings = New-VideoEncodingSettings -Codec libx265 -CRF 18 -Preset medium
+$mappings = Get-AudioStreams -InputPath "input.mkv"
 Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -VideoEncodingSettings $settings -AudioTrackMappings $mappings -X265Params "aq-mode=3"
 ```
 

@@ -8,7 +8,7 @@ schema: 2.0.0
 # Convert-ImageSubtitlesToSrt
 
 ## SYNOPSIS
-Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
+Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR. Alias: Convert-SupToSrt.
 
 ## SYNTAX
 
@@ -120,7 +120,7 @@ Paths to .sup or .sub files, or directories containing them. Accepts pipeline in
 Paths of the created SRT files.
 
 ## NOTES
-Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Use Repair-Subtitles afterward to fix common OCR errors in the SRT.
+Alias: **Convert-SupToSrt**. Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.
 
 ## RELATED LINKS
 

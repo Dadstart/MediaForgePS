@@ -8,13 +8,14 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs OCR-produced SRT files. For use when subtitles are already extracted to disk.
+/// Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs OCR-produced SRT files.
 /// </summary>
 /// <remarks>
-/// Equivalent to running Convert-ImageSubtitlesToSrt on SUP/SUB paths then Repair-Subtitles on OCR-produced SRT paths. Requires Subtitle Edit (and Tesseract) when any input is SUP or SUB. Native SRT files in the input are not repaired. Output SRT paths are written to the pipeline.
+/// For subtitles already on disk. Equivalent to running <see cref="ConvertImageSubtitlesToSrtCommand"/> on image paths,
+/// then <see cref="RepairSubtitlesCommand"/> on OCR-produced SRT paths only. Pre-existing SRT files in the input are not repaired.
+/// Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SubtitleOcrRepair")]
-[OutputType(typeof(string))]
 public class InvokeSubtitleOcrRepairCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -39,7 +40,7 @@ public class InvokeSubtitleOcrRepairCommand : CmdletBase
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// When specified, skips repair of OCR-produced SRT files. Only conversion (SUP/SUB to SRT) is performed; converted and existing SRT paths are still written to the pipeline.
+    /// When specified, skips repair of OCR-produced SRT files. Only SUP/SUB to SRT conversion is performed.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair; only convert image subtitles to SRT.")]
     public SwitchParameter SkipRepair { get; set; }

@@ -11,15 +11,16 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports English subtitle streams from media files. Use -Ocr to control image-based subtitle OCR and SRT repair.
+/// Exports English subtitle streams from media files.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. When -Ocr is Force or Auto (the default), converts selected .sup/.sub files to SRT (requires Subtitle Edit and Tesseract), then repairs OCR-produced SRT files unless -SkipRepair is specified. Auto converts image subtitles when the source has a single exported subtitle format and it is not SRT. Native exported SRT files are not repaired.
-/// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
+/// Always extracts subtitle tracks whose language matches English. Folder input processes <c>*.mkv</c> files only.
+/// Use -Ocr Auto (default), Skip, or Force to control OCR of image-based subtitles after extraction.
+/// When OCR runs, only OCR-produced SRT files are repaired; native exported SRT files are not repaired.
+/// Alias: Export-RepairedSubtitles.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-RepairedSubtitles")]
-[OutputType(typeof(string))]
 public class ExportSubtitlesCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;

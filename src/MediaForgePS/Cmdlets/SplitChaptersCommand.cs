@@ -12,8 +12,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Splits a video file into multiple files based on chapter ranges.
 /// </summary>
 /// <remarks>
-/// Uses ffprobe to read chapter information and ffmpeg to split by time ranges.
-/// Chapter indices in ranges are 1-based (e.g. Start=1, End=1 is the first chapter).
+/// Chapter indices are 1-based (Start=1, End=1 is the first chapter).
+/// Pipeline input is collected during Process and executed in End for batch splitting.
 /// </remarks>
 [Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByRanges")]
 [OutputType(typeof(string[]))]

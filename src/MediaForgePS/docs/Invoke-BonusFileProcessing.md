@@ -14,12 +14,14 @@ Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style
 
 ```
 Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-DefaultVideoEncoder <String>]
- [-SkipSubtitles] [-Ocr] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
+ [-SkipSubtitles] [-Ocr <String>] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -SkipSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). When -Ocr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.
+Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default **nvenc**). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` (**Auto**, **Skip**, or **Force**; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.
+
+On Windows, `-OutputPath` must be under the `P:\` drive. Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.
 
 ## EXAMPLES
 
@@ -37,12 +39,12 @@ Invoke-BonusFileProcessing -InputPath "D:\Bonus" -OutputPath "P:\Movies\Title" -
 
 Converts bonus files with libx265 and organizes under P:\Movies\Title.
 
-### Example 3: Extract subtitles with OCR and repair
+### Example 3: Extract subtitles with forced OCR and repair
 ```powershell
-Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -Ocr
+Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -Ocr Force
 ```
 
-Converts bonus files, extracts subtitles, converts image-based (SUP/SUB) subtitles to SRT via OCR, repairs SRT files, then organizes into Plex folders. Use -SkipRepair to skip the repair step; use -SkipSubtitles to skip subtitle extraction entirely.
+Converts bonus files, extracts subtitles, converts all image-based (SUP/SUB) subtitles to SRT via OCR, repairs OCR-produced SRT files, then organizes into Plex folders. Use `-SkipRepair` to skip repair; use `-SkipSubtitles` to skip subtitle extraction entirely.
 
 ## PARAMETERS
 
@@ -57,7 +59,7 @@ Accepted values: x264, x265, nvenc
 
 Required: False
 Position: Named
-Default value: None
+Default value: nvenc
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -168,16 +170,16 @@ Accept wildcard characters: False
 ```
 
 ### -Ocr
-Convert image subtitles to SRT via OCR.
+Controls OCR of image-based subtitles after extraction. Default is Auto.
 
 ```yaml
-Type: SwitchParameter
+Type: String
 Parameter Sets: (All)
 Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: Auto
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

@@ -6,11 +6,12 @@ using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Retrieves TVDb episode information for a specific season.
+/// Retrieves TVDb episode metadata for a season.
 /// </summary>
 /// <remarks>
-/// This cmdlet calls the series processing service to scrape or query TVDb and returns a collection of TvDbEpisodeInfo objects.
-/// It is typically used to drive season organization and file naming for other MediaForge commands.
+/// Returns <see cref="TvDbEpisodeInfo"/> objects (Id, SeasonNumber, Title, EpisodeNumber) used by
+/// <see cref="InvokeVideoCopyCommand"/>, <see cref="SplitSeriesChaptersCommand"/>, and <see cref="InvokeSeriesProcessingCommand"/>.
+/// Requires network access to thetvdb.com. When TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeasonScan")]
 [OutputType(typeof(TvDbEpisodeInfo))]

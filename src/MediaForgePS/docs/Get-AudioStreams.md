@@ -17,7 +17,18 @@ Get-AudioStreams [-InputPath] <String> [-ProgressAction <ActionPreference>] [<Co
 ```
 
 ## DESCRIPTION
-Get-AudioStreams reads a media file with ffprobe and returns an array of AudioTrackMapping objects that describe how to map and optionally encode each audio stream. Use the output with Convert-MediaFiles or Convert-MediaFileAdvanced. The mappings are built from the file's audio streams and can be passed as-is or edited (e.g. with New-AudioTrackMapping for custom copy/encode settings).
+Get-AudioStreams reads a media file with ffprobe and returns an array of `AudioTrackMapping` objects for **English** audio streams. Use the output with `Convert-MediaFiles` or `Convert-MediaFileAdvanced`, or build custom mappings with `New-AudioTrackMapping`.
+
+Mapping rules applied automatically:
+
+- **DTS** streams are copied without re-encoding.
+- **Other codecs** are encoded to AAC with channel-based settings:
+  - 6+ channels → 384 kbps, 6 channels
+  - 2+ channels → 160 kbps, stereo
+  - 1 channel → 96 kbps, mono
+- When both a DTS stream and a 6-channel AAC encode would occupy the same destination index, the DTS copy and AAC encode destination indices are swapped.
+
+Returns an empty array when no English audio streams are found.
 
 ## EXAMPLES
 
@@ -82,7 +93,7 @@ Path to the media file.
 Array of audio track mappings (copy or encode) for the file's audio streams.
 
 ## NOTES
-Requires ffprobe. Output is intended for -AudioTrackMappings in Convert-MediaFiles or Convert-MediaFileAdvanced.
+Requires ffprobe. Only English (`eng`) audio streams are mapped. When no English audio is present, an empty array is returned. Output is intended for `-AudioTrackMappings` in `Convert-MediaFiles` or `Convert-MediaFileAdvanced`.
 
 ## RELATED LINKS
 

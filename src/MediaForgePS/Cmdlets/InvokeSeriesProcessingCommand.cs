@@ -8,11 +8,12 @@ using Dadstart.Labs.MediaForge.Services.System;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Orchestrates season processing for a TV series: creates folder structure, scans TVDb, copies episodes, and optionally extracts chapters and captions.
+/// Orchestrates the full TV season workflow: folders, TVDb scan, episode copy, and optional chapter/caption extraction.
 /// </summary>
 /// <remarks>
-/// This cmdlet is a high-level workflow that ties together season scanning, video copy, and optional chapter/caption extraction.
-/// Use this when you want a one-stop command to prepare a full season for further processing or media library import.
+/// Runs five steps in order: (1) create OutputPath\Title\Season XX, (2) scan TVDb, (3) copy episodes,
+/// (4) optionally extract chapters, (5) optionally extract captions with optional OCR (-Ocr Auto/Skip/Force).
+/// Terminates with an error when the TVDb scan returns no episodes or no files are copied.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing")]
 [OutputType(typeof(void))]

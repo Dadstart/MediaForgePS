@@ -9,13 +9,15 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts a media file from one format to another using Ffmpeg.
+/// Converts a single media file using explicit video encoding settings and audio track mappings.
 /// </summary>
 /// <remarks>
-/// This cmdlet uses ffmpeg to convert media files between different formats, codecs, and containers.
+/// Use when full control over encoding is required. Supply <see cref="VideoEncodingSettings"/> from
+/// <see cref="NewVideoEncodingSettingsCommand"/> and <see cref="AudioTrackMapping"/> objects from
+/// <see cref="GetAudioTrackMappingsCommand"/> or <see cref="NewAudioTrackMappingCommand"/>.
+/// Does not write to the pipeline; errors are reported via WriteError.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFileAdvanced")]
-[OutputType(typeof(bool))]
 public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;

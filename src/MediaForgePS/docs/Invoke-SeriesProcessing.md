@@ -15,12 +15,24 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 ```
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
- [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr] [-SkipRepair]
+ [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr <String>] [-SkipRepair]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). When -Ocr is specified, extracted image captions are converted to SRT via OCR and repaired by default; use -SkipRepair to skip only the repair step. Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.
+Invoke-SeriesProcessing is a high-level workflow that runs five steps in order:
+
+1. **Create folders** - When `-OutputPath` is set, creates `OutputPath\Title\Season XX`.
+2. **Scan TVDb** - Fetches episode metadata using `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`.
+3. **Copy episodes** - Finds files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming.
+4. **Extract chapters** - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes.
+5. **Extract captions** - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.
+
+Use `-Ocr` with values **Auto** (default), **Skip**, or **Force** to control image subtitle OCR after caption extraction. When OCR runs, OCR-produced SRT files are repaired by default; use `-SkipRepair` to skip repair. OCR parallelism is fixed at 10 concurrent conversions.
+
+Use `-EpisodeStart` when your source files begin mid-season (e.g. episode 5 on disc 1). `-MinimumFileSize` defaults to 1 GB but can be set to 0 to include all matching files.
+
+The cmdlet fails with a terminating error if the TVDb scan returns no episodes or if no files are copied.
 
 ## EXAMPLES
 
@@ -108,7 +120,7 @@ Accept wildcard characters: False
 ```
 
 ### -MinimumFileSize
-Minimum file size in bytes required to treat a file as an episode (default 1 GB).
+Minimum file size in bytes required to treat a file as an episode. Default is 1 GB (1073741824 bytes). Set to 0 to include all matching files.
 
 ```yaml
 Type: Int64
@@ -117,7 +129,7 @@ Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: 1073741824
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -244,16 +256,16 @@ Accept wildcard characters: False
 ```
 
 ### -Ocr
-Convert image captions to SRT via OCR and repair SRT files.
+Controls OCR of image-based captions after extraction. Default is Auto.
 
 ```yaml
-Type: SwitchParameter
+Type: String
 Parameter Sets: (All)
 Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: Auto
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

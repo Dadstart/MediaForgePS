@@ -16,10 +16,14 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts video files in a directory (or specified paths) to MP4 using module conversion services.
-/// Supports common container extensions: .mkv, .mp4, .m4v, .mov, .avi, .wmv, .flv, .webm, .mpg, .mpeg,
-/// .ts, .m2ts, .mts, .vob, .ogv, .3gp, .asf.
+/// Converts video files in a directory (or specified paths) to MP4 with automatic English audio mapping and optional caption extraction.
 /// </summary>
+/// <remarks>
+/// Primary batch conversion cmdlet for video libraries. Supports common container extensions (.mkv, .mp4, .mov, .avi, .webm, and more).
+/// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
+/// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
+/// Writes a <see cref="VideoFileConversionResult"/> per processed file to the pipeline.
+/// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile")]
 [OutputType(typeof(VideoFileConversionResult))]
 public class ConvertVideoFileCommand : CmdletBase
@@ -653,6 +657,10 @@ public class ConvertVideoFileCommand : CmdletBase
 }
 
 /// <summary>
-/// Result of converting a single video file from a batch.
+/// Result of converting a single video file in a <see cref="ConvertVideoFileCommand"/> batch.
 /// </summary>
+/// <param name="InputPath">Original source file path.</param>
+/// <param name="OutputPath">Path to the converted MP4 file.</param>
+/// <param name="Success">Whether conversion completed successfully.</param>
+/// <param name="Status">Human-readable status or error message.</param>
 public record VideoFileConversionResult(string InputPath, string OutputPath, bool Success, string Status);

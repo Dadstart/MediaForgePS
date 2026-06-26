@@ -198,10 +198,10 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
-    /// Creates default video encoding settings for a default encoder value.
+    /// Creates default video encoding settings for a named encoder preset.
     /// </summary>
-    /// <param name="defaultVideoEncoder">Default encoder name (x264, x265, nvenc).</param>
-    /// <returns>Video encoding settings instance.</returns>
+    /// <param name="defaultVideoEncoder">Encoder name: x264, x265, or nvenc. When null or unrecognized, libx265 is used.</param>
+    /// <returns>Video encoding settings for the resolved codec.</returns>
     public static VideoEncodingSettings CreateDefaultVideoEncodingSettings(string? defaultVideoEncoder)
     {
         var encoder = defaultVideoEncoder?.Trim();

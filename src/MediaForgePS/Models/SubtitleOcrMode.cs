@@ -16,17 +16,17 @@ public static class SubtitleOcrMode
     public const string Skip = "Skip";
 
     /// <summary>
-    /// OCR all exported .sub files.
+    /// OCR all exported image subtitle files (.sup, .sub).
     /// </summary>
     public const string Force = "Force";
 
     /// <summary>
-    /// Default <see cref="Ocr"/> parameter value.
+    /// Default value for -Ocr parameters (<see cref="Auto"/>).
     /// </summary>
     public const string Default = Auto;
 
     /// <summary>
-    /// Whether OCR or repair processing should run for the selected mode.
+    /// Whether the OCR workflow should run (any mode except <see cref="Skip"/>).
     /// </summary>
     public static bool RequiresOcrProcessing(string? mode) =>
         !string.Equals(mode, Skip, StringComparison.OrdinalIgnoreCase);

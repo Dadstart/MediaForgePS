@@ -14,13 +14,13 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Processes bonus media files and organizes them into a Plex destination.
+/// Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style bonus content folders.
 /// </summary>
 /// <remarks>
-/// This cmdlet is a C# implementation of the Invoke-BonusFileProcessing PowerShell function.
-/// It performs two main steps:
-/// 1. Converts bonus MKV files in the input directory using the same encoder defaults as Convert-MediaFiles.
-/// 2. Organizes converted bonus files into Plex bonus content folders under the output directory.
+/// Three-step workflow: (1) convert bonus MKV files (names ending with -trailer, -featurette, etc.) to MP4,
+/// (2) extract English subtitles and optionally OCR image-based tracks (-Ocr Auto/Skip/Force),
+/// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
+/// On Windows, OutputPath must be under P:\. Existing destination files are skipped.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing")]
 [OutputType(typeof(void))]

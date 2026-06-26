@@ -9,8 +9,12 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Shared OCR and SRT repair workflow used by subtitle cmdlets.
+/// Shared OCR conversion and SRT repair workflow for subtitle cmdlets.
 /// </summary>
+/// <remarks>
+/// OCR runs on <paramref name="imagePaths"/> when <paramref name="performOcr"/> is true.
+/// Repair runs only on OCR-produced SRT paths, not pre-existing SRT in <paramref name="srtPaths"/>.
+/// </remarks>
 public static class SubtitleOcrRepairWorkflow
 {
     /// <summary>

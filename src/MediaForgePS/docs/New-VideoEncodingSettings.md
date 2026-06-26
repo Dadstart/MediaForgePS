@@ -25,7 +25,11 @@ New-VideoEncodingSettings -Codec <String> -Bitrate <Int32> [-Preset <String>] [-
 ```
 
 ## DESCRIPTION
-New-VideoEncodingSettings creates an object that holds video encoding parameters: codec, CRF or bitrate, preset, profile, tune, and pixel format. Use the CRF parameter set for constant quality (typical: 18-28 for H.264, 20-30 for H.265) or the VBR parameter set for variable bitrate. The result is passed to Convert-MediaFileAdvanced or Convert-MediaFiles via -VideoEncodingSettings. Default pixel format is yuv420p for libx264 and yuv420p10le for libx265 if -PixelFormat is omitted.
+New-VideoEncodingSettings creates an object that holds video encoding parameters: codec, CRF or bitrate, preset, profile, tune, and pixel format. Use the **CRF** parameter set for constant quality (CRF range 0-51; typical: 18-28 for H.264, 20-30 for H.265) or the **VBR** parameter set for variable bitrate.
+
+The result is passed to `Convert-MediaFileAdvanced` or `Convert-MediaFiles` via `-VideoEncodingSettings`. Default pixel format is `yuv420p` for libx264 and `yuv420p10le` for libx265 if `-PixelFormat` is omitted. Defaults: preset **slow**, profile **high**, tune **film** (CRF set only).
+
+Supported codecs include `libx264`, `libx265`, and `vp9`. For NVENC (`hevc_nvenc`), use `-DefaultVideoEncoder nvenc` on `Convert-VideoFile`, `Convert-MediaFiles`, or `Invoke-BonusFileProcessing` instead of this cmdlet.
 
 ## EXAMPLES
 
@@ -67,9 +71,7 @@ Accept wildcard characters: False
 ```
 
 ### -CRF
-The Constant Rate Factor value for quality control.
-Lower values indicate higher quality.
-Typical ranges: 18-28 for H.264, 20-30 for H.265
+The Constant Rate Factor value for quality control (0-51). Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265.
 
 ```yaml
 Type: Int32
@@ -189,7 +191,7 @@ This cmdlet does not accept pipeline input.
 ConstantRateVideoEncodingSettings or VariableRateVideoEncodingSettings (CRF or VBR parameter set).
 
 ## NOTES
-Preset default is slow. CodecProfile default is high; Tune default is film. Valid codecs include libx264, libx265, vp9, hevc_nvenc.
+Preset default is **slow**. CodecProfile default is **high**; Tune default is **film** (CRF set only). Valid codecs include libx264, libx265, and vp9. NVENC encoding is not available through this cmdlet; use `-DefaultVideoEncoder nvenc` on batch conversion cmdlets.
 
 ## RELATED LINKS
 

@@ -8,14 +8,19 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Gets audio streams for conversion
+/// Returns suggested audio track mappings for English audio streams in a media file.
 /// </summary>
+/// <remarks>
+/// DTS streams are copied; other codecs are encoded to AAC with channel-based bitrates (96/160/384 kbps).
+/// Returns an empty array when no English audio is found. Use with <see cref="ConvertMediaFilesCommand"/>
+/// or <see cref="ConvertMediaFileAdvancedCommand"/> via -AudioTrackMappings.
+/// </remarks>
 [Cmdlet(VerbsCommon.Get, "AudioStreams")]
 [OutputType(typeof(AudioTrackMapping[]))]
 public class GetAudioTrackMappingsCommand : CmdletBase
 {
     /// <summary>
-    /// Path to the input media file
+    /// Path to the input media file.
     /// </summary>
     [Parameter(
         Mandatory = true,
@@ -46,7 +51,7 @@ public class GetAudioTrackMappingsCommand : CmdletBase
     private IAudioTrackMappingService AudioTrackMappingService => _audioTrackMappingService ??= ModuleServices.GetRequiredService<IAudioTrackMappingService>();
 
     /// <summary>
-    /// Processes the media file conversion request.
+    /// Reads the media file and writes English audio track mappings to the pipeline.
     /// </summary>
     protected override void Process()
     {

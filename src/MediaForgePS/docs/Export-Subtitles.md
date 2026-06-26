@@ -8,19 +8,27 @@ schema: 2.0.0
 # Export-Subtitles
 
 ## SYNOPSIS
-Exports English subtitle streams from media files. Use -Ocr to convert image subtitles to SRT and repair SRT files.
+Exports English subtitle streams from media files. Use -Ocr Auto, Skip, or Force to control image subtitle OCR and SRT repair.
 
 ## SYNTAX
 
 ```
-Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr] [-SkipRepair]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr <String>]
+ [-SkipRepair] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Export-Subtitles extracts English subtitle tracks from media files (MKV and others). For each file it finds subtitle streams whose language matches English and exports them next to the source file with an appropriate extension (e.g. .srt, .sup).
 
-When -Ocr is specified, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -SkipRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.
+Use `-Ocr` to control post-extraction OCR and repair. Accepted values are **Auto** (default), **Skip**, and **Force**:
+
+- **Auto** - OCR image subtitles only when the source has a single exported subtitle format and it is not SRT.
+- **Force** - OCR all exported image subtitle files.
+- **Skip** - extract only; no OCR or repair.
+
+When OCR runs, only **OCR-produced** SRT files are repaired (native exported SRT files are not repaired). Use `-BackupPath` to copy SRT files to a backup location before repairing. Use `-SkipRepair` to skip the repair step.
+
+InputPath can be media file path(s), folder path(s) containing `.mkv` files, or `MediaFile` objects from `Get-MediaFile`. This cmdlet has alias **Export-RepairedSubtitles**.
 
 ## EXAMPLES
 
@@ -31,16 +39,16 @@ Export-Subtitles -InputPath "C:\Videos\movie.mkv"
 
 Exports all English subtitle streams from movie.mkv to files alongside the video (e.g. movie.eng.srt).
 
-### Example 2: Export from a folder and convert image subtitles to SRT with repair
+### Example 2: Export from a folder and force OCR with repair
 ```powershell
-Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -Ocr -BackupPath "C:\Backup\srts"
+Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -Ocr Force -BackupPath "C:\Backup\srts"
 ```
 
-Exports subtitles from all MKV files in C:\Videos. Image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then repaired. Resulting SRT paths are emitted to the pipeline.
+Exports subtitles from all MKV files in C:\Videos. All image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then OCR-produced SRT files are repaired.
 
 ### Example 3: Export and convert without SRT repair
 ```powershell
-Export-Subtitles -InputPath "C:\Videos\season1" -Ocr -SkipRepair
+Export-Subtitles -InputPath "C:\Videos\season1" -Ocr Force -SkipRepair
 ```
 
 Exports and converts image subtitles to SRT but skips the repair step.
@@ -123,16 +131,16 @@ Accept wildcard characters: False
 ```
 
 ### -Ocr
-Convert image subtitles to SRT via OCR and repair SRT files.
+Controls OCR of image-based subtitles after extraction. Default is Auto.
 
 ```yaml
-Type: SwitchParameter
+Type: String
 Parameter Sets: (All)
 Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: Auto
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -147,11 +155,11 @@ Path strings, folder paths, or MediaFile objects (e.g. from Get-MediaFile). For 
 
 ## OUTPUTS
 
-### System.String
-When OCR processing runs, the paths of exported or repaired SRT files are written to the pipeline.
+### None
+This cmdlet does not write to the pipeline.
 
 ## NOTES
-Requires mkvextract for extracting embedded subtitles. When OCR processing is enabled, Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit).
+Alias: **Export-RepairedSubtitles**. Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit). Folder input processes `*.mkv` files only.
 
 ## RELATED LINKS
 

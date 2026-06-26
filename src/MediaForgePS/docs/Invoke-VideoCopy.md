@@ -19,7 +19,9 @@ Invoke-VideoCopy -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -Path <
 ```
 
 ## DESCRIPTION
-Invoke-VideoCopy is the lower-level copy step used by Invoke-SeriesProcessing. It searches one or more -Path roots for files matching -FilePatterns, filters by -MinimumFileSize, associates them with -Episodes (TvDbEpisodeInfo from Invoke-SeasonScan), and copies them to -Destination with series title and episode-based naming. -EpisodeStart is the episode number for the first matched file. Pipeline input is accepted for -Path. Outputs the paths of copied files.
+Invoke-VideoCopy is the lower-level copy step used by `Invoke-SeriesProcessing`. It searches one or more `-Path` roots (top directory only, not recursive) for files matching `-FilePatterns`, filters by `-MinimumFileSize`, associates them in discovery order with `-Episodes` (`TvDbEpisodeInfo` from `Invoke-SeasonScan`), and copies them to `-Destination` with series title and TVDb-based naming.
+
+`-EpisodeStart` is the episode number for the first matched file. The Nth matched file maps to episode `(EpisodeStart - 1) + N` in the sorted TVDb episode list. Pipeline input for `-Path` is collected during `Process` and executed in `End` (batch mode). Outputs the paths of copied files.
 
 ## EXAMPLES
 
@@ -31,12 +33,13 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
 
 Scans TVDb for season 1, then copies matching MKV files to the destination with episode naming.
 
-### Example 2: Pipeline paths
+### Example 2: Pipeline paths with custom minimum size
 ```powershell
-"C:\Source1", "C:\Source2" | Invoke-VideoCopy -Title "Show" -Season 2 -FilePatterns "*.mkv" -Destination "P:\Season2" -Episodes $episodes
+"C:\Source1", "C:\Source2" | Invoke-VideoCopy -Title "Show" -Season 2 -FilePatterns "*.mkv" `
+    -Destination "P:\Season2" -Episodes $episodes -MinimumFileSize 500MB
 ```
 
-Copies from multiple source folders.
+Copies from multiple source folders; only files larger than 500 MB are considered.
 
 ## PARAMETERS
 
@@ -110,7 +113,7 @@ Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: 1073741824
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

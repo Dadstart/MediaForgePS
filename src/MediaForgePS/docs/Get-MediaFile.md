@@ -17,7 +17,14 @@ Get-MediaFile [-Path] <String> [-ProgressAction <ActionPreference>] [<CommonPara
 ```
 
 ## DESCRIPTION
-Get-MediaFile uses ffprobe to analyze a media file and returns a MediaFile object with format metadata, stream details (video, audio, subtitle), and chapter information. Path can be relative or absolute and supports PowerShell path resolution (e.g. wildcards, provider paths). Use the output with other MediaForge cmdlets such as Export-Subtitles or Convert-MediaFiles.
+Get-MediaFile uses ffprobe to analyze a media file and returns a `MediaFile` object with:
+
+- **Path** - resolved file path
+- **Format** - container format metadata (duration, bit rate, format name)
+- **Streams** - video, audio, subtitle, and other streams (index, codec, language, tags)
+- **Chapters** - chapter markers with start/end times
+
+Path can be relative or absolute. Use the output with other MediaForge cmdlets such as `Export-Subtitles` or `Convert-MediaFiles`, or pipe `MediaFile` objects directly to `Export-Subtitles`.
 
 ## EXAMPLES
 
@@ -46,7 +53,7 @@ Retrieves media info and lists audio streams in a table.
 ## PARAMETERS
 
 ### -Path
-Path to the media file to analyze. Can be relative or absolute; supports PowerShell path resolution including wildcards and provider paths.
+Path to the media file to analyze. Can be relative or absolute.
 
 ```yaml
 Type: String
