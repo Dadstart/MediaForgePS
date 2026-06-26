@@ -19,8 +19,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 public class GetMediaFileCommand : CmdletBase
 {
     /// <summary>
-    /// Path to the media file to analyze. Can be a relative or absolute path, and supports
-    /// PowerShell path resolution including wildcards and provider paths.
+    /// Path to the media file to analyze.
     /// </summary>
     [Parameter(
         Mandatory = true,

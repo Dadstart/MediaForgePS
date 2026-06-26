@@ -12,11 +12,11 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Splits a video file into episode files based on chapter ranges and TVDb episode metadata.
+/// Splits a video file into episode files by chapter ranges with TVDb-based naming.
 /// </summary>
 /// <remarks>
-/// This cmdlet pairs user-specified chapter ranges with TVDb episode IDs to create per-episode files.
-/// Output file names follow a Plex-friendly pattern including series title, TVDb ID, season, and episode numbers.
+/// Output names follow: {Title} {'{'}tvdb Id{'}'} S{season}E{episode}.{ext}.
+/// Requires at least (EpisodeStart - 1) + rangeCount episodes from the TVDb scan.
 /// </remarks>
 [Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath")]
 [OutputType(typeof(string[]))]

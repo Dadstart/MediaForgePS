@@ -20,14 +20,14 @@ public class InvokeBonusFileProcessingCommandTests
         Assert.Equal("nvenc", cmdlet.DefaultVideoEncoder);
         Assert.Equal(string.Empty, cmdlet.InputPath);
         Assert.Equal(string.Empty, cmdlet.OutputPath);
-        Assert.False(cmdlet.SkipOcr.IsPresent);
+        Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
     }
 
     [Fact]
-    public void InvokeBonusFileProcessing_UsesSkipOcrParameter()
+    public void InvokeBonusFileProcessing_UsesOcrParameter()
     {
-        Assert.NotNull(typeof(InvokeBonusFileProcessingCommand).GetProperty(nameof(InvokeBonusFileProcessingCommand.SkipOcr)));
-        Assert.Null(typeof(InvokeBonusFileProcessingCommand).GetProperty("Ocr"));
+        Assert.NotNull(typeof(InvokeBonusFileProcessingCommand).GetProperty(nameof(InvokeBonusFileProcessingCommand.Ocr)));
+        Assert.Null(typeof(InvokeBonusFileProcessingCommand).GetProperty("SkipOcr"));
     }
 
     [Fact]

@@ -118,13 +118,13 @@ public class SeriesProcessingServiceTests
     }
 
     [Fact]
-    public void InvokeSeriesProcessingCommand_UsesSkipOcrParameter()
+    public void InvokeSeriesProcessingCommand_UsesOcrParameter()
     {
         var cmdlet = new InvokeSeriesProcessingCommand();
 
-        Assert.False(cmdlet.SkipOcr.IsPresent);
-        Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.SkipOcr)));
-        Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("Ocr"));
+        Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
+        Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.Ocr)));
+        Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("SkipOcr"));
     }
 
     [Fact]

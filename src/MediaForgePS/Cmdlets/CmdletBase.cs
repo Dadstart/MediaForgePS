@@ -14,8 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Base class for MediaForge PowerShell cmdlets that supports async and
-/// provides common functionality for logging and other.
+/// Base class for MediaForge PowerShell cmdlets providing logging, path resolution, and progress helpers.
 /// </summary>
 public abstract class CmdletBase : PSCmdlet
 {

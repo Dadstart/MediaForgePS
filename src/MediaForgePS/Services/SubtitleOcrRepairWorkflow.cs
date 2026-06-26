@@ -9,12 +9,16 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Shared OCR and SRT repair workflow used by subtitle cmdlets.
+/// Shared OCR conversion and SRT repair workflow for subtitle cmdlets.
 /// </summary>
+/// <remarks>
+/// OCR runs on <paramref name="imagePaths"/> when <paramref name="performOcr"/> is true.
+/// Repair runs only on OCR-produced SRT paths, not pre-existing SRT in <paramref name="srtPaths"/>.
+/// </remarks>
 public static class SubtitleOcrRepairWorkflow
 {
     /// <summary>
-    /// Runs optional OCR conversion and optional SRT repair, writing output paths through <paramref name="writeObject"/>.
+    /// Runs optional OCR conversion and optional repair of OCR-produced SRT files.
     /// Returns null when workflow cannot continue (for example, Subtitle Edit missing when OCR is required).
     /// </summary>
     public static IReadOnlyList<string>? Run(
@@ -57,8 +61,8 @@ public static class SubtitleOcrRepairWorkflow
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (allSrtPaths.Count > 0)
-            SrtRepairHelper.RunRepairLoop(cmdlet, logger, pathResolver, allSrtPaths, shouldRepair, backupPath);
+        if (convertedSrtPaths.Count > 0)
+            SrtRepairHelper.RunRepairLoop(cmdlet, logger, pathResolver, convertedSrtPaths, shouldRepair, backupPath);
 
         return allSrtPaths;
     }

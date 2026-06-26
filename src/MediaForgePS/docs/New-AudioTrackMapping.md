@@ -26,7 +26,11 @@ New-AudioTrackMapping [-Title <String>] [-SourceStream] <Int32> [-SourceIndex] <
 ```
 
 ## DESCRIPTION
-New-AudioTrackMapping creates a single AudioTrackMapping object used by Convert-MediaFiles and Convert-MediaFileAdvanced. Use -Copy to copy the stream without re-encoding, or -Encode with -Codec, -Bitrate, and -Channels to re-encode. SourceStream is typically 0 (the input file); SourceIndex and DestinationIndex are the audio stream index in the source and the desired index in the output. Optional -Title sets track title metadata.
+New-AudioTrackMapping creates a single `AudioTrackMapping` object used by `Convert-MediaFiles` and `Convert-MediaFileAdvanced`. Use `-Copy` to copy the stream without re-encoding, or `-Encode` with `-Codec`, `-Bitrate`, and `-Channels` to re-encode.
+
+`SourceStream` is typically 0 (the input file). `SourceIndex` is the audio stream index in the source file; `DestinationIndex` is the desired index in the output. Optional `-Title` sets track title metadata.
+
+When `-Bitrate` is omitted on encode mappings, defaults are applied by channel count: 96 kbps (mono), 160 kbps (stereo), 384 kbps (5.1). See `Get-AudioStreams` for the automatic mapping rules used when mappings are not supplied explicitly.
 
 ## EXAMPLES
 

@@ -18,7 +18,18 @@ Invoke-SeasonScan -Season <Int32> [-TvDbSeriesUrl <String>] [-TvDbSeasonUrl <Str
 ```
 
 ## DESCRIPTION
-Invoke-SeasonScan calls the series processing service to fetch TVDb episode metadata for the given -Season. Use -TvDbSeriesUrl and optionally -TvDbSeasonUrl to point at the series and season; if TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season. Output is an array of TvDbEpisodeInfo objects (Id, EpisodeNumber, etc.) used by Invoke-VideoCopy and Split-SeriesChapters.
+Invoke-SeasonScan fetches TVDb episode metadata for the given `-Season`. Provide `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`; when `TvDbSeasonUrl` is omitted, it is constructed from the series URL and season number.
+
+Output is an array of `TvDbEpisodeInfo` objects with these properties:
+
+| Property | Description |
+|----------|-------------|
+| `Id` | TVDb episode ID (used in output file names) |
+| `SeasonNumber` | Season number |
+| `Title` | Episode title |
+| `EpisodeNumber` | Episode number within the season |
+
+Use the output with `Invoke-VideoCopy`, `Split-SeriesChapters`, or `Invoke-SeriesProcessing`. Requires network access to thetvdb.com.
 
 ## EXAMPLES
 
@@ -113,7 +124,7 @@ Parameters are specified directly.
 Array of episode metadata for the season.
 
 ## NOTES
-If no episode information is returned, the cmdlet writes a warning and produces no output.
+Requires network access to thetvdb.com. If no episode information is returned, the cmdlet writes a warning and produces no output. At least one of `-TvDbSeriesUrl` or `-TvDbSeasonUrl` should be provided.
 
 ## RELATED LINKS
 

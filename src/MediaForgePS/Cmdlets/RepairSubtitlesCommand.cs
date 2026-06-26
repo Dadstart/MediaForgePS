@@ -9,14 +9,13 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Fixes common OCR errors in SRT subtitle files (music note ♪ misreads, pipe as I, unmatched brackets, etc.).
+/// Fixes common OCR errors in SRT subtitle files.
 /// </summary>
 /// <remarks>
-/// Can process a single file, multiple files, or a directory of .srt files. When processing a directory, all .srt files
-/// are fixed in place. When processing a single file, use -OutputPath to write to a different file; otherwise the file is overwritten in place.
+/// Corrects music note (♪) misreads, pipe-as-I, unmatched brackets, and similar OCR artifacts.
+/// Does not write to the pipeline; files are repaired in place unless -OutputPath is used for a single file.
 /// </remarks>
 [Cmdlet(VerbsDiagnostic.Repair, "Subtitles")]
-[OutputType(typeof(string))]
 public class RepairSubtitlesCommand : CmdletBase
 {
     /// <summary>

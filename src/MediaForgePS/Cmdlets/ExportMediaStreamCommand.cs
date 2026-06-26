@@ -10,11 +10,12 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports a specific stream from a media file to a separate file.
+/// Extracts a single stream from a media file without re-encoding.
 /// </summary>
 /// <remarks>
-/// This cmdlet uses FFmpeg to extract a specific stream (video, audio, subtitle, data, or any stream)
-/// from a media file and save it to a separate file without re-encoding.
+/// -Type selects the stream kind (Video, Audio, Subtitle, Data, or All). -Index is zero-based within that type,
+/// or the absolute stream index when Type is All. Use <see cref="GetMediaFileCommand"/> to inspect stream indices.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite an existing output file.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "MediaStream", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(void))]

@@ -14,13 +14,13 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Processes bonus media files and organizes them into a Plex destination.
+/// Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style bonus content folders.
 /// </summary>
 /// <remarks>
-/// This cmdlet is a C# implementation of the Invoke-BonusFileProcessing PowerShell function.
-/// It performs two main steps:
-/// 1. Converts bonus MKV files in the input directory using the same encoder defaults as Convert-MediaFiles.
-/// 2. Organizes converted bonus files into Plex bonus content folders under the output directory.
+/// Three-step workflow: (1) convert bonus MKV files (names ending with -trailer, -featurette, etc.) to MP4,
+/// (2) extract English subtitles and optionally OCR image-based tracks (-Ocr Auto/Skip/Force),
+/// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
+/// On Windows, OutputPath must be under P:\. Existing destination files are skipped.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing")]
 [OutputType(typeof(void))]
@@ -86,13 +86,14 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     public SwitchParameter SkipSubtitles { get; set; }
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
+    /// Controls OCR of image-based subtitles (SUP, SUB). Default is Auto. Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "OCR mode for image subtitles: Auto, Skip, or Force.")]
+    [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
+    public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step after extraction or OCR.
+    /// When specified, skips repair of OCR-produced SRT files after extraction or OCR.
     /// </summary>
     [Parameter(HelpMessage = "Skip SRT repair after extraction or OCR.")]
     public SwitchParameter SkipRepair { get; set; }
@@ -104,7 +105,7 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.
+    /// Maximum number of image-to-SRT conversions to run in parallel when -Ocr is Force or Auto. Default is 10.
     /// </summary>
     [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously when OCR is enabled.")]
     public int ThrottleLimit { get; set; } = 10;
@@ -182,26 +183,23 @@ public class InvokeBonusFileProcessingCommand : CmdletBase
                 WriteHostMessage(string.Empty);
                 WriteHostMessage("Step 2: Extracting subtitles from bonus files...", ConsoleColor.Cyan);
                 var exportedPaths = ExtractSubtitlesFromBonusFiles(inputFullPath);
-                if (exportedPaths.Count > 0)
+                if (exportedPaths.Count > 0 && SubtitleOcrMode.RequiresOcrProcessing(Ocr))
                 {
-                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
-                    var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-                    var result = SubtitleOcrRepairWorkflow.Run(
-                        this,
-                        Logger,
-                        ExecutableService,
-                        PathResolverService,
-                        imagePaths,
-                        srtPaths,
-                        performOcr: !SkipOcr.IsPresent,
-                        ThrottleLimit,
-                        shouldRepair: !SkipRepair.IsPresent,
-                        BackupPath);
-
-                    if (result == null && !SkipRepair.IsPresent && srtPaths.Count > 0)
+                    var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
+                    if (imagePaths.Count > 0)
                     {
-                        WriteHostMessage("  OCR unavailable; repairing existing SRT files...", ConsoleColor.Yellow);
-                        SrtRepairHelper.RunRepairLoop(this, Logger, PathResolverService, srtPaths, shouldRepair: true, BackupPath);
+                        var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+                        SubtitleOcrRepairWorkflow.Run(
+                            this,
+                            Logger,
+                            ExecutableService,
+                            PathResolverService,
+                            imagePaths,
+                            srtPaths,
+                            performOcr: true,
+                            ThrottleLimit,
+                            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                            BackupPath);
                     }
                 }
                 WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);

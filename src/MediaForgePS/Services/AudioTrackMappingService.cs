@@ -8,8 +8,13 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Service for creating audio track mappings from media files.
+/// Creates audio track mappings from media file streams for conversion cmdlets.
 /// </summary>
+/// <remarks>
+/// <see cref="CreateMappings"/> targets English audio only: DTS is copied; other codecs are AAC-encoded
+/// with channel-based bitrates. <see cref="CreateDirectoryEncodeMappings"/> is used by
+/// <see cref="Cmdlets.ConvertVideoFileCommand"/> and applies similar English-first rules.
+/// </remarks>
 public class AudioTrackMappingService : IAudioTrackMappingService
 {
     private readonly ILogger<AudioTrackMappingService> _logger;
@@ -61,7 +66,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
             }
             else
             {
-                // Determine encoding settings based on channel count
+                // AAC encode bitrates by channel count: mono 80, stereo 160, 5.1+ 384 kbps
                 string codec = "aac";
                 int bitrate;
                 int destChannels;
@@ -96,7 +101,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
             destinationIndex++;
         }
 
-        // Apply swap logic: if first is DTS and second is 6+ channel AAC, swap destination indices
+        // When DTS copy and 6ch AAC encode would share destination order, swap indices so DTS is second
         if (mappings.Count >= 2 &&
             mappings[0] is CopyAudioTrackMapping &&
             mappings[1] is EncodeAudioTrackMapping encodeMapping &&

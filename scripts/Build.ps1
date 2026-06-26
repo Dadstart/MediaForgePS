@@ -21,7 +21,7 @@
     Linting mode. Defaults to 'None'.
     - 'None': Skip linting.
     - 'View': Check for formatting issues without fixing them (runs 'dotnet format --verify-no-changes').
-    - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded.
+    - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded. Use -Lint View afterward to check for non-fixable diagnostics.
 
 .PARAMETER Test
     Enable test step. Runs all tests in the solution.
@@ -403,15 +403,6 @@ elseif ($Lint -eq 'Fix') {
         }
         else {
             Write-Host "Lint fix (if any) completed successfully." -ForegroundColor Green
-            Write-Host ""
-        }
-
-        # Some analyzers (for example IDE1006 naming rules) cannot be auto-fixed in bulk.
-        # Run a verify pass so the script can clearly report whether manual changes are still needed.
-        dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Lint issues remain after auto-fix (likely non-fixable diagnostics such as IDE1006)." -ForegroundColor Yellow
-            Write-Host "Run with -Lint View to review diagnostics and apply manual fixes." -ForegroundColor Yellow
             Write-Host ""
         }
     }

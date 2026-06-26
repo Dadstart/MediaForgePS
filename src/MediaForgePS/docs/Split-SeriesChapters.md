@@ -19,7 +19,9 @@ Split-SeriesChapters -Title <String> -Season <Int32> [-EpisodeStart <Int32>] [-I
 ```
 
 ## DESCRIPTION
-Split-SeriesChapters splits one video (e.g. a combined season file) into multiple episode files by chapter ranges. Each range maps to an episode; output file names follow a Plex-friendly pattern including the series Title, TVDb episode ID, season, and episode number (e.g. "Show Name {tvdb 12345} S01E01.mkv"). TVDb metadata is fetched using Invoke-SeasonScan (TvDbSeriesUrl and TvDbSeasonUrl). -EpisodeStart is the episode number for the first range. If a range has OutputName, that name is used instead of the TVDb-based name. Requires enough TVDb episodes for the number of ranges.
+Split-SeriesChapters splits one video (e.g. a combined season file) into multiple episode files by chapter ranges. Each range maps to an episode; output file names follow a Plex-friendly pattern: `{Title} {tvdb ID} S{season}E{episode}.{ext}` (e.g. `Show Name {tvdb 12345} S01E01.mkv`).
+
+TVDb metadata is fetched using `Invoke-SeasonScan` (`-TvDbSeriesUrl`, `-TvDbSeasonUrl`). `-EpisodeStart` is the episode number for the first range. If a range has `OutputName`, that name is used instead of the TVDb-based name. The cmdlet requires at least `(EpisodeStart - 1) + rangeCount` episodes from the TVDb scan.
 
 ## EXAMPLES
 
@@ -35,12 +37,14 @@ Split-SeriesChapters -Title "My Show" -Season 1 -InputFile "C:\season1.mkv" -Cha
 
 Splits the file into three episode files named with TVDb IDs and S01E01, S01E02, S01E03.
 
-### Example 2: Custom output directory
+### Example 2: Mid-season start with custom output directory
 ```powershell
-Split-SeriesChapters -Title "Show" -Season 2 -InputFile "s2.mkv" -ChapterRanges (@{Start=1;End=2}, @{Start=3;End=4}) -OutputPath "C:\Output"
+Split-SeriesChapters -Title "Show" -Season 2 -EpisodeStart 5 -InputFile "s2.mkv" `
+    -ChapterRanges (@{Start=1;End=2}, @{Start=3;End=4}) -OutputPath "C:\Output" `
+    -TvDbSeriesUrl "https://thetvdb.com/series/12345"
 ```
 
-Writes episode files to C:\Output using TVDb metadata for season 2.
+Maps the first range to episode 5 and the second to episode 6.
 
 ## PARAMETERS
 

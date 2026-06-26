@@ -25,7 +25,11 @@ Split-Chapters [-InputFile] <String> [-AllChapters] [-OutputPath <String>] [-Pro
 ```
 
 ## DESCRIPTION
-Split-Chapters uses ffprobe to read chapter information and ffmpeg to split the video by time ranges. Chapter indices are 1-based: Start=1, End=1 is the first chapter. Use -ChapterRanges with objects that have Start, End (inclusive), and optional OutputName; or use -AllChapters to split every chapter into its own file. Output files are written to -OutputPath (default: same directory as input) with names like basename.split-01.mkv or the custom OutputName when provided.
+Split-Chapters uses ffprobe to read chapter information and ffmpeg to split the video by time ranges. Chapter indices are **1-based**: `Start=1, End=1` is the first chapter.
+
+Use `-ChapterRanges` with objects that have `Start`, `End` (inclusive), and optional `OutputName`; or use `-AllChapters` to split every chapter into its own file. Output files are written to `-OutputPath` (default: same directory as input) with names like `basename.split-01.mkv` or the custom `OutputName` plus the input extension. When the input has no extension, `.mkv` is used.
+
+Pipeline input is collected during `Process` and executed in `End`, so multiple files can be split in one invocation.
 
 ## EXAMPLES
 

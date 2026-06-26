@@ -45,7 +45,7 @@ public abstract record VideoEncodingSettings(
     protected string FfmpegCodecName => ConvertToFfmpegCodec(Codec);
 
     /// <summary>
-    /// Gets the default pixel format based on the codec.
+    /// Default pixel format for the given codec (yuv420p10le for HEVC, yuv420p otherwise).
     /// </summary>
     /// <param name="codec">The codec name.</param>
     /// <returns>The default pixel format for the codec.</returns>

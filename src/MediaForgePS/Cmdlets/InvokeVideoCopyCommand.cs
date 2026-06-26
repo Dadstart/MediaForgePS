@@ -8,12 +8,13 @@ using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Copies episode video files for a season into a destination directory using TVDb episode metadata.
+/// Copies episode video files into a destination folder using TVDb episode metadata for naming.
 /// </summary>
 /// <remarks>
-/// This cmdlet is a lower-level building block used by Invoke-SeriesProcessing.
-/// It matches video files under one or more input paths using file patterns, associates them with TVDb episodes,
-/// and copies them into a structured season folder, enforcing a minimum file size when desired.
+/// Lower-level step used by <see cref="InvokeSeriesProcessingCommand"/>.
+/// Searches each -Path root (top directory only, not recursive) for files matching -FilePatterns
+/// larger than -MinimumFileSize. The Nth matched file maps to TVDb episode (EpisodeStart - 1) + N.
+/// Pipeline -Path values are collected during Process and executed in End.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "VideoCopy")]
 [OutputType(typeof(string))]

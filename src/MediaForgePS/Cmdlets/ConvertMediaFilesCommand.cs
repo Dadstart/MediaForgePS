@@ -38,14 +38,13 @@ internal class FileProcessingStats
 }
 
 /// <summary>
-/// Automatically converts multiple media files with intelligent audio stream selection.
+/// Converts multiple media files with automatic audio stream selection and configurable video encoding.
 /// </summary>
 /// <remarks>
-/// This cmdlet processes multiple video files, automatically detecting and configuring audio streams
-/// based on codec type and channel count. It applies default video encoding settings based on DefaultVideoEncoder
-/// (x264/x265: libx264/libx265, CRF 18, preset medium; nvenc: hevc_nvenc, CQ 18, preset p5) unless overridden via VideoEncodingSettings.
-/// Audio track mappings can be provided via the AudioTrackMappings parameter; if not provided, they are
-/// automatically detected and created for each file.
+/// Batch conversion cmdlet for explicit file lists. Output files use the original base name with a <c>.mp4</c> extension.
+/// When -DefaultVideoEncoder is omitted, libx265 (x265) is used. Encoder presets: x264 (libx264, CRF 18), x265 (libx265, CRF 18), nvenc (hevc_nvenc, CQ 18).
+/// Audio mappings are auto-detected per file when -AudioTrackMappings is not supplied (English audio preferred).
+/// Failed files are reported via <see cref="ConversionResult"/> and WriteError; the batch continues.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
@@ -58,9 +57,9 @@ public class ConvertMediaFilesCommand : CmdletBase
     private static class HelpMessages
     {
         public const string InputPath = "Array of input file paths to convert";
-        public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mkv extension)";
+        public const string OutputDirectory = "Directory where output files will be written (files keep original name with .mp4 extension)";
         public const string VideoEncodingSettings = "Override default video encoding settings. If not provided, uses default for DefaultVideoEncoder";
-        public const string DefaultVideoEncoder = "Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)";
+        public const string DefaultVideoEncoder = "Default encoder when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC). When omitted, x265 is used.";
         public const string AudioTrackMappings = "Audio track mappings to use for all files. If not provided, mappings are automatically detected and created for each file";
         public const string X265Params = "Additional x265 params (passed to ffmpeg via -x265-params)";
     }
@@ -86,7 +85,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     public object[] InputPath { get; set; } = Array.Empty<object>();
 
     /// <summary>
-    /// Directory where output files will be written. Files keep original name with .mkv extension.
+    /// Directory where output files will be written. Each file keeps its original base name with a <c>.mp4</c> extension.
     /// </summary>
     [Parameter(
         Mandatory = true,
@@ -111,7 +110,7 @@ public class ConvertMediaFilesCommand : CmdletBase
     public VideoEncodingSettings? VideoEncodingSettings { get; set; }
 
     /// <summary>
-    /// Default encoder to use: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC). Mutually exclusive with VideoEncodingSettings.
+    /// Default encoder: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). When omitted, x265 is used. Mutually exclusive with VideoEncodingSettings.
     /// </summary>
     [Parameter(
         ParameterSetName = DefaultEncoderParameterSet,

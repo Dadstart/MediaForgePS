@@ -16,10 +16,14 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts video files in a directory (or specified paths) to MP4 using module conversion services.
-/// Supports common container extensions: .mkv, .mp4, .m4v, .mov, .avi, .wmv, .flv, .webm, .mpg, .mpeg,
-/// .ts, .m2ts, .mts, .vob, .ogv, .3gp, .asf.
+/// Converts video files in a directory (or specified paths) to MP4 with automatic English audio mapping and optional caption extraction.
 /// </summary>
+/// <remarks>
+/// Primary batch conversion cmdlet for video libraries. Supports common container extensions (.mkv, .mp4, .mov, .avi, .webm, and more).
+/// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
+/// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
+/// Writes a <see cref="VideoFileConversionResult"/> per processed file to the pipeline.
+/// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile")]
 [OutputType(typeof(VideoFileConversionResult))]
 public class ConvertVideoFileCommand : CmdletBase
@@ -93,15 +97,16 @@ public class ConvertVideoFileCommand : CmdletBase
     public SwitchParameter SkipSubtitles { get; set; }
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based captions (SUP, SUB). Has no effect when -SkipSubtitles is specified.
+    /// Controls OCR of image-based captions (SUP, SUB). Default is Auto. Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT. Has no effect when -SkipSubtitles is specified.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image captions to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "OCR mode for image captions: Auto, Skip, or Force.")]
+    [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
+    public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips repair of OCR-produced SRT files. Has no effect when -Ocr is Skip.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
     private const int DefaultOcrThrottleLimit = 10;
@@ -289,37 +294,30 @@ public class ConvertVideoFileCommand : CmdletBase
                     ConsoleColor.Green);
                 WriteVerbose($"Caption extraction - files: {total}, paths: {extractedCaptionPaths.Count}.");
 
-                if (!SkipOcr.IsPresent)
+                if (SubtitleOcrMode.RequiresOcrProcessing(Ocr) && extractedCaptionPaths.Count > 0)
                 {
-                    if (extractedCaptionPaths.Count > 0)
+                    var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
+                    if (imagePaths.Count > 0)
                     {
-                        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(extractedCaptionPaths);
                         var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
+                        WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
-                        if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
-                        {
-                            WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
+                        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                            this,
+                            Logger,
+                            ExecutableService,
+                            PathResolver,
+                            imagePaths,
+                            srtPathsFromCaptions,
+                            performOcr: true,
+                            DefaultOcrThrottleLimit,
+                            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                            backupPath: null);
 
-                            var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                                this,
-                                Logger,
-                                ExecutableService,
-                                PathResolver,
-                                imagePaths,
-                                srtPathsFromCaptions,
-                                performOcr: true,
-                                DefaultOcrThrottleLimit,
-                                shouldRepair: !SkipRepair.IsPresent,
-                                backupPath: null);
+                        if (allSrtPaths == null)
+                            return;
 
-                            if (allSrtPaths == null)
-                                return;
-
-                            if (allSrtPaths.Count == 0)
-                                WriteHostMessage("  No SRT files to repair (only non-SRT formats were extracted).", ConsoleColor.Green);
-                            else
-                                WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
-                        }
+                        WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                     }
                 }
             }
@@ -659,6 +657,10 @@ public class ConvertVideoFileCommand : CmdletBase
 }
 
 /// <summary>
-/// Result of converting a single video file from a batch.
+/// Result of converting a single video file in a <see cref="ConvertVideoFileCommand"/> batch.
 /// </summary>
+/// <param name="InputPath">Original source file path.</param>
+/// <param name="OutputPath">Path to the converted MP4 file.</param>
+/// <param name="Success">Whether conversion completed successfully.</param>
+/// <param name="Status">Human-readable status or error message.</param>
 public record VideoFileConversionResult(string InputPath, string OutputPath, bool Success, string Status);

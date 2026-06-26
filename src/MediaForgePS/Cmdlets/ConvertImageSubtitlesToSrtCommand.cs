@@ -9,12 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts image-based subtitle files (SUP, SUB) to SRT (text) using Subtitle Edit with Tesseract OCR.
+/// Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
 /// </summary>
 /// <remarks>
-/// Requires Subtitle Edit installed in "%ProgramFiles%\\Subtitle Edit" and Tesseract OCR.
-/// Processes .sup and .sub files directly or directories containing these files. Output SRT files are written
-/// next to each input file unless -OutputPath is specified for a single file.
+/// Alias: Convert-SupToSrt. Writes created SRT file paths to the pipeline.
+/// Requires Subtitle Edit under %ProgramFiles%\Subtitle Edit and Tesseract OCR.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt")]
 [Alias("Convert-SupToSrt")]
@@ -156,7 +155,7 @@ public class ConvertImageSubtitlesToSrtCommand : CmdletBase
     {
         try
         {
-            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath);
+            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath, Logger);
             WriteVerbose($"Converted to: {outputSrtPath}");
             return true;
         }

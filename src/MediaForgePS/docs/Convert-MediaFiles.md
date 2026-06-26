@@ -27,7 +27,11 @@ Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String>
 ```
 
 ## DESCRIPTION
-Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Default video encoding is chosen by -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). Override with -VideoEncodingSettings for full control. If -AudioTrackMappings is not provided, mappings are auto-detected per file (preferring English, then by codec and channel count). Output files keep the original base name with .mp4 extension in the specified OutputDirectory. The cmdlet outputs ConversionResult objects (FilePath, Success, Status) for each input.
+Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Output files keep the original base name with `.mp4` extension in the specified `OutputDirectory`.
+
+Default video encoding is chosen by `-DefaultVideoEncoder`: **x264** (libx264, CRF 18, preset medium), **x265** (libx265, CRF 18, preset medium), or **nvenc** (hevc_nvenc, CQ 18, preset p5). When `-DefaultVideoEncoder` is omitted, **x265** is used. Override with `-VideoEncodingSettings` for full control.
+
+If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA.
 
 ## EXAMPLES
 
@@ -73,7 +77,7 @@ Accept wildcard characters: False
 ```
 
 ### -DefaultVideoEncoder
-Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)
+Default encoder when `-VideoEncodingSettings` is not specified: **x264** (libx264), **x265** (libx265), or **nvenc** (NVENC HEVC). When omitted, **x265** is used.
 
 ```yaml
 Type: String
@@ -83,7 +87,7 @@ Accepted values: x264, x265, nvenc
 
 Required: False
 Position: Named
-Default value: None
+Default value: x265
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

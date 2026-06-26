@@ -131,11 +131,11 @@ Paths to SRT file(s) or directory/directories containing .srt files. Accepts pip
 
 ## OUTPUTS
 
-### System.String
-Paths of repaired SRT files are written to the pipeline.
+### None
+This cmdlet does not write to the pipeline. Files are repaired in place (or written to `-OutputPath` for a single file).
 
 ## NOTES
-Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles without -SkipOcr first.
+Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles with -Ocr first.
 
 ## RELATED LINKS
 

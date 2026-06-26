@@ -8,7 +8,7 @@ schema: 2.0.0
 # Invoke-SubtitleOcrRepair
 
 ## SYNOPSIS
-Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs all SRT files in the set.
+Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs the OCR-produced SRT files.
 
 ## SYNTAX
 
@@ -18,7 +18,9 @@ Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-Thrott
 ```
 
 ## DESCRIPTION
-Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs all SRT files (including any SRT already in the input) unless -SkipRepair is specified. Equivalent to running Convert-ImageSubtitlesToSrt on image paths and Repair-Subtitles on all SRT paths. Input can be file path(s) or directory/directories; -Recurse searches subdirectories. Output SRT paths are written to the pipeline. Use -BackupPath to copy SRT files to a backup location before repairing (structure preserved).
+Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs **only the OCR-produced SRT files** unless `-SkipRepair` is specified. Pre-existing SRT files in the input are not repaired.
+
+Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10).
 
 ## EXAMPLES
 
@@ -27,14 +29,14 @@ Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: i
 Invoke-SubtitleOcrRepair -InputPath "C:\Season1\Subtitles" -Recurse
 ```
 
-Converts .sup/.sub to .srt and repairs all SRT files under C:\Season1\Subtitles.
+Converts .sup/.sub to .srt and repairs the OCR-produced SRT files under C:\Season1\Subtitles.
 
 ### Example 2: Convert only, skip repair
 ```powershell
 Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -SkipRepair
 ```
 
-Converts image subtitles to SRT but does not run the repair step; converted and existing SRT paths are still emitted.
+Converts image subtitles to SRT but does not run the repair step.
 
 ### Example 3: With backup before repair
 ```powershell
@@ -115,7 +117,7 @@ Aliases:
 
 Required: False
 Position: Named
-Default value: None
+Default value: 10
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -145,8 +147,8 @@ Paths to .sup, .sub, or .srt files, or directories containing them. Alias: Path.
 
 ## OUTPUTS
 
-### System.String
-Paths of all SRT files (converted and/or repaired).
+### None
+This cmdlet does not write to the pipeline.
 
 ## NOTES
 Requires Subtitle Edit and Tesseract when any input is SUP or SUB.

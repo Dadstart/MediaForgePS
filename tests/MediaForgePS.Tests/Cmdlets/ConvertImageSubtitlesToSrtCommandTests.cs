@@ -42,6 +42,17 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
         _executableServiceMock
             .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
+            {
+                var argList = args as IList<string> ?? args.ToList();
+                if (argList.Count >= 2)
+                {
+                    var inputPath = argList[1];
+                    var defaultSrt = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
+                    if (!File.Exists(defaultSrt))
+                        File.WriteAllText(defaultSrt, "1\n00:00:00,000 --> 00:00:01,000\n\n");
+                }
+            })
             .ReturnsAsync(new ExecutableResult(null, null, 0));
 
         var services = new ServiceCollection();
@@ -194,6 +205,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             Assert.Empty(errors);
             Assert.Single(results);
             Assert.Equal(Path.ChangeExtension(supPath, "srt"), results[0]);
+            Assert.False(File.Exists(supPath));
         }
         finally
         {
@@ -233,6 +245,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.NotEmpty(errors);
             Assert.Empty(results);
+            Assert.True(File.Exists(supPath));
         }
         finally
         {
@@ -269,6 +282,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.NotEmpty(errors);
             Assert.Empty(results);
+            Assert.True(File.Exists(supPath));
         }
         finally
         {
@@ -321,6 +335,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.NotEmpty(errors);
             Assert.Empty(results);
+            Assert.True(File.Exists(supPath));
         }
         finally
         {
@@ -378,6 +393,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             Assert.Single(results);
             Assert.Equal(customOutput, results[0]);
             Assert.True(File.Exists(customOutput));
+            Assert.False(File.Exists(supPath));
         }
         finally
         {
@@ -438,6 +454,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             Assert.Empty(errors);
             Assert.Single(results);
             Assert.Equal(Path.ChangeExtension(supPath, "srt"), results[0]);
+            Assert.False(File.Exists(supPath));
         }
         finally
         {

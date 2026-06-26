@@ -36,12 +36,14 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
 
 Extracts the first subtitle stream to subs.srt, overwriting if it exists.
 
-### Example 3: WhatIf
+### Example 3: Find stream index with Get-MediaFile
 ```powershell
-Export-MediaStream -InputPath "in.mkv" -OutputPath "out.video" -Type Video -Index 0 -WhatIf
+$media = Get-MediaFile "movie.mkv"
+$media.Streams | Where-Object Type -eq 'Subtitle' | Format-Table Index, Codec, Language
+Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle -Index 0 -Force
 ```
 
-Shows what would be done without extracting.
+Inspect subtitle stream indices before extracting.
 
 ## PARAMETERS
 
@@ -61,7 +63,7 @@ Accept wildcard characters: False
 ```
 
 ### -Force
-Overwrites the output file if it already exists
+Overwrites the output file if it already exists. Without `-Force`, ffmpeg receives no overwrite flag and the cmdlet fails when the output file exists.
 
 ```yaml
 Type: SwitchParameter

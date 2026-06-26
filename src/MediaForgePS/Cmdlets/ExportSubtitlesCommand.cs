@@ -11,15 +11,16 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Exports English subtitle streams from media files. By default, converts image-based formats (SUP, SUB) to SRT via OCR and optionally repairs SRT files.
+/// Exports English subtitle streams from media files.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. Unless -SkipOcr is specified, converts .sup/.sub to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified.
-/// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
+/// Always extracts subtitle tracks whose language matches English. Folder input processes <c>*.mkv</c> files only.
+/// Use -Ocr Auto (default), Skip, or Force to control OCR of image-based subtitles after extraction.
+/// When OCR runs, only OCR-produced SRT files are repaired; native exported SRT files are not repaired.
+/// Alias: Export-RepairedSubtitles.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-RepairedSubtitles")]
-[OutputType(typeof(string))]
 public class ExportSubtitlesCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -38,21 +39,22 @@ public class ExportSubtitlesCommand : CmdletBase
     public string? BackupPath { get; set; }
 
     /// <summary>
-    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies unless -SkipOcr is specified.
+    /// Maximum number of image-to-SRT conversions to run in parallel. Default is 10. Only applies when -Ocr is Force or Auto.
     /// </summary>
     [Parameter(HelpMessage = "Maximum number of image subtitle conversions to run simultaneously.")]
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based subtitles (SUP, SUB).
+    /// Controls OCR of image-based subtitles (SUP, SUB). Default is Auto. Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image subtitles to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "OCR mode for image subtitles: Auto, Skip, or Force.")]
+    [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
+    public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips repair of OCR-produced SRT files. Has no effect when -Ocr is Skip.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
@@ -129,9 +131,20 @@ public class ExportSubtitlesCommand : CmdletBase
             return;
         }
 
-        var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(exportedPaths);
-        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+        if (!SubtitleOcrMode.RequiresOcrProcessing(Ocr))
+        {
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
+            return;
+        }
 
+        var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
+        if (imagePaths.Count == 0)
+        {
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
+            return;
+        }
+
+        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
             this,
             Logger,
@@ -139,9 +152,9 @@ public class ExportSubtitlesCommand : CmdletBase
             PathResolver,
             imagePaths,
             srtPathsFromExport,
-            performOcr: !SkipOcr.IsPresent,
+            performOcr: imagePaths.Count > 0,
             ThrottleLimit,
-            shouldRepair: !SkipOcr.IsPresent && !SkipRepair.IsPresent,
+            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
             BackupPath);
 
         if (allSrtPaths == null)
@@ -149,7 +162,7 @@ public class ExportSubtitlesCommand : CmdletBase
 
         if (allSrtPaths.Count == 0)
         {
-            WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
             return;
         }
 

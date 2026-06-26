@@ -6,7 +6,7 @@
       <command:verb>Convert</command:verb>
       <command:noun>ImageSubtitlesToSrt</command:noun>
       <maml:description>
-        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.</maml:para>
+        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR. Alias: Convert-SupToSrt.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
@@ -136,7 +136,7 @@
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Use Repair-Subtitles afterward to fix common OCR errors in the SRT.</maml:para>
+        <maml:para>Alias: Convert-SupToSrt . Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -402,6 +402,7 @@ Convert-MediaFileAdvanced -InputPath "C:\movie.mkv" -OutputPath "C:\Out\movie.mp
       <command:example>
         <maml:title>------------- Example 2: Add extra x265 parameters -------------</maml:title>
         <dev:code>$settings = New-VideoEncodingSettings -Codec libx265 -CRF 18 -Preset medium
+$mappings = Get-AudioStreams -InputPath "input.mkv"
 Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -VideoEncodingSettings $settings -AudioTrackMappings $mappings -X265Params "aq-mode=3"</dev:code>
         <dev:remarks>
           <maml:para>Passes aq-mode=3 to x265 via -x265-params.</maml:para>
@@ -437,7 +438,9 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Default video encoding is chosen by -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). Override with -VideoEncodingSettings for full control. If -AudioTrackMappings is not provided, mappings are auto-detected per file (preferring English, then by codec and channel count). Output files keep the original base name with .mp4 extension in the specified OutputDirectory. The cmdlet outputs ConversionResult objects (FilePath, Success, Status) for each input.</maml:para>
+      <maml:para>Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Output files keep the original base name with `.mp4` extension in the specified `OutputDirectory`.</maml:para>
+      <maml:para>Default video encoding is chosen by `-DefaultVideoEncoder`: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). When `-DefaultVideoEncoder` is omitted, x265 is used. Override with `-VideoEncodingSettings` for full control.</maml:para>
+      <maml:para>If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -481,7 +484,7 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>DefaultVideoEncoder</maml:name>
           <maml:description>
-            <maml:para>Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)</maml:para>
+            <maml:para>Default encoder when `-VideoEncodingSettings` is not specified: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). When omitted, x265 is used.</maml:para>
           </maml:description>
           <command:parameterValueGroup>
             <command:parameterValue required="false" command:variableLength="false">x264</command:parameterValue>
@@ -493,7 +496,7 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
             <maml:name>String</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>x265</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>X265Params</maml:name>
@@ -612,14 +615,14 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>DefaultVideoEncoder</maml:name>
         <maml:description>
-          <maml:para>Default encoder to use when VideoEncodingSettings is not specified: 'x264' (libx264), 'x265' (libx265), or 'nvenc' (NVENC HEVC)</maml:para>
+          <maml:para>Default encoder when `-VideoEncodingSettings` is not specified: x264 (libx264), x265 (libx265), or nvenc (NVENC HEVC). When omitted, x265 is used.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
           <maml:name>String</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>x265</dev:defaultValue>
       </command:parameter>
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="none">
         <maml:name>InputPath</maml:name>
@@ -771,7 +774,10 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     <maml:description>
       <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.</maml:para>
       <maml:para>Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.</maml:para>
-      <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced. Unless -SkipOcr is specified, image-based captions (SUP, SUB) are converted to SRT via OCR and SRT files are repaired by default; use -SkipRepair to skip only the repair step. -SkipOcr has no effect when -SkipSubtitles is set.</maml:para>
+      <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced.</maml:para>
+      <maml:para>Use `-Ocr` to control post-extraction OCR and repair of image-based captions (SUP, SUB). Accepted values are Auto (default), Skip , and Force :</maml:para>
+      <maml:para>- Auto - OCR image subtitles only when the source has a single exported subtitle format and it is not SRT. - Force - OCR all exported image subtitle files. - Skip - extract subtitles only; no OCR or repair.</maml:para>
+      <maml:para>When OCR runs, SRT files are repaired by default unless `-SkipRepair` is specified. `-Ocr` and `-SkipRepair` have no effect when `-SkipSubtitles` is set.</maml:para>
       <maml:para>Default video encoding follows -DefaultVideoEncoder: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). The default encoder is nvenc. Pass -X265Params for extra x265 options when using x265.</maml:para>
       <maml:para>InputPath accepts a directory, a single video file, or multiple video file paths. Aliases: InputDirectory, Path. When -OutputDirectory is omitted, output is written alongside each input (same directory as the source file or input root). Use -Recurse to include video files in subdirectories when InputPath is a directory.</maml:para>
       <maml:para>Progress reporting includes per-file and batch ETA based on completed file sizes.</maml:para>
@@ -832,20 +838,9 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-          <maml:name>SkipOcr</maml:name>
-          <maml:description>
-            <maml:para>Skip OCR conversion of image captions (SUP, SUB) to SRT. Has no effect when -SkipSubtitles is specified.</maml:para>
-          </maml:description>
-          <dev:type>
-            <maml:name>SwitchParameter</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>False</dev:defaultValue>
-        </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipRepair</maml:name>
           <maml:description>
-            <maml:para>Skip SRT repair during default OCR processing. Has no effect when -SkipOcr or -SkipSubtitles is specified.</maml:para>
+            <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified or -SkipSubtitles is specified.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -887,6 +882,18 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
             <maml:uri />
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>Ocr</maml:name>
+          <maml:description>
+            <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>Auto</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -940,21 +947,9 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-        <maml:name>SkipOcr</maml:name>
-        <maml:description>
-          <maml:para>Skip OCR conversion of image captions (SUP, SUB) to SRT. Has no effect when -SkipSubtitles is specified.</maml:para>
-        </maml:description>
-        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
-        <dev:type>
-          <maml:name>SwitchParameter</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>False</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>SkipRepair</maml:name>
         <maml:description>
-          <maml:para>Skip SRT repair during default OCR processing. Has no effect when -SkipOcr or -SkipSubtitles is specified.</maml:para>
+          <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified or -SkipSubtitles is specified.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -999,6 +994,18 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Ocr</maml:name>
+        <maml:description>
+          <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>Auto</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -1022,7 +1029,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when -SkipOcr is not specified. This cmdlet is aliased as `convert` and `mkv` when using scripts/Launch.ps1.</maml:para>
+        <maml:para>Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -1030,7 +1037,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <maml:title>Example 1: Convert all video files in a folder with NVENC (default)</maml:title>
         <dev:code>Convert-VideoFile -InputPath "C:\Videos\Season1"</dev:code>
         <dev:remarks>
-          <maml:para>Converts each supported video file under C:\Videos\Season1 to .mp4 in the same folder, extracts English captions, and runs OCR plus SRT repair on image-based tracks.</maml:para>
+          <maml:para>Converts each supported video file under C:\Videos\Season1 to .mp4 in the same folder and extracts English caption sidecars.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
@@ -1048,14 +1055,21 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title> Example 4: Convert and extract captions without OCR or repair </maml:title>
-        <dev:code>Convert-VideoFile -InputPath "C:\In" -SkipOcr</dev:code>
+        <maml:title>Example 4: Convert and extract captions with OCR (default Auto mode)</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "C:\In" -Ocr Auto</dev:code>
         <dev:remarks>
-          <maml:para>Extracts English subtitle sidecars but does not convert SUP/SUB to SRT or repair SRT files.</maml:para>
+          <maml:para>Extracts English subtitle sidecars. Image-based tracks are converted to SRT via OCR when Auto conditions are met, and OCR-produced SRT files are repaired.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>-- Example 5: Convert a non-Matroska source (e.g. MP4 or MOV) --</maml:title>
+        <maml:title>--------- Example 5: Force OCR on all image subtitles ---------</maml:title>
+        <dev:code>Convert-VideoFile -InputPath "C:\In" -Ocr Force</dev:code>
+        <dev:remarks>
+          <maml:para>Converts all exported image subtitle files to SRT and repairs them.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-- Example 6: Convert a non-Matroska source (e.g. MP4 or MOV) --</maml:title>
         <dev:code>Convert-VideoFile -InputPath "D:\Cameras\clip.mov" -OutputDirectory "D:\Out"</dev:code>
         <dev:remarks>
           <maml:para>Accepts any supported container as input. Subtitle extraction uses ffmpeg for non-Matroska sources.</maml:para>
@@ -1165,7 +1179,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>Force</maml:name>
           <maml:description>
-            <maml:para>Overwrites the output file if it already exists</maml:para>
+            <maml:para>Overwrites the output file if it already exists. Without `-Force`, ffmpeg receives no overwrite flag and the cmdlet fails when the output file exists.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -1214,7 +1228,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>Force</maml:name>
         <maml:description>
-          <maml:para>Overwrites the output file if it already exists</maml:para>
+          <maml:para>Overwrites the output file if it already exists. Without `-Force`, ffmpeg receives no overwrite flag and the cmdlet fails when the output file exists.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -1337,10 +1351,12 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>---------------------- Example 3: WhatIf ----------------------</maml:title>
-        <dev:code>Export-MediaStream -InputPath "in.mkv" -OutputPath "out.video" -Type Video -Index 0 -WhatIf</dev:code>
+        <maml:title>------- Example 3: Find stream index with Get-MediaFile -------</maml:title>
+        <dev:code>$media = Get-MediaFile "movie.mkv"
+$media.Streams | Where-Object Type -eq 'Subtitle' | Format-Table Index, Codec, Language
+Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle -Index 0 -Force</dev:code>
         <dev:remarks>
-          <maml:para>Shows what would be done without extracting.</maml:para>
+          <maml:para>Inspect subtitle stream indices before extracting.</maml:para>
         </dev:remarks>
       </command:example>
     </command:examples>
@@ -1361,12 +1377,15 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:verb>Export</command:verb>
       <command:noun>Subtitles</command:noun>
       <maml:description>
-        <maml:para>Exports English subtitle streams from media files and converts image subtitles to SRT via OCR unless skipped.</maml:para>
+        <maml:para>Exports English subtitle streams from media files. Use -Ocr Auto, Skip, or Force to control image subtitle OCR and SRT repair.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
       <maml:para>Export-Subtitles extracts English subtitle tracks from media files (MKV and others). For each file it finds subtitle streams whose language matches English and exports them next to the source file with an appropriate extension (e.g. .srt, .sup).</maml:para>
-      <maml:para>Unless you specify -SkipOcr, the cmdlet also converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR, then repairs the SRT text (fixes common OCR errors) unless -SkipRepair is specified. Use -BackupPath to copy SRT files to a backup location before repairing. Output SRT paths are written to the pipeline when OCR processing runs. InputPath can be media file path(s), folder path(s) containing .mkv files, or MediaFile objects from Get-MediaFile.</maml:para>
+      <maml:para>Use `-Ocr` to control post-extraction OCR and repair. Accepted values are Auto (default), Skip , and Force :</maml:para>
+      <maml:para>- Auto - OCR image subtitles only when the source has a single exported subtitle format and it is not SRT. - Force - OCR all exported image subtitle files. - Skip - extract only; no OCR or repair.</maml:para>
+      <maml:para>When OCR runs, only OCR-produced SRT files are repaired (native exported SRT files are not repaired). Use `-BackupPath` to copy SRT files to a backup location before repairing. Use `-SkipRepair` to skip the repair step.</maml:para>
+      <maml:para>InputPath can be media file path(s), folder path(s) containing `.mkv` files, or `MediaFile` objects from `Get-MediaFile`. This cmdlet has alias Export-RepairedSubtitles .</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -1398,18 +1417,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipRepair</maml:name>
           <maml:description>
-            <maml:para>Skip SRT repair during default OCR processing.</maml:para>
-          </maml:description>
-          <dev:type>
-            <maml:name>SwitchParameter</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>False</dev:defaultValue>
-        </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-          <maml:name>SkipOcr</maml:name>
-          <maml:description>
-            <maml:para>Skip OCR conversion of image subtitles to SRT.</maml:para>
+            <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -1420,7 +1428,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>ThrottleLimit</maml:name>
           <maml:description>
-            <maml:para>Maximum number of image-to-SRT conversions to run in parallel. Only applies unless -SkipOcr is specified. Default is 10.</maml:para>
+            <maml:para>Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
           <dev:type>
@@ -1440,6 +1448,18 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
             <maml:uri />
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>Ocr</maml:name>
+          <maml:description>
+            <maml:para>Controls OCR of image-based subtitles after extraction. Default is Auto.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>Auto</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -1471,19 +1491,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>SkipRepair</maml:name>
         <maml:description>
-          <maml:para>Skip SRT repair during default OCR processing.</maml:para>
-        </maml:description>
-        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
-        <dev:type>
-          <maml:name>SwitchParameter</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>False</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-        <maml:name>SkipOcr</maml:name>
-        <maml:description>
-          <maml:para>Skip OCR conversion of image subtitles to SRT.</maml:para>
+          <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -1495,7 +1503,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>ThrottleLimit</maml:name>
         <maml:description>
-          <maml:para>Maximum number of image-to-SRT conversions to run in parallel. Only applies unless -SkipOcr is specified. Default is 10.</maml:para>
+          <maml:para>Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
         <dev:type>
@@ -1516,6 +1524,18 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Ocr</maml:name>
+        <maml:description>
+          <maml:para>Controls OCR of image-based subtitles after extraction. Default is Auto.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>Auto</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -1530,16 +1550,16 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>System.String</maml:name>
+          <maml:name>None</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>When OCR processing runs, the paths of exported or repaired SRT files are written to the pipeline.</maml:para>
+          <maml:para>This cmdlet does not write to the pipeline.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires mkvextract for extracting embedded subtitles. When OCR processing is enabled, Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit).</maml:para>
+        <maml:para>Alias: Export-RepairedSubtitles . Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit). Folder input processes `*.mkv` files only.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -1551,15 +1571,15 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>Example 2: Export from a folder and convert image subtitles to SRT with repair</maml:title>
-        <dev:code>Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -BackupPath "C:\Backup\srts"</dev:code>
+        <maml:title>-- Example 2: Export from a folder and force OCR with repair --</maml:title>
+        <dev:code>Get-ChildItem "C:\Videos" -Filter *.mkv | Export-Subtitles -Ocr Force -BackupPath "C:\Backup\srts"</dev:code>
         <dev:remarks>
-          <maml:para>Exports subtitles from all MKV files in C:\Videos. Image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then repaired. Resulting SRT paths are emitted to the pipeline.</maml:para>
+          <maml:para>Exports subtitles from all MKV files in C:\Videos. All image-based tracks (SUP/SUB) are converted to SRT via OCR, SRT files are backed up to C:\Backup\srts (structure preserved), then OCR-produced SRT files are repaired.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
         <maml:title>------- Example 3: Export and convert without SRT repair -------</maml:title>
-        <dev:code>Export-Subtitles -InputPath "C:\Videos\season1" -SkipRepair</dev:code>
+        <dev:code>Export-Subtitles -InputPath "C:\Videos\season1" -Ocr Force -SkipRepair</dev:code>
         <dev:remarks>
           <maml:para>Exports and converts image subtitles to SRT but skips the repair step.</maml:para>
         </dev:remarks>
@@ -1594,7 +1614,10 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Get-AudioStreams reads a media file with ffprobe and returns an array of AudioTrackMapping objects that describe how to map and optionally encode each audio stream. Use the output with Convert-MediaFiles or Convert-MediaFileAdvanced. The mappings are built from the file's audio streams and can be passed as-is or edited (e.g. with New-AudioTrackMapping for custom copy/encode settings).</maml:para>
+      <maml:para>Get-AudioStreams reads a media file with ffprobe and returns an array of `AudioTrackMapping` objects for English audio streams. Use the output with `Convert-MediaFiles` or `Convert-MediaFileAdvanced`, or build custom mappings with `New-AudioTrackMapping`.</maml:para>
+      <maml:para>Mapping rules applied automatically:</maml:para>
+      <maml:para>- DTS streams are copied without re-encoding. - Other codecs are encoded to AAC with channel-based settings:   - 6+ channels → 384 kbps, 6 channels   - 2+ channels → 160 kbps, stereo   - 1 channel → 96 kbps, mono - When both a DTS stream and a 6-channel AAC encode would occupy the same destination index, the DTS copy and AAC encode destination indices are swapped.</maml:para>
+      <maml:para>Returns an empty array when no English audio streams are found.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -1673,7 +1696,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires ffprobe. Output is intended for -AudioTrackMappings in Convert-MediaFiles or Convert-MediaFileAdvanced.</maml:para>
+        <maml:para>Requires ffprobe. Only English (`eng`) audio streams are mapped. When no English audio is present, an empty array is returned. Output is intended for `-AudioTrackMappings` in `Convert-MediaFiles` or `Convert-MediaFileAdvanced`.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -1722,7 +1745,9 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -DefaultV
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Get-MediaFile uses ffprobe to analyze a media file and returns a MediaFile object with format metadata, stream details (video, audio, subtitle), and chapter information. Path can be relative or absolute and supports PowerShell path resolution (e.g. wildcards, provider paths). Use the output with other MediaForge cmdlets such as Export-Subtitles or Convert-MediaFiles.</maml:para>
+      <maml:para>Get-MediaFile uses ffprobe to analyze a media file and returns a `MediaFile` object with:</maml:para>
+      <maml:para>- Path - resolved file path - Format - container format metadata (duration, bit rate, format name) - Streams - video, audio, subtitle, and other streams (index, codec, language, tags) - Chapters - chapter markers with start/end times</maml:para>
+      <maml:para>Path can be relative or absolute. Use the output with other MediaForge cmdlets such as `Export-Subtitles` or `Convert-MediaFiles`, or pipe `MediaFile` objects directly to `Export-Subtitles`.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -1730,7 +1755,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -DefaultV
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="none">
           <maml:name>Path</maml:name>
           <maml:description>
-            <maml:para>Path to the media file to analyze. Can be relative or absolute; supports PowerShell path resolution including wildcards and provider paths.</maml:para>
+            <maml:para>Path to the media file to analyze. Can be relative or absolute.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
           <dev:type>
@@ -1757,7 +1782,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -DefaultV
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="0" aliases="none">
         <maml:name>Path</maml:name>
         <maml:description>
-          <maml:para>Path to the media file to analyze. Can be relative or absolute; supports PowerShell path resolution including wildcards and provider paths.</maml:para>
+          <maml:para>Path to the media file to analyze. Can be relative or absolute.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
@@ -1849,11 +1874,12 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       <command:verb>Invoke</command:verb>
       <command:noun>BonusFileProcessing</command:noun>
       <maml:description>
-        <maml:para>Converts bonus MKV files, extracts subtitles (with OCR by default and repair), and organizes them into Plex-style bonus content folders.</maml:para>
+        <maml:para>Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style bonus content folders.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in -InputPath (files whose names end with -behindthescenes, -deleted, -featurette, -interview, -scene, -short, -trailer, or -other) using the same encoder defaults as Convert-MediaFiles (-DefaultVideoEncoder: x264, x265, or nvenc). (2) Unless -SkipSubtitles is specified, extracts English subtitle streams from each bonus MKV into files alongside the media (e.g. .eng.sdh.srt or .sup). Unless -SkipOcr is specified, image-based subtitles (SUP, SUB) are converted to SRT via OCR. SRT files are repaired by default unless -SkipRepair is specified. (3) Organizes the converted .mp4 and matching .srt (or other subtitle) files into Plex bonus folders (Behind The Scenes, Deleted Scenes, Featurettes, etc.) under -OutputPath. On Windows, -OutputPath must be under the P:\ drive. Source files are moved (copied then deleted) into the Plex folder structure.</maml:para>
+      <maml:para>Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default nvenc ). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` ( Auto , Skip , or Force ; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.</maml:para>
+      <maml:para>On Windows, `-OutputPath` must be under the `P:` drive. Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -1897,23 +1923,12 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
             <maml:name>String</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>nvenc</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipSubtitles</maml:name>
           <maml:description>
             <maml:para>Skip extracting subtitles from bonus files. By default, English subtitle streams are extracted from each bonus MKV before organization.</maml:para>
-          </maml:description>
-          <dev:type>
-            <maml:name>SwitchParameter</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>False</dev:defaultValue>
-        </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-          <maml:name>SkipOcr</maml:name>
-          <maml:description>
-            <maml:para>Skip OCR conversion of image-based subtitles (SUP, SUB). By default, extracted image subtitle files are converted to SRT before repair when OCR dependencies are available.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -1947,7 +1962,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>ThrottleLimit</maml:name>
           <maml:description>
-            <maml:para>Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.</maml:para>
+            <maml:para>Maximum number of image-to-SRT conversions to run in parallel when -Ocr is specified. Default is 10.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
           <dev:type>
@@ -1968,6 +1983,18 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>Ocr</maml:name>
+          <maml:description>
+            <maml:para>Controls OCR of image-based subtitles after extraction. Default is Auto.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>Auto</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -1981,24 +2008,12 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
           <maml:name>String</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>nvenc</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>SkipSubtitles</maml:name>
         <maml:description>
           <maml:para>Skip extracting subtitles from bonus files. By default, English subtitle streams are extracted from each bonus MKV before organization.</maml:para>
-        </maml:description>
-        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
-        <dev:type>
-          <maml:name>SwitchParameter</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>False</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-        <maml:name>SkipOcr</maml:name>
-        <maml:description>
-          <maml:para>Skip OCR conversion of image-based subtitles (SUP, SUB). By default, extracted image subtitle files are converted to SRT before repair when OCR dependencies are available.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -2034,7 +2049,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>ThrottleLimit</maml:name>
         <maml:description>
-          <maml:para>Maximum number of image-to-SRT conversions to run in parallel unless -SkipOcr is specified. Default is 10.</maml:para>
+          <maml:para>Maximum number of image-to-SRT conversions to run in parallel when -Ocr is specified. Default is 10.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
         <dev:type>
@@ -2079,6 +2094,18 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Ocr</maml:name>
+        <maml:description>
+          <maml:para>Controls OCR of image-based subtitles after extraction. Default is Auto.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>Auto</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -2121,10 +2148,10 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>------- Example 3: Extract subtitles with OCR and repair -------</maml:title>
-        <dev:code>Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie"</dev:code>
+        <maml:title>--- Example 3: Extract subtitles with forced OCR and repair ---</maml:title>
+        <dev:code>Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie" -Ocr Force</dev:code>
         <dev:remarks>
-          <maml:para>Converts bonus files, extracts subtitles, converts image-based (SUP/SUB) subtitles to SRT via OCR, repairs SRT files, then organizes into Plex folders. Use -SkipRepair to skip the repair step; use -SkipSubtitles to skip subtitle extraction entirely.</maml:para>
+          <maml:para>Converts bonus files, extracts subtitles, converts all image-based (SUP/SUB) subtitles to SRT via OCR, repairs OCR-produced SRT files, then organizes into Plex folders. Use `-SkipRepair` to skip repair; use `-SkipSubtitles` to skip subtitle extraction entirely.</maml:para>
         </dev:remarks>
       </command:example>
     </command:examples>
@@ -2149,7 +2176,10 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-SeasonScan calls the series processing service to fetch TVDb episode metadata for the given -Season. Use -TvDbSeriesUrl and optionally -TvDbSeasonUrl to point at the series and season; if TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season. Output is an array of TvDbEpisodeInfo objects (Id, EpisodeNumber, etc.) used by Invoke-VideoCopy and Split-SeriesChapters.</maml:para>
+      <maml:para>Invoke-SeasonScan fetches TVDb episode metadata for the given `-Season`. Provide `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`; when `TvDbSeasonUrl` is omitted, it is constructed from the series URL and season number.</maml:para>
+      <maml:para>Output is an array of `TvDbEpisodeInfo` objects with these properties:</maml:para>
+      <maml:para>| Property | Description | |----------|-------------| | `Id` | TVDb episode ID (used in output file names) | | `SeasonNumber` | Season number | | `Title` | Episode title | | `EpisodeNumber` | Episode number within the season |</maml:para>
+      <maml:para>Use the output with `Invoke-VideoCopy`, `Split-SeriesChapters`, or `Invoke-SeriesProcessing`. Requires network access to thetvdb.com.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -2276,7 +2306,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>If no episode information is returned, the cmdlet writes a warning and produces no output.</maml:para>
+        <maml:para>Requires network access to thetvdb.com. If no episode information is returned, the cmdlet writes a warning and produces no output. At least one of `-TvDbSeriesUrl` or `-TvDbSeasonUrl` should be provided.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -2321,7 +2351,11 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-SeriesProcessing is a high-level workflow that: (1) creates a directory structure (OutputPath\Title\Season XX when -OutputPath is set), (2) scans TVDb for episode metadata (-TvDbSeriesUrl, -TvDbSeasonUrl), (3) copies video files from InputPath that match FilePatterns and exceed MinimumFileSize into the season folder with episode-based naming, (4) optionally extracts chapters (-ExtractChapters), and (5) optionally extracts captions (unless -SkipCaptionExtraction). Unless -SkipOcr is specified, extracted image captions are converted to SRT via OCR and repaired by default; use -SkipRepair to skip only the repair step. Use -EpisodeStart when your source files begin mid-season. The cmdlet fails if season scan returns no episodes or if no files are copied.</maml:para>
+      <maml:para>Invoke-SeriesProcessing is a high-level workflow that runs five steps in order:</maml:para>
+      <maml:para>1. Create folders - When `-OutputPath` is set, creates `OutputPath\Title\Season XX`. 2. Scan TVDb - Fetches episode metadata using `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`. 3. Copy episodes - Finds files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming. 4. Extract chapters - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes. 5. Extract captions - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.</maml:para>
+      <maml:para>Use `-Ocr` with values Auto (default), Skip , or Force to control image subtitle OCR after caption extraction. When OCR runs, OCR-produced SRT files are repaired by default; use `-SkipRepair` to skip repair. OCR parallelism is fixed at 10 concurrent conversions.</maml:para>
+      <maml:para>Use `-EpisodeStart` when your source files begin mid-season (e.g. episode 5 on disc 1). `-MinimumFileSize` defaults to 1 GB but can be set to 0 to include all matching files.</maml:para>
+      <maml:para>The cmdlet fails with a terminating error if the TVDb scan returns no episodes or if no files are copied.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -2376,14 +2410,14 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>MinimumFileSize</maml:name>
           <maml:description>
-            <maml:para>Minimum file size in bytes required to treat a file as an episode (default 1 GB).</maml:para>
+            <maml:para>Minimum file size in bytes required to treat a file as an episode. Default is 1 GB (1073741824 bytes). Set to 0 to include all matching files.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">Int64</command:parameterValue>
           <dev:type>
             <maml:name>Int64</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>1073741824</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>OutputPath</maml:name>
@@ -2471,7 +2505,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipRepair</maml:name>
           <maml:description>
-            <maml:para>Skip SRT repair during default OCR processing.</maml:para>
+            <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -2480,15 +2514,16 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-          <maml:name>SkipOcr</maml:name>
+          <maml:name>Ocr</maml:name>
           <maml:description>
-            <maml:para>Skip OCR conversion of image captions to SRT.</maml:para>
+            <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
           </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
           <dev:type>
-            <maml:name>SwitchParameter</maml:name>
+            <maml:name>String</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>False</dev:defaultValue>
+          <dev:defaultValue>Auto</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -2544,14 +2579,14 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>MinimumFileSize</maml:name>
         <maml:description>
-          <maml:para>Minimum file size in bytes required to treat a file as an episode (default 1 GB).</maml:para>
+          <maml:para>Minimum file size in bytes required to treat a file as an episode. Default is 1 GB (1073741824 bytes). Set to 0 to include all matching files.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">Int64</command:parameterValue>
         <dev:type>
           <maml:name>Int64</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>1073741824</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>OutputPath</maml:name>
@@ -2640,7 +2675,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>SkipRepair</maml:name>
         <maml:description>
-          <maml:para>Skip SRT repair during default OCR processing.</maml:para>
+          <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -2650,16 +2685,16 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
-        <maml:name>SkipOcr</maml:name>
+        <maml:name>Ocr</maml:name>
         <maml:description>
-          <maml:para>Skip OCR conversion of image captions to SRT.</maml:para>
+          <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
         </maml:description>
-        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
-          <maml:name>SwitchParameter</maml:name>
+          <maml:name>String</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>False</dev:defaultValue>
+        <dev:defaultValue>Auto</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes>
@@ -2731,11 +2766,12 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       <command:verb>Invoke</command:verb>
       <command:noun>SubtitleOcrRepair</command:noun>
       <maml:description>
-        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs all SRT files in the set.</maml:para>
+        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs the OCR-produced SRT files.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-SubtitleOcrRepair runs the full workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs all SRT files (including any SRT already in the input) unless -SkipRepair is specified. Equivalent to running Convert-ImageSubtitlesToSrt on image paths and Repair-Subtitles on all SRT paths. Input can be file path(s) or directory/directories; -Recurse searches subdirectories. Output SRT paths are written to the pipeline. Use -BackupPath to copy SRT files to a backup location before repairing (structure preserved).</maml:para>
+      <maml:para>Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs only the OCR-produced SRT files unless `-SkipRepair` is specified. Pre-existing SRT files in the input are not repaired.</maml:para>
+      <maml:para>Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10).</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -2796,7 +2832,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
             <maml:name>Int32</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>10</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
           <maml:name>ProgressAction</maml:name>
@@ -2871,7 +2907,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <maml:name>Int32</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>10</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
         <maml:name>ProgressAction</maml:name>
@@ -2899,10 +2935,10 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>System.String</maml:name>
+          <maml:name>None</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Paths of all SRT files (converted and/or repaired).</maml:para>
+          <maml:para>This cmdlet does not write to the pipeline.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -2916,14 +2952,14 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <maml:title>--- Example 1: Convert and repair all subtitles in a folder ---</maml:title>
         <dev:code>Invoke-SubtitleOcrRepair -InputPath "C:\Season1\Subtitles" -Recurse</dev:code>
         <dev:remarks>
-          <maml:para>Converts .sup/.sub to .srt and repairs all SRT files under C:\Season1\Subtitles.</maml:para>
+          <maml:para>Converts .sup/.sub to .srt and repairs the OCR-produced SRT files under C:\Season1\Subtitles.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
         <maml:title>------------- Example 2: Convert only, skip repair -------------</maml:title>
         <dev:code>Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -SkipRepair</dev:code>
         <dev:remarks>
-          <maml:para>Converts image subtitles to SRT but does not run the repair step; converted and existing SRT paths are still emitted.</maml:para>
+          <maml:para>Converts image subtitles to SRT but does not run the repair step.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
@@ -2959,7 +2995,8 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-VideoCopy is the lower-level copy step used by Invoke-SeriesProcessing. It searches one or more -Path roots for files matching -FilePatterns, filters by -MinimumFileSize, associates them with -Episodes (TvDbEpisodeInfo from Invoke-SeasonScan), and copies them to -Destination with series title and episode-based naming. -EpisodeStart is the episode number for the first matched file. Pipeline input is accepted for -Path. Outputs the paths of copied files.</maml:para>
+      <maml:para>Invoke-VideoCopy is the lower-level copy step used by `Invoke-SeriesProcessing`. It searches one or more `-Path` roots (top directory only, not recursive) for files matching `-FilePatterns`, filters by `-MinimumFileSize`, associates them in discovery order with `-Episodes` (`TvDbEpisodeInfo` from `Invoke-SeasonScan`), and copies them to `-Destination` with series title and TVDb-based naming.</maml:para>
+      <maml:para>`-EpisodeStart` is the episode number for the first matched file. The Nth matched file maps to episode `(EpisodeStart - 1) + N` in the sorted TVDb episode list. Pipeline input for `-Path` is collected during `Process` and executed in `End` (batch mode). Outputs the paths of copied files.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -3022,7 +3059,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
             <maml:name>Int64</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>1073741824</dev:defaultValue>
         </command:parameter>
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="named" aliases="none">
           <maml:name>Path</maml:name>
@@ -3133,7 +3170,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <maml:name>Int64</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>1073741824</dev:defaultValue>
       </command:parameter>
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByPropertyName, ByValue)" position="named" aliases="none">
         <maml:name>Path</maml:name>
@@ -3219,10 +3256,11 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>------------------ Example 2: Pipeline paths ------------------</maml:title>
-        <dev:code>"C:\Source1", "C:\Source2" | Invoke-VideoCopy -Title "Show" -Season 2 -FilePatterns "*.mkv" -Destination "P:\Season2" -Episodes $episodes</dev:code>
+        <maml:title>------ Example 2: Pipeline paths with custom minimum size ------</maml:title>
+        <dev:code>"C:\Source1", "C:\Source2" | Invoke-VideoCopy -Title "Show" -Season 2 -FilePatterns "*.mkv" `
+    -Destination "P:\Season2" -Episodes $episodes -MinimumFileSize 500MB</dev:code>
         <dev:remarks>
-          <maml:para>Copies from multiple source folders.</maml:para>
+          <maml:para>Copies from multiple source folders; only files larger than 500 MB are considered.</maml:para>
         </dev:remarks>
       </command:example>
     </command:examples>
@@ -3247,7 +3285,9 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>New-AudioTrackMapping creates a single AudioTrackMapping object used by Convert-MediaFiles and Convert-MediaFileAdvanced. Use -Copy to copy the stream without re-encoding, or -Encode with -Codec, -Bitrate, and -Channels to re-encode. SourceStream is typically 0 (the input file); SourceIndex and DestinationIndex are the audio stream index in the source and the desired index in the output. Optional -Title sets track title metadata.</maml:para>
+      <maml:para>New-AudioTrackMapping creates a single `AudioTrackMapping` object used by `Convert-MediaFiles` and `Convert-MediaFileAdvanced`. Use `-Copy` to copy the stream without re-encoding, or `-Encode` with `-Codec`, `-Bitrate`, and `-Channels` to re-encode.</maml:para>
+      <maml:para>`SourceStream` is typically 0 (the input file). `SourceIndex` is the audio stream index in the source file; `DestinationIndex` is the desired index in the output. Optional `-Title` sets track title metadata.</maml:para>
+      <maml:para>When `-Bitrate` is omitted on encode mappings, defaults are applied by channel count: 96 kbps (mono), 160 kbps (stereo), 384 kbps (5.1). See `Get-AudioStreams` for the automatic mapping rules used when mappings are not supplied explicitly.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -3623,7 +3663,9 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>New-VideoEncodingSettings creates an object that holds video encoding parameters: codec, CRF or bitrate, preset, profile, tune, and pixel format. Use the CRF parameter set for constant quality (typical: 18-28 for H.264, 20-30 for H.265) or the VBR parameter set for variable bitrate. The result is passed to Convert-MediaFileAdvanced or Convert-MediaFiles via -VideoEncodingSettings. Default pixel format is yuv420p for libx264 and yuv420p10le for libx265 if -PixelFormat is omitted.</maml:para>
+      <maml:para>New-VideoEncodingSettings creates an object that holds video encoding parameters: codec, CRF or bitrate, preset, profile, tune, and pixel format. Use the CRF parameter set for constant quality (CRF range 0-51; typical: 18-28 for H.264, 20-30 for H.265) or the VBR parameter set for variable bitrate.</maml:para>
+      <maml:para>The result is passed to `Convert-MediaFileAdvanced` or `Convert-MediaFiles` via `-VideoEncodingSettings`. Default pixel format is `yuv420p` for libx264 and `yuv420p10le` for libx265 if `-PixelFormat` is omitted. Defaults: preset slow , profile high , tune film (CRF set only).</maml:para>
+      <maml:para>Supported codecs include `libx264`, `libx265`, and `vp9`. For NVENC (`hevc_nvenc`), use `-DefaultVideoEncoder nvenc` on `Convert-VideoFile`, `Convert-MediaFiles`, or `Invoke-BonusFileProcessing` instead of this cmdlet.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -3694,7 +3736,7 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>CRF</maml:name>
           <maml:description>
-            <maml:para>The Constant Rate Factor value for quality control. Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265</maml:para>
+            <maml:para>The Constant Rate Factor value for quality control (0-51). Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
           <dev:type>
@@ -3793,7 +3835,7 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>CRF</maml:name>
         <maml:description>
-          <maml:para>The Constant Rate Factor value for quality control. Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265</maml:para>
+          <maml:para>The Constant Rate Factor value for quality control (0-51). Lower values indicate higher quality. Typical ranges: 18-28 for H.264, 20-30 for H.265.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
         <dev:type>
@@ -3897,7 +3939,7 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Preset default is slow. CodecProfile default is high; Tune default is film. Valid codecs include libx264, libx265, vp9, hevc_nvenc.</maml:para>
+        <maml:para>Preset default is slow . CodecProfile default is high ; Tune default is film (CRF set only). Valid codecs include libx264, libx265, and vp9. NVENC encoding is not available through this cmdlet; use `-DefaultVideoEncoder nvenc` on batch conversion cmdlets.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -4086,16 +4128,16 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>System.String</maml:name>
+          <maml:name>None</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Paths of repaired SRT files are written to the pipeline.</maml:para>
+          <maml:para>This cmdlet does not write to the pipeline. Files are repaired in place (or written to `-OutputPath` for a single file).</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles without -SkipOcr first.</maml:para>
+        <maml:para>Only .srt files are processed. For image-based subtitles (SUP, SUB), use Convert-ImageSubtitlesToSrt or Export-Subtitles with -Ocr first.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -4146,7 +4188,9 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Split-Chapters uses ffprobe to read chapter information and ffmpeg to split the video by time ranges. Chapter indices are 1-based: Start=1, End=1 is the first chapter. Use -ChapterRanges with objects that have Start, End (inclusive), and optional OutputName; or use -AllChapters to split every chapter into its own file. Output files are written to -OutputPath (default: same directory as input) with names like basename.split-01.mkv or the custom OutputName when provided.</maml:para>
+      <maml:para>Split-Chapters uses ffprobe to read chapter information and ffmpeg to split the video by time ranges. Chapter indices are 1-based : `Start=1, End=1` is the first chapter.</maml:para>
+      <maml:para>Use `-ChapterRanges` with objects that have `Start`, `End` (inclusive), and optional `OutputName`; or use `-AllChapters` to split every chapter into its own file. Output files are written to `-OutputPath` (default: same directory as input) with names like `basename.split-01.mkv` or the custom `OutputName` plus the input extension. When the input has no extension, `.mkv` is used.</maml:para>
+      <maml:para>Pipeline input is collected during `Process` and executed in `End`, so multiple files can be split in one invocation.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -4386,7 +4430,8 @@ Split-Chapters -InputFile "C:\movie.mkv" -ChapterRanges $ranges -OutputPath "C:\
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Split-SeriesChapters splits one video (e.g. a combined season file) into multiple episode files by chapter ranges. Each range maps to an episode; output file names follow a Plex-friendly pattern including the series Title, TVDb episode ID, season, and episode number (e.g. "Show Name {tvdb 12345} S01E01.mkv"). TVDb metadata is fetched using Invoke-SeasonScan (TvDbSeriesUrl and TvDbSeasonUrl). -EpisodeStart is the episode number for the first range. If a range has OutputName, that name is used instead of the TVDb-based name. Requires enough TVDb episodes for the number of ranges.</maml:para>
+      <maml:para>Split-SeriesChapters splits one video (e.g. a combined season file) into multiple episode files by chapter ranges. Each range maps to an episode; output file names follow a Plex-friendly pattern: `{Title} {tvdb ID} S{season}E{episode}.{ext}` (e.g. `Show Name {tvdb 12345} S01E01.mkv`).</maml:para>
+      <maml:para>TVDb metadata is fetched using `Invoke-SeasonScan` (`-TvDbSeriesUrl`, `-TvDbSeasonUrl`). `-EpisodeStart` is the episode number for the first range. If a range has `OutputName`, that name is used instead of the TVDb-based name. The cmdlet requires at least `(EpisodeStart - 1) + rangeCount` episodes from the TVDb scan.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -4650,10 +4695,12 @@ Split-SeriesChapters -Title "My Show" -Season 1 -InputFile "C:\season1.mkv" -Cha
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>-------------- Example 2: Custom output directory --------------</maml:title>
-        <dev:code>Split-SeriesChapters -Title "Show" -Season 2 -InputFile "s2.mkv" -ChapterRanges (@{Start=1;End=2}, @{Start=3;End=4}) -OutputPath "C:\Output"</dev:code>
+        <maml:title>--- Example 2: Mid-season start with custom output directory ---</maml:title>
+        <dev:code>Split-SeriesChapters -Title "Show" -Season 2 -EpisodeStart 5 -InputFile "s2.mkv" `
+    -ChapterRanges (@{Start=1;End=2}, @{Start=3;End=4}) -OutputPath "C:\Output" `
+    -TvDbSeriesUrl "https://thetvdb.com/series/12345"</dev:code>
         <dev:remarks>
-          <maml:para>Writes episode files to C:\Output using TVDb metadata for season 2.</maml:para>
+          <maml:para>Maps the first range to episode 5 and the second to episode 6.</maml:para>
         </dev:remarks>
       </command:example>
     </command:examples>

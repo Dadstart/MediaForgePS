@@ -114,47 +114,17 @@ public class ExportSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ExportSubtitles_UsesSkipOcrParameter()
+    public void ExportSubtitles_UsesOcrParameter()
     {
         var cmdlet = new ExportSubtitlesCommand();
 
-        Assert.False(cmdlet.SkipOcr.IsPresent);
-        Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.SkipOcr)));
-        Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("Ocr"));
+        Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
+        Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.Ocr)));
+        Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("SkipOcr"));
     }
 
     [Fact]
-    public void ExportSubtitles_DefaultsToRepairingExtractedSrt_WhenSkipOcrIsNotSpecified()
-    {
-        using var tempDir = new TemporaryDirectory();
-        var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
-        File.WriteAllText(mediaPath, "not-a-real-media-file");
-
-        _mediaReaderMock
-            .Setup(service => service.GetMediaFileAsync(mediaPath, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
-
-        _executableMock
-            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
-
-        var asm = typeof(ExportSubtitlesCommand).Assembly;
-        var initialSessionState = InitialSessionState.CreateDefault();
-        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
-        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
-
-        using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
-        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { mediaPath });
-
-        ps.Invoke();
-        var errors = ps.Streams.Error.ReadAll();
-
-        var error = Assert.Single(errors);
-        Assert.Contains("RepairSubtitlesFailed", error.FullyQualifiedErrorId, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ExportSubtitles_SkipOcr_SkipsRepairWorkflowForExtractedSrt()
+    public void ExportSubtitles_WithoutOcr_SkipsRepairWorkflowForExtractedSrt()
     {
         using var tempDir = new TemporaryDirectory();
         var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
@@ -176,7 +146,37 @@ public class ExportSubtitlesCommandTests : IDisposable
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
         ps.AddCommand("Export-Subtitles")
             .AddParameter("InputPath", new[] { mediaPath })
-            .AddParameter("SkipOcr");
+            .AddParameter("Ocr", SubtitleOcrMode.Skip);
+
+        ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ExportSubtitles_WithOnlyNativeSrt_DoesNotRepair()
+    {
+        using var tempDir = new TemporaryDirectory();
+        var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
+        File.WriteAllText(mediaPath, "not-a-real-media-file");
+
+        _mediaReaderMock
+            .Setup(service => service.GetMediaFileAsync(mediaPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
+
+        _executableMock
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+
+        var asm = typeof(ExportSubtitlesCommand).Assembly;
+        var initialSessionState = InitialSessionState.CreateDefault();
+        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+        initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
+
+        using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
+        ps.AddCommand("Export-Subtitles")
+            .AddParameter("InputPath", new[] { mediaPath });
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();

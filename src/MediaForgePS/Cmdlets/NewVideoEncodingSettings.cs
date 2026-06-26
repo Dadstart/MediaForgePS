@@ -6,14 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Creates a new VideoEncodingSettings object with specified encoding parameters.
-///
-/// TODO: should there be a separate cmdlet for x264 vs. x265 for better parameter validation?
+/// Creates a <see cref="VideoEncodingSettings"/> object for use with conversion cmdlets.
 /// </summary>
 /// <remarks>
-/// This cmdlet creates a VideoEncodingSettings object that encapsulates video encoding parameters
-/// including codec, CRF (Constant Rate Factor) or bitrate, preset, codec profile, and tune settings.
-/// This object can be used with video encoding operations to ensure consistent parameter application.
+/// Use the CRF parameter set for constant quality (CRF 0–51) or the VBR parameter set for target bitrate.
+/// NVENC encoding is not available through this cmdlet; use -DefaultVideoEncoder nvenc on batch conversion cmdlets instead.
 /// </remarks>
 [Cmdlet(VerbsCommon.New, nameof(VideoEncodingSettings), DefaultParameterSetName = CrfParameterSet)]
 [OutputType(typeof(VideoEncodingSettings))]

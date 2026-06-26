@@ -1,5 +1,6 @@
 using System;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -7,11 +8,12 @@ using Dadstart.Labs.MediaForge.Services.System;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Orchestrates season processing for a TV series: creates folder structure, scans TVDb, copies episodes, and optionally extracts chapters and captions.
+/// Orchestrates the full TV season workflow: folders, TVDb scan, episode copy, and optional chapter/caption extraction.
 /// </summary>
 /// <remarks>
-/// This cmdlet is a high-level workflow that ties together season scanning, video copy, and optional chapter/caption extraction.
-/// Use this when you want a one-stop command to prepare a full season for further processing or media library import.
+/// Runs five steps in order: (1) create OutputPath\Title\Season XX, (2) scan TVDb, (3) copy episodes,
+/// (4) optionally extract chapters, (5) optionally extract captions with optional OCR (-Ocr Auto/Skip/Force).
+/// Terminates with an error when the TVDb scan returns no episodes or no files are copied.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing")]
 [OutputType(typeof(void))]
@@ -95,15 +97,16 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
     /// <summary>
-    /// When specified, skips OCR conversion of image-based captions (SUP, SUB).
+    /// Controls OCR of image-based captions (SUP, SUB). Default is Auto. Skip leaves exported captions unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
-    [Parameter(HelpMessage = "Skip OCR conversion of image captions to SRT.")]
-    public SwitchParameter SkipOcr { get; set; }
+    [Parameter(HelpMessage = "OCR mode for image captions: Auto, Skip, or Force.")]
+    [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
+    public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during default OCR processing. Has no effect when -SkipOcr is specified.
+    /// When specified, skips repair of OCR-produced SRT files. Has no effect when -Ocr is Skip.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
     private const int DefaultOcrThrottleLimit = 10;
@@ -193,38 +196,31 @@ public class InvokeSeriesProcessingCommand : CmdletBase
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
 
-            if (!SkipOcr.IsPresent)
+            if (SubtitleOcrMode.RequiresOcrProcessing(Ocr))
             {
                 var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
-                if (extractedCaptionPaths.Count > 0)
+                var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
+                if (imagePaths.Count > 0)
                 {
-                    var imagePaths = SubtitlePathHelper.GetImageSubtitlePaths(extractedCaptionPaths);
                     var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
+                    WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
-                    if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
-                    {
-                        WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
+                    var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                        this,
+                        Logger,
+                        ExecutableService,
+                        PathResolver,
+                        imagePaths,
+                        srtPathsFromCaptions,
+                        performOcr: true,
+                        DefaultOcrThrottleLimit,
+                        shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                        backupPath: null);
 
-                        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                            this,
-                            Logger,
-                            ExecutableService,
-                            PathResolver,
-                            imagePaths,
-                            srtPathsFromCaptions,
-                            performOcr: true,
-                            DefaultOcrThrottleLimit,
-                            shouldRepair: !SkipRepair.IsPresent,
-                            backupPath: null);
+                    if (allSrtPaths == null)
+                        return;
 
-                        if (allSrtPaths == null)
-                            return;
-
-                        if (allSrtPaths.Count == 0)
-                            WriteHostMessage("  No SRT files to repair (only non-SRT formats were extracted).", ConsoleColor.Green);
-                        else
-                            WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
-                    }
+                    WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                 }
             }
         }
