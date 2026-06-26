@@ -96,16 +96,16 @@ public class InvokeSeriesProcessingCommand : CmdletBase
     public SwitchParameter SkipCaptionExtraction { get; set; }
 
     /// <summary>
-    /// Controls OCR of image-based captions (SUP, SUB). Skip leaves exported captions unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles only when no SRT was exported for the same source.
+    /// Controls OCR of image-based captions (SUP, SUB). Default is Auto. Skip leaves exported captions unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
     [Parameter(HelpMessage = "OCR mode for image captions: Auto, Skip, or Force.")]
     [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
     public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is Skip.
+    /// When specified, skips repair of OCR-produced SRT files. Has no effect when -Ocr is Skip.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
     private const int DefaultOcrThrottleLimit = 10;
@@ -198,35 +198,28 @@ public class InvokeSeriesProcessingCommand : CmdletBase
             if (SubtitleOcrMode.RequiresOcrProcessing(Ocr))
             {
                 var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
-                if (extractedCaptionPaths.Count > 0)
+                var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
+                if (imagePaths.Count > 0)
                 {
-                    var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
                     var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
+                    WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
-                    if (imagePaths.Count > 0 || srtPathsFromCaptions.Count > 0)
-                    {
-                        WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
+                    var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                        this,
+                        Logger,
+                        ExecutableService,
+                        PathResolver,
+                        imagePaths,
+                        srtPathsFromCaptions,
+                        performOcr: true,
+                        DefaultOcrThrottleLimit,
+                        shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                        backupPath: null);
 
-                        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                            this,
-                            Logger,
-                            ExecutableService,
-                            PathResolver,
-                            imagePaths,
-                            srtPathsFromCaptions,
-                            performOcr: imagePaths.Count > 0,
-                            DefaultOcrThrottleLimit,
-                            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-                            backupPath: null);
+                    if (allSrtPaths == null)
+                        return;
 
-                        if (allSrtPaths == null)
-                            return;
-
-                        if (allSrtPaths.Count == 0)
-                            WriteHostMessage("  No SRT files to repair (only non-SRT formats were extracted).", ConsoleColor.Green);
-                        else
-                            WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
-                    }
+                    WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                 }
             }
         }

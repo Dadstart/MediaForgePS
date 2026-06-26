@@ -118,7 +118,7 @@ public class ExportSubtitlesCommandTests : IDisposable
     {
         var cmdlet = new ExportSubtitlesCommand();
 
-        Assert.Equal(SubtitleOcrMode.Skip, cmdlet.Ocr);
+        Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
         Assert.NotNull(typeof(ExportSubtitlesCommand).GetProperty(nameof(ExportSubtitlesCommand.Ocr)));
         Assert.Null(typeof(ExportSubtitlesCommand).GetProperty("SkipOcr"));
     }
@@ -144,7 +144,9 @@ public class ExportSubtitlesCommandTests : IDisposable
         initialSessionState.Commands.Add(new SessionStateCmdletEntry("Export-Subtitles", typeof(ExportSubtitlesCommand), null));
 
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
-        ps.AddCommand("Export-Subtitles").AddParameter("InputPath", new[] { mediaPath });
+        ps.AddCommand("Export-Subtitles")
+            .AddParameter("InputPath", new[] { mediaPath })
+            .AddParameter("Ocr", SubtitleOcrMode.Skip);
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
@@ -153,7 +155,7 @@ public class ExportSubtitlesCommandTests : IDisposable
     }
 
     [Fact]
-    public void ExportSubtitles_WithOcr_RepairsExtractedSrt()
+    public void ExportSubtitles_WithOnlyNativeSrt_DoesNotRepair()
     {
         using var tempDir = new TemporaryDirectory();
         var mediaPath = Path.Combine(tempDir.Path, "movie.mkv");
@@ -174,14 +176,12 @@ public class ExportSubtitlesCommandTests : IDisposable
 
         using var ps = System.Management.Automation.PowerShell.Create(initialSessionState);
         ps.AddCommand("Export-Subtitles")
-            .AddParameter("InputPath", new[] { mediaPath })
-            .AddParameter("Ocr", SubtitleOcrMode.Force);
+            .AddParameter("InputPath", new[] { mediaPath });
 
         ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
 
-        var error = Assert.Single(errors);
-        Assert.Contains("RepairSubtitlesFailed", error.FullyQualifiedErrorId, StringComparison.Ordinal);
+        Assert.Empty(errors);
     }
 
     private static MediaFile CreateMediaFile(string mediaPath, string subtitleCodec)

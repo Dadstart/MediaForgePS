@@ -68,4 +68,49 @@ public class SubtitlePathHelperTests
         Assert.DoesNotContain(@"C:\out\mixed.eng.sdh.sub", result);
         Assert.DoesNotContain(@"C:\out\mixed.3.eng.sdh.sup", result);
     }
+
+    [Fact]
+    public void SelectImagePathsForOcr_Auto_SkipsWhenMultipleNonSrtFormatsExportedForSource()
+    {
+        var exported = new[]
+        {
+            @"C:\out\movie.eng.sdh.sub",
+            @"C:\out\movie.3.eng.sdh.sup",
+        };
+
+        var result = SubtitlePathHelper.SelectImagePathsForOcr(exported, SubtitleOcrMode.Auto);
+
+        Assert.Empty(result);
+    }
+
+    [Theory]
+    [InlineData(@"C:\out\movie.eng.sdh.sub")]
+    [InlineData(@"C:\out\movie.eng.sdh.sup")]
+    public void ShouldAutoOcrImageSubtitles_SingleNonSrtFormat_ReturnsTrue(string subtitlePath)
+    {
+        var result = SubtitlePathHelper.ShouldAutoOcrImageSubtitles([subtitlePath]);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldAutoOcrImageSubtitles_SrtOnly_ReturnsFalse()
+    {
+        var result = SubtitlePathHelper.ShouldAutoOcrImageSubtitles([@"C:\out\movie.eng.sdh.srt"]);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ShouldAutoOcrImageSubtitles_MixedSrtAndImageFormats_ReturnsFalse()
+    {
+        var result = SubtitlePathHelper.ShouldAutoOcrImageSubtitles(
+        [
+            @"C:\out\mixed.eng.sdh.sub",
+            @"C:\out\mixed.eng.sdh.srt",
+            @"C:\out\mixed.3.eng.sdh.sup",
+        ]);
+
+        Assert.False(result);
+    }
 }

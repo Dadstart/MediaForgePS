@@ -609,7 +609,8 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         using var ps = CreatePowerShell();
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", root)
-            .AddParameter("OutputDirectory", output);
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("Ocr", SubtitleOcrMode.Skip);
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();

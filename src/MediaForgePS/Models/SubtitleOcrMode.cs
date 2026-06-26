@@ -6,7 +6,7 @@ namespace Dadstart.Labs.MediaForge.Models;
 public static class SubtitleOcrMode
 {
     /// <summary>
-    /// OCR image-based subtitles only when the source media has no exported SRT.
+    /// OCR image-based subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
     public const string Auto = "Auto";
 
@@ -23,7 +23,7 @@ public static class SubtitleOcrMode
     /// <summary>
     /// Default <see cref="Ocr"/> parameter value.
     /// </summary>
-    public const string Default = Skip;
+    public const string Default = Auto;
 
     /// <summary>
     /// Whether OCR or repair processing should run for the selected mode.
@@ -32,7 +32,7 @@ public static class SubtitleOcrMode
         !string.Equals(mode, Skip, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Whether exported SRT files should be repaired for the selected mode.
+    /// Whether OCR-converted SRT files should be repaired for the selected mode.
     /// </summary>
     public static bool ShouldRepair(string? mode, bool skipRepair) =>
         RequiresOcrProcessing(mode) && !skipRepair;

@@ -85,7 +85,7 @@ public static class SubtitlePathHelper
         foreach (var group in exportedPaths.GroupBy(GetMediaBaseKeyFromSubtitlePath, StringComparer.OrdinalIgnoreCase))
         {
             var groupPaths = group.ToList();
-            if (groupPaths.Any(IsSrtPath))
+            if (!ShouldAutoOcrImageSubtitles(groupPaths))
                 continue;
 
             foreach (var path in groupPaths)
@@ -96,5 +96,22 @@ public static class SubtitlePathHelper
         }
 
         return selected;
+    }
+
+    /// <summary>
+    /// Whether Auto mode should OCR image subtitles for one source media's exported paths.
+    /// Auto runs OCR when the source has a single subtitle format and it is not SRT.
+    /// </summary>
+    public static bool ShouldAutoOcrImageSubtitles(IReadOnlyList<string> groupPaths)
+    {
+        if (groupPaths.Count == 0)
+            return false;
+
+        var extensions = groupPaths
+            .Select(path => Path.GetExtension(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return extensions.Count == 1 && !IsSrtExtension(extensions[0]);
     }
 }

@@ -122,7 +122,7 @@ public class SeriesProcessingServiceTests
     {
         var cmdlet = new InvokeSeriesProcessingCommand();
 
-        Assert.Equal(SubtitleOcrMode.Skip, cmdlet.Ocr);
+        Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
         Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.Ocr)));
         Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("SkipOcr"));
     }

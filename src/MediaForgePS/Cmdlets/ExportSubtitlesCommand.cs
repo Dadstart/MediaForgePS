@@ -14,7 +14,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Exports English subtitle streams from media files. Use -Ocr to control image-based subtitle OCR and SRT repair.
 /// </summary>
 /// <remarks>
-/// Always extracts subtitle tracks matching English language. When -Ocr is Force or Auto, converts selected .sup/.sub files to SRT (requires Subtitle Edit and Tesseract), then repairs SRT files unless -SkipRepair is specified. Auto converts image subtitles only when no SRT was exported for the same source.
+/// Always extracts subtitle tracks matching English language. When -Ocr is Force or Auto (the default), converts selected .sup/.sub files to SRT (requires Subtitle Edit and Tesseract), then repairs OCR-produced SRT files unless -SkipRepair is specified. Auto converts image subtitles when the source has a single exported subtitle format and it is not SRT. Native exported SRT files are not repaired.
 /// Output SRT paths are written to the pipeline for repaired/native SRT output when OCR processing is enabled.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
@@ -44,16 +44,16 @@ public class ExportSubtitlesCommand : CmdletBase
     public int ThrottleLimit { get; set; } = 10;
 
     /// <summary>
-    /// Controls OCR of image-based subtitles (SUP, SUB). Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles only when no SRT was exported for the same source.
+    /// Controls OCR of image-based subtitles (SUP, SUB). Default is Auto. Skip leaves exported subtitles unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
     /// </summary>
     [Parameter(HelpMessage = "OCR mode for image subtitles: Auto, Skip, or Force.")]
     [ValidateSet(SubtitleOcrMode.Auto, SubtitleOcrMode.Skip, SubtitleOcrMode.Force, IgnoreCase = true)]
     public string Ocr { get; set; } = SubtitleOcrMode.Default;
 
     /// <summary>
-    /// When specified, skips the SRT repair step during OCR processing. Has no effect when -Ocr is Skip.
+    /// When specified, skips repair of OCR-produced SRT files. Has no effect when -Ocr is Skip.
     /// </summary>
-    [Parameter(HelpMessage = "Skip SRT repair during OCR processing.")]
+    [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
     private readonly List<object> _pathOrMediaFiles = new();
@@ -137,13 +137,13 @@ public class ExportSubtitlesCommand : CmdletBase
         }
 
         var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
-        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-        if (imagePaths.Count == 0 && srtPathsFromExport.Count == 0)
+        if (imagePaths.Count == 0)
         {
-            WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
             return;
         }
 
+        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
             this,
             Logger,
@@ -161,7 +161,7 @@ public class ExportSubtitlesCommand : CmdletBase
 
         if (allSrtPaths.Count == 0)
         {
-            WriteHostMessage("No SRT files to repair (only non-SRT formats were exported).", ConsoleColor.Green);
+            WriteHostMessage("Export completed.", ConsoleColor.Green);
             return;
         }
 
