@@ -16,14 +16,39 @@ namespace Dadstart.Labs.MediaForge.Services;
 public static class ImageSubtitleConversionHelper
 {
     /// <summary>
+    /// Deletes image-based subtitle source files after a successful OCR conversion.
+    /// Removes the input file and, for VobSub pairs, the companion .idx or .sub file.
+    /// </summary>
+    public static void DeleteImageSubtitleSourceFiles(string inputPath, ILogger? logger = null)
+    {
+        var extension = Path.GetExtension(inputPath);
+        if (extension.Equals(".sup", StringComparison.OrdinalIgnoreCase))
+        {
+            TryDeleteFile(inputPath, logger);
+            return;
+        }
+
+        if (extension.Equals(".sub", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".idx", StringComparison.OrdinalIgnoreCase))
+        {
+            TryDeleteFile(inputPath, logger);
+            var companionExtension = extension.Equals(".sub", StringComparison.OrdinalIgnoreCase) ? ".idx" : ".sub";
+            var companionPath = Path.ChangeExtension(inputPath, companionExtension);
+            if (!string.IsNullOrEmpty(companionPath))
+                TryDeleteFile(companionPath, logger);
+        }
+    }
+
+    /// <summary>
     /// Converts a single image subtitle file to SRT. Runs Subtitle Edit; moves the default output to outputSrtPath if different.
-    /// Throws on failure.
+    /// Deletes the source image subtitle file(s) when conversion succeeds. Throws on failure.
     /// </summary>
     public static void ConvertToSrt(
         IExecutableService executableService,
         string subtitleEditPath,
         string inputPath,
-        string outputSrtPath)
+        string outputSrtPath,
+        ILogger? logger = null)
     {
         var args = new[] { "/convert", inputPath, "srt", "/ocrengine:tesseract" };
         var result = executableService.ExecuteAsync(subtitleEditPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
@@ -37,6 +62,20 @@ public static class ImageSubtitleConversionHelper
                 Directory.CreateDirectory(dir);
             File.Move(defaultSrt, outputSrtPath, overwrite: true);
         }
+
+        if (!File.Exists(outputSrtPath))
+            throw new InvalidOperationException($"Subtitle Edit reported success but SRT output was not found: {outputSrtPath}");
+
+        DeleteImageSubtitleSourceFiles(inputPath, logger);
+    }
+
+    private static void TryDeleteFile(string path, ILogger? logger)
+    {
+        if (!File.Exists(path))
+            return;
+
+        File.Delete(path);
+        logger?.LogDebug("Deleted image subtitle source file after OCR: {Path}", path);
     }
 
     /// <summary>
@@ -85,7 +124,7 @@ public static class ImageSubtitleConversionHelper
                     var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
                     try
                     {
-                        ConvertToSrt(executableService, subtitleEditPath, inputPath, srtPath);
+                        ConvertToSrt(executableService, subtitleEditPath, inputPath, srtPath, logger);
                         logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
                         convertedSrtPaths.Add(srtPath);
                     }
