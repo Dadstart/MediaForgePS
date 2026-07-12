@@ -26,7 +26,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile")]
 [OutputType(typeof(VideoFileConversionResult))]
-public class ConvertVideoFileCommand : CmdletBase
+public class ConvertVideoFileCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 

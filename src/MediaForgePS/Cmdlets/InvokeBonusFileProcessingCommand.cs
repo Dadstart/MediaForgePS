@@ -24,7 +24,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing")]
 [OutputType(typeof(void))]
-public class InvokeBonusFileProcessingCommand : CmdletBase
+public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 

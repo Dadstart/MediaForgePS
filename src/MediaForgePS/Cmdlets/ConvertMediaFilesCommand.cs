@@ -48,7 +48,7 @@ internal class FileProcessingStats
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
 [OutputType(typeof(ConversionResult))]
-public class ConvertMediaFilesCommand : CmdletBase
+public class ConvertMediaFilesCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 

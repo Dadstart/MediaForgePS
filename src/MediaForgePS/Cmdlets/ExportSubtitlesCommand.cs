@@ -21,7 +21,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-RepairedSubtitles")]
-public class ExportSubtitlesCommand : CmdletBase
+public class ExportSubtitlesCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 

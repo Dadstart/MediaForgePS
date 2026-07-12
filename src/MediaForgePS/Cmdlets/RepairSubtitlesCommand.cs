@@ -16,7 +16,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Does not write to the pipeline; files are repaired in place unless -OutputPath is used for a single file.
 /// </remarks>
 [Cmdlet(VerbsDiagnostic.Repair, "Subtitles")]
-public class RepairSubtitlesCommand : CmdletBase
+public class RepairSubtitlesCommand : ProgressCmdletBase
 {
     /// <summary>
     /// Path to an SRT file or directory containing .srt files. Pipeline accepts path strings.

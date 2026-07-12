@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "VideoCopy")]
 [OutputType(typeof(string))]
-public class InvokeVideoCopyCommand : CmdletBase
+public class InvokeVideoCopyCommand : ProgressCmdletBase
 {
     /// <summary>
     /// Series title used for destination file naming.
