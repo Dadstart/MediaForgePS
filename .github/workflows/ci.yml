@@ -23,6 +23,8 @@ concurrency:
 env:
   DotnetVersion: 10.0.300
   MinPowerShellVersion: 7.6.0
+  # Component tests must run (not skip) when tools/assets are available in CI.
+  MEDIAFORGE_REQUIRE_COMPONENT_TESTS: "1"
 
 jobs:
   build-test:
@@ -96,6 +98,36 @@ jobs:
             throw "PowerShell $minimum or higher is required. Current version: $current"
           }
           Write-Host "Using PowerShell $current"
+
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: brew install ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Verify ffmpeg and ffprobe
+        run: |
+          foreach ($tool in @('ffmpeg', 'ffprobe')) {
+            $command = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $command) {
+              throw "$tool was not found on PATH after install."
+            }
+            Write-Host "Found $tool at $($command.Source)"
+            & $tool -version
+            if ($LASTEXITCODE -ne 0) {
+              throw "$tool -version failed with exit code $LASTEXITCODE"
+            }
+          }
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
