@@ -312,7 +312,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                             performOcr: true,
                             DefaultOcrThrottleLimit,
                             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-                            backupPath: null);
+                            backupPath: null,
+                            StoppingToken);
 
                         if (allSrtPaths == null)
                             return;
@@ -432,7 +433,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 videoSettings,
                 audioMappings,
                 additionalArguments,
-                encodeProgress));
+                encodeProgress,
+                StoppingToken));
 
             TimeSpan? initialBatchEta = null;
             if (_currentFileIndex < _batchTotalFiles)
@@ -443,6 +445,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
             while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
+                StoppingToken.ThrowIfCancellationRequested();
+
                 var latest = encodeProgress.Latest;
                 if (latest is not null)
                 {
@@ -498,6 +502,10 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             Logger.LogError(ex, "FFmpeg conversion failed: {Input} -> {Output}", resolvedInputPath, resolvedOutputPath);
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             UpdateFileProgress(statusMessage, outputFileName, recordType: ProgressRecordType.Completed);
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
             throw;
         }
         catch (Exception ex)
@@ -619,8 +627,12 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         MediaFile? mediaFile;
         try
         {
-            mediaFile = MediaReaderService.GetMediaFileAsync(sourceMkvPath, CancellationToken.None)
+            mediaFile = MediaReaderService.GetMediaFileAsync(sourceMkvPath, StoppingToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -650,7 +662,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
             onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath),
             onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
-            Logger);
+            Logger,
+            StoppingToken);
     }
 
     private bool TryResolveDirectoryPath(string path, bool requireExists, out string resolvedPath)

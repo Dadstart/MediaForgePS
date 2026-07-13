@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -85,7 +86,8 @@ public class MediaConversionService : IMediaConversionService
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments = null,
-        IProgress<FfmpegProgress>? progress = null)
+        IProgress<FfmpegProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (videoSettings.IsSinglePass)
         {
@@ -94,7 +96,7 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
                 progress,
-                CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         else
         {
@@ -105,7 +107,9 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 1, additionalArguments),
                 firstPassProgress,
-                CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var secondPassProgress = CreatePassProgress(progress, passOffsetPercent: 50, passWeightPercent: 50);
             _ffmpegService.ConvertAsync(
@@ -113,7 +117,7 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 2, additionalArguments),
                 secondPassProgress,
-                CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         }
     }
 

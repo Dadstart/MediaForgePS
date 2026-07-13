@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -124,7 +125,8 @@ public class SeriesProcessingService : ISeriesProcessingService
         IReadOnlyList<string> copiedFiles,
         int chapterNumber = 3,
         int chapterDurationSeconds = 15,
-        string chapterDirectory = "Chapters")
+        string chapterDirectory = "Chapters",
+        CancellationToken cancellationToken = default)
     {
         return InvokeWithErrorHandling(
             cmdlet,
@@ -137,14 +139,16 @@ public class SeriesProcessingService : ISeriesProcessingService
                 chapterNumber,
                 chapterDurationSeconds,
                 chapterDirectory,
-                (path, description) => NewProcessingDirectory(cmdlet, path, description)));
+                (path, description) => NewProcessingDirectory(cmdlet, path, description),
+                cancellationToken));
     }
 
     public CaptionExtractionPhaseResult InvokeCaptionExtractionPhase(
         PSCmdlet cmdlet,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
-        string captionDirectory = "Captions")
+        string captionDirectory = "Captions",
+        CancellationToken cancellationToken = default)
     {
         return InvokeWithErrorHandling(
             cmdlet,
@@ -155,7 +159,8 @@ public class SeriesProcessingService : ISeriesProcessingService
                 seasonDir,
                 copiedFiles,
                 captionDirectory,
-                (path, description) => NewProcessingDirectory(cmdlet, path, description)));
+                (path, description) => NewProcessingDirectory(cmdlet, path, description),
+                cancellationToken));
     }
 
     public static string BuildEpisodeFileName(string title, int season, TvDbEpisodeInfo episode, string extension) =>
@@ -169,6 +174,14 @@ public class SeriesProcessingService : ISeriesProcessingService
         try
         {
             return action();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (PipelineStoppedException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

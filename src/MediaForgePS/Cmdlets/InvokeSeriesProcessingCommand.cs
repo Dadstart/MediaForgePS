@@ -182,7 +182,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
         {
             WriteHostMessage(string.Empty);
             WriteHostMessage("Step 4: Extracting chapters...", ConsoleColor.Cyan);
-            var chapterStats = SeriesProcessingService.InvokeChapterExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles);
+            var chapterStats = SeriesProcessingService.InvokeChapterExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
             WriteHostMessage($"  Processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Chapter extraction - processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}.");
         }
@@ -192,7 +192,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
             WriteHostMessage(string.Empty);
             var stepNum = ExtractChapters.IsPresent ? 5 : 4;
             WriteHostMessage($"Step {stepNum}: Extracting captions...", ConsoleColor.Cyan);
-            var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles);
+            var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
 
@@ -215,7 +215,8 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                         performOcr: true,
                         DefaultOcrThrottleLimit,
                         shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-                        backupPath: null);
+                        backupPath: null,
+                        StoppingToken);
 
                     if (allSrtPaths == null)
                         return;

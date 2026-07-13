@@ -123,7 +123,7 @@ public class SplitChaptersCommand : CmdletBase
             return;
 
         WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath);
+        var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath, StoppingToken);
         if (!ChapterSplitHelper.TryGetChapters(this, resolvedInputPath, mediaFile, out var chapters))
             return;
         WriteHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
@@ -144,7 +144,8 @@ public class SplitChaptersCommand : CmdletBase
                 ? range.OutputName + inputExtension
                 : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
             WriteHostMessage,
-            chapters);
+            chapters,
+            StoppingToken);
         if (outputFiles == null)
             return;
 
@@ -171,7 +172,8 @@ public class SplitChaptersCommand : CmdletBase
             (rangeIndex, range) => !string.IsNullOrWhiteSpace(range.OutputName)
                 ? range.OutputName + inputExtension
                 : $"{baseName}.split-{(rangeIndex + 1):D2}{inputExtension}",
-            WriteHostMessage);
+            WriteHostMessage,
+            cancellationToken: StoppingToken);
         if (outputFiles == null)
             return;
 

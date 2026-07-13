@@ -119,7 +119,8 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 resolvedOutputPath,
                 VideoEncodingSettings,
                 AudioTrackMappings,
-                additionalArguments);
+                additionalArguments,
+                cancellationToken: StoppingToken);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
         }
@@ -128,6 +129,10 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             WriteStandardError(ex, ErrorIds.ConversionFailed, ErrorCategory.OperationStopped, resolvedInputPath);
             return;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

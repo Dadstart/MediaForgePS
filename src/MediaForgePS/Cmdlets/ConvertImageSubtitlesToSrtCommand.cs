@@ -155,7 +155,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
     {
         try
         {
-            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath, Logger);
+            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath, Logger, StoppingToken);
             WriteVerbose($"Converted to: {outputSrtPath}");
             return true;
         }

@@ -204,10 +204,15 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                             performOcr: true,
                             ThrottleLimit,
                             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-                            BackupPath);
+                            BackupPath,
+                            StoppingToken);
                     }
                 }
                 WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -380,7 +385,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         try
         {
             UpdateFileProgress("Reading media metadata", fileName);
-            var mediaFile = MediaReaderService.GetMediaFileAsync(inputFilePath, CancellationToken.None)
+            var mediaFile = MediaReaderService.GetMediaFileAsync(inputFilePath, StoppingToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (mediaFile == null)
             {
@@ -446,12 +451,20 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 UpdateFileProgress("Conversion failed", fileName, recordType: ProgressRecordType.Completed);
                 return new ConversionSummary(inputFilePath, false, statusMessage, stopwatch.Elapsed);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 UpdateFileProgress("Error", fileName, recordType: ProgressRecordType.Completed);
                 return new ConversionSummary(inputFilePath, false, $"Conversion failed: {ex.Message}", stopwatch.Elapsed);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -493,7 +506,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 videoSettings,
                 audioMappings,
                 additionalArguments,
-                encodeProgress));
+                encodeProgress,
+                StoppingToken));
 
             TimeSpan? initialBatchEta = null;
             if (_conversionCurrentFileIndex <= _conversionBatchTotalFiles)
@@ -507,6 +521,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
             while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
+                StoppingToken.ThrowIfCancellationRequested();
+
                 var latest = encodeProgress.Latest;
                 if (latest is not null)
                 {
@@ -571,6 +587,10 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             UpdateFileProgress(statusMessage, outputFileName, recordType: ProgressRecordType.Completed);
             throw;
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.LogError(
@@ -630,8 +650,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             MediaFile? mediaFile;
             try
             {
-                mediaFile = MediaReaderService.GetMediaFileAsync(mkvPath, CancellationToken.None)
+                mediaFile = MediaReaderService.GetMediaFileAsync(mkvPath, StoppingToken)
                     .ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -652,7 +676,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
                 onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
                 onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
-                Logger);
+                Logger,
+                StoppingToken);
 
             foreach (var path in extracted)
             {

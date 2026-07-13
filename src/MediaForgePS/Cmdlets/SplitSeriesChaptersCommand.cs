@@ -191,7 +191,8 @@ public class SplitSeriesChaptersCommand : CmdletBase
                 var tvDbEpisode = episodes[episodeIndex];
                 return $"{Title} {{tvdb {tvDbEpisode.Id}}} S{Season:D2}E{episodeNumber:D2}{inputExtension}";
             },
-            WriteHostMessage);
+            WriteHostMessage,
+            cancellationToken: StoppingToken);
         if (outputFiles == null)
             return;
 

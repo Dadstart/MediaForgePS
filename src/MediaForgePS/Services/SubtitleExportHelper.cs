@@ -125,7 +125,8 @@ public static class SubtitleExportHelper
         Action<MediaStream>? onUnknownCodec = null,
         Action<MediaStream, Exception>? onExtractFailed = null,
         Action? onNoEnglishSubtitles = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(executableService);
         ArgumentNullException.ThrowIfNull(media);
@@ -144,6 +145,8 @@ public static class SubtitleExportHelper
 
         foreach (var stream in subtitles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var isKnown = CodecToExtension.TryGetValue(stream.Codec ?? string.Empty, out var ext);
             ext ??= "bin";
             if (!isKnown)
@@ -159,8 +162,12 @@ public static class SubtitleExportHelper
 
             try
             {
-                ExtractSubtitle(executableService, stream, media.Path, finalPath, mkvextractPath);
+                ExtractSubtitle(executableService, stream, media.Path, finalPath, mkvextractPath, cancellationToken);
                 results.Add(finalPath);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -180,11 +187,14 @@ public static class SubtitleExportHelper
         PSCmdlet cmdlet,
         IMediaReaderService mediaReaderService,
         ILogger logger,
-        Action<ErrorRecord> writeError)
+        Action<ErrorRecord> writeError,
+        CancellationToken cancellationToken = default)
     {
         var filePaths = new List<string>();
         foreach (var item in pathOrMediaFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var unwrapped = item is PSObject ps ? ps.BaseObject : item;
             if (unwrapped is MediaFile mf)
             {
@@ -214,10 +224,16 @@ public static class SubtitleExportHelper
 
         foreach (var filePath in filePaths)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             MediaFile? mf = null;
             try
             {
-                mf = mediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                mf = mediaReaderService.GetMediaFileAsync(filePath, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -239,7 +255,8 @@ public static class SubtitleExportHelper
         MediaStream stream,
         string mediaFilePath,
         string resolvedOutputPath,
-        string? mkvextractPath)
+        string? mkvextractPath,
+        CancellationToken cancellationToken = default)
     {
         var isMatroskaSource = string.Equals(Path.GetExtension(mediaFilePath), ".mkv", StringComparison.OrdinalIgnoreCase);
         var isVobSub = string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase);
@@ -250,7 +267,7 @@ public static class SubtitleExportHelper
                 throw new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec.");
 
             var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{resolvedOutputPath}" };
-            var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             if (mkvResult.ExitCode != 0)
                 throw new InvalidOperationException($"mkvextract failed with exit code {mkvResult.ExitCode}. {mkvResult.ErrorOutput}");
 
@@ -264,7 +281,7 @@ public static class SubtitleExportHelper
             : resolvedOutputPath;
 
         var ffmpegArgs = new List<string> { "-i", mediaFilePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", ffmpegOutputPath };
-        var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         if (ffmpegResult.ExitCode != 0)
             throw new InvalidOperationException($"FFmpeg failed with exit code {ffmpegResult.ExitCode}. {ffmpegResult.ErrorOutput}");
     }

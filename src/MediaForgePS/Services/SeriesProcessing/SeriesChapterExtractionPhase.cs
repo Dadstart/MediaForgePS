@@ -19,7 +19,8 @@ internal sealed class SeriesChapterExtractionPhase(
         int chapterNumber,
         int chapterDurationSeconds,
         string chapterDirectory,
-        Func<string, string, string> createDirectory)
+        Func<string, string, string> createDirectory,
+        CancellationToken cancellationToken = default)
     {
         var chapterDir = createDirectory(Path.Combine(seasonDir, chapterDirectory), "chapter");
         var processed = 0;
@@ -28,6 +29,8 @@ internal sealed class SeriesChapterExtractionPhase(
 
         for (var i = 0; i < copiedFiles.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var file = copiedFiles[i];
             var current = i + 1;
             var fileName = Path.GetFileName(file);
@@ -35,7 +38,7 @@ internal sealed class SeriesChapterExtractionPhase(
             MediaConversionHelper.WriteMainProgress(cmdlet, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
             MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
 
-            if (TryExtractChapterClip(file, chapterDir, chapterNumber, chapterDurationSeconds))
+            if (TryExtractChapterClip(file, chapterDir, chapterNumber, chapterDurationSeconds, cancellationToken))
                 processed++;
             else
                 failed++;
@@ -49,11 +52,16 @@ internal sealed class SeriesChapterExtractionPhase(
         return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
     }
 
-    private bool TryExtractChapterClip(string filePath, string chapterDir, int chapterNumber, int chapterDurationSeconds)
+    private bool TryExtractChapterClip(
+        string filePath,
+        string chapterDir,
+        int chapterNumber,
+        int chapterDurationSeconds,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var media = mediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None)
+            var media = mediaReaderService.GetMediaFileAsync(filePath, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (media == null || media.Chapters.Length < chapterNumber)
                 return false;
@@ -71,9 +79,13 @@ internal sealed class SeriesChapterExtractionPhase(
                 "-y", clipPath
             };
 
-            var result = executableService.ExecuteAsync("ffmpeg", arguments, CancellationToken.None)
+            var result = executableService.ExecuteAsync("ffmpeg", arguments, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             return result.ExitCode == 0;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {

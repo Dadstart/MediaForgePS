@@ -56,7 +56,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.mkv",
             @"C:\out\movie.eng.sdh.sub",
-            MkvextractPath);
+            MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal(MkvextractPath, call.Exe);
@@ -76,7 +77,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.MKV",
             @"C:\out\movie.eng.sdh.sub",
-            MkvextractPath);
+            MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal(MkvextractPath, call.Exe);
@@ -94,7 +96,8 @@ public class SubtitleExportHelperTests
                 stream,
                 @"C:\media\movie.mkv",
                 @"C:\out\movie.eng.sdh.sub",
-                mkvextractPath: null));
+                mkvextractPath: null,
+            cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -108,7 +111,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.mkv",
             @"C:\out\movie.eng.sdh.srt",
-            MkvextractPath);
+            MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal("ffmpeg", call.Exe);
@@ -128,7 +132,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.vob",
             @"C:\out\movie.eng.sdh.sub",
-            MkvextractPath);
+            MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal("ffmpeg", call.Exe);
@@ -147,7 +152,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.mp4",
             @"C:\out\movie.eng.sdh.sub",
-            mkvextractPath: null);
+            mkvextractPath: null,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal("ffmpeg", call.Exe);
@@ -164,7 +170,8 @@ public class SubtitleExportHelperTests
             stream,
             @"C:\media\movie.mp4",
             @"C:\out\movie.eng.sdh.sup",
-            MkvextractPath);
+            MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var call = Assert.Single(calls);
         Assert.Equal("ffmpeg", call.Exe);
@@ -185,7 +192,8 @@ public class SubtitleExportHelperTests
                 stream,
                 @"C:\media\movie.mp4",
                 @"C:\out\movie.eng.sdh.srt",
-                MkvextractPath));
+                MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken));
         Assert.Contains("FFmpeg failed", ex.Message);
         Assert.Contains("boom", ex.Message);
     }
@@ -204,7 +212,8 @@ public class SubtitleExportHelperTests
                 stream,
                 @"C:\media\movie.mkv",
                 @"C:\out\movie.eng.sdh.sub",
-                MkvextractPath));
+                MkvextractPath,
+            cancellationToken: TestContext.Current.CancellationToken));
         Assert.Contains("mkvextract failed", ex.Message);
         Assert.Contains("broken", ex.Message);
     }
@@ -256,7 +265,8 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: _ => throw new InvalidOperationException("should not be called"),
-            onNoEnglishSubtitles: () => noEnglishCalled = true);
+            onNoEnglishSubtitles: () => noEnglishCalled = true,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Empty(result);
         Assert.True(noEnglishCalled);
@@ -275,7 +285,8 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var path = Assert.Single(result);
         Assert.Equal(@"C:\media\movie.eng.sdh.srt", path);
@@ -297,7 +308,8 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.Count);
         Assert.Contains(@"C:\media\movie.eng.sdh.srt", result);
@@ -339,7 +351,8 @@ public class SubtitleExportHelperTests
             media,
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
-                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount));
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.Count);
         Assert.Contains(@"C:\media\movie.2.eng.sdh.srt", result);
@@ -360,7 +373,8 @@ public class SubtitleExportHelperTests
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
                 media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
-            onUnknownCodec: stream => reported.Add(stream));
+            onUnknownCodec: stream => reported.Add(stream),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var path = Assert.Single(result);
         Assert.EndsWith(".bin", path);
@@ -382,7 +396,8 @@ public class SubtitleExportHelperTests
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
                 media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
-            finalizeOutputPath: candidate => candidate.Contains(".2.") ? null : candidate);
+            finalizeOutputPath: candidate => candidate.Contains(".2.") ? null : candidate,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var path = Assert.Single(result);
         Assert.Equal(@"C:\media\movie.3.eng.sdh.srt", path);
@@ -408,7 +423,8 @@ public class SubtitleExportHelperTests
             MkvextractPath,
             buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
                 media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
-            onExtractFailed: (s, ex) => failures.Add((s, ex)));
+            onExtractFailed: (s, ex) => failures.Add((s, ex)),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var path = Assert.Single(result);
         Assert.Contains(".3.", path);

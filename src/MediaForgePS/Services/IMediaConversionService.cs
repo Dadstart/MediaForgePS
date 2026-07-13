@@ -1,3 +1,4 @@
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
@@ -31,6 +32,7 @@ public interface IMediaConversionService
     /// <param name="audioMappings">Audio track mappings.</param>
     /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
     /// <param name="progress">Optional progress reporter for encode progress.</param>
+    /// <param name="cancellationToken">Token used to cancel the conversion (and kill child processes).</param>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     void ExecuteConversion(
         string resolvedInputPath,
@@ -38,5 +40,6 @@ public interface IMediaConversionService
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments = null,
-        IProgress<FfmpegProgress>? progress = null);
+        IProgress<FfmpegProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }

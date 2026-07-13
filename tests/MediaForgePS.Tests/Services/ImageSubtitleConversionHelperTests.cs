@@ -84,7 +84,8 @@ public class ImageSubtitleConversionHelperTests : IDisposable
             _executableServiceMock.Object,
             @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
             supPath,
-            srtPath);
+            srtPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(File.Exists(srtPath));
         Assert.False(File.Exists(supPath));
@@ -111,7 +112,8 @@ public class ImageSubtitleConversionHelperTests : IDisposable
             _executableServiceMock.Object,
             @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
             subPath,
-            srtPath);
+            srtPath,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(File.Exists(srtPath));
         Assert.False(File.Exists(subPath));
@@ -133,7 +135,8 @@ public class ImageSubtitleConversionHelperTests : IDisposable
                 _executableServiceMock.Object,
                 @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
                 supPath,
-                Path.ChangeExtension(supPath, "srt")!));
+                Path.ChangeExtension(supPath, "srt")!,
+            cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.True(File.Exists(supPath));
     }
@@ -153,7 +156,8 @@ public class ImageSubtitleConversionHelperTests : IDisposable
                 _executableServiceMock.Object,
                 @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
                 supPath,
-                Path.ChangeExtension(supPath, "srt")!));
+                Path.ChangeExtension(supPath, "srt")!,
+            cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.True(File.Exists(supPath));
     }

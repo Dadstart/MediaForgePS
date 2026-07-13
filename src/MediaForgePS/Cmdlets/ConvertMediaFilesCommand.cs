@@ -425,8 +425,12 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         try
         {
             UpdateFileProgress("Reading media metadata", fileName);
-            mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+            mediaFile = MediaReaderService.GetMediaFileAsync(resolvedInputPath, StoppingToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -524,7 +528,8 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 videoSettings,
                 audioMappings,
                 additionalArguments,
-                encodeProgress));
+                encodeProgress,
+                StoppingToken));
 
             // Calculate initial batch ETA
             TimeSpan? initialBatchEta = null;
@@ -536,6 +541,8 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
 
             while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
+                StoppingToken.ThrowIfCancellationRequested();
+
                 var latest = encodeProgress.Latest;
                 if (latest is not null)
                 {
@@ -584,6 +591,10 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             HandleFileError(originalInputPath, GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
