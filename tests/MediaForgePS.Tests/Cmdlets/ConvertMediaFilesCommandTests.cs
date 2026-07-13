@@ -341,6 +341,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
         Assert.Contains(
             progress,
             record => record.Activity == "File Conversion"
+                && record.StatusDescription.Contains("00:42 / 01:40", StringComparison.Ordinal)
                 && record.PercentComplete == 42
                 && record.SecondsRemaining == 31);
     }

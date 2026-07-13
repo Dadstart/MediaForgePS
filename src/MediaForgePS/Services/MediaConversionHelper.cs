@@ -36,15 +36,29 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
-    /// Formats a timespan as a human-readable string (e.g. "2m 30s", "1h 5m 0s").
+    /// Formats a timespan as <c>mm:ss</c>, or <c>h:mm:ss</c> when one hour or longer.
     /// </summary>
     public static string FormatTimespan(TimeSpan time)
     {
+        if (time < TimeSpan.Zero)
+            time = TimeSpan.Zero;
+
         if (time.TotalHours >= 1)
-            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
-        if (time.TotalMinutes >= 1)
-            return $"{time.Minutes}m {time.Seconds}s";
-        return $"{time.Seconds}s";
+            return $"{(int)time.TotalHours}:{time.Minutes:D2}:{time.Seconds:D2}";
+
+        return $"{(int)time.TotalMinutes:D2}:{time.Seconds:D2}";
+    }
+
+    /// <summary>
+    /// Builds encode status text including media position as <c>mm:ss / mm:ss</c>.
+    /// </summary>
+    public static string BuildEncodeProgressStatus(string baseStatus, FfmpegProgress progress)
+    {
+        var outTime = FormatTimespan(progress.OutTime);
+        if (progress.TotalDuration > TimeSpan.Zero)
+            return $"{baseStatus} — {outTime} / {FormatTimespan(progress.TotalDuration)}";
+
+        return $"{baseStatus} — {outTime}";
     }
 
     /// <summary>

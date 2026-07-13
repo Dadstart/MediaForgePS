@@ -25,9 +25,10 @@ public class MediaConversionHelperTests
     }
 
     [Theory]
-    [InlineData(0, 0, 45, "45s")]
-    [InlineData(0, 2, 30, "2m 30s")]
-    [InlineData(1, 5, 0, "1h 5m 0s")]
+    [InlineData(0, 0, 45, "00:45")]
+    [InlineData(0, 2, 30, "02:30")]
+    [InlineData(1, 5, 0, "1:05:00")]
+    [InlineData(12, 3, 4, "12:03:04")]
     public void FormatTimespan_ReturnsExpectedValue(int hours, int minutes, int seconds, string expected)
     {
         var time = new TimeSpan(hours, minutes, seconds);
@@ -35,6 +36,32 @@ public class MediaConversionHelperTests
         var result = MediaConversionHelper.FormatTimespan(time);
 
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void BuildEncodeProgressStatus_WithTotalDuration_IncludesMmSsRange()
+    {
+        var progress = new FfmpegProgress(
+            TimeSpan.FromSeconds(152),
+            TimeSpan.FromMinutes(42) + TimeSpan.FromSeconds(15),
+            6,
+            null);
+
+        var result = MediaConversionHelper.BuildEncodeProgressStatus(
+            "Encoding to libx265 (medium preset)",
+            progress);
+
+        Assert.Equal("Encoding to libx265 (medium preset) — 02:32 / 42:15", result);
+    }
+
+    [Fact]
+    public void BuildEncodeProgressStatus_WithoutTotalDuration_IncludesOutTimeOnly()
+    {
+        var progress = new FfmpegProgress(TimeSpan.FromSeconds(5), TimeSpan.Zero, 0, null);
+
+        var result = MediaConversionHelper.BuildEncodeProgressStatus("Encoding", progress);
+
+        Assert.Equal("Encoding — 00:05", result);
     }
 
     [Fact]

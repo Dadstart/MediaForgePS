@@ -235,6 +235,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         Assert.Contains(
             progressRecords,
             record => record.Activity == "File conversion"
+                && record.StatusDescription.Contains("00:25 / 01:40", StringComparison.Ordinal)
                 && record.PercentComplete == 25
                 && record.SecondsRemaining == 13);
     }

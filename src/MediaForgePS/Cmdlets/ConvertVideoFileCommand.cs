@@ -447,7 +447,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 if (latest is not null)
                 {
                     UpdateFileProgress(
-                        encodeStatus,
+                        MediaConversionHelper.BuildEncodeProgressStatus(encodeStatus, latest),
                         outputFileName,
                         percentComplete: latest.PercentComplete,
                         eta: latest.EstimatedTimeRemaining);
