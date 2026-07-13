@@ -392,4 +392,36 @@ public class AudioTrackMappingServiceTests
         Assert.Equal(2, second.DestinationChannels);
         Assert.Equal(6, third.DestinationChannels);
     }
+
+    [Fact]
+    public void CreateDirectoryEncodeMappings_WithTrueHdFirstAndSixChannelSecond_SwapsAndCopiesTrueHd()
+    {
+        var mediaFile = new MediaFile(
+            "C:\\test.mkv",
+            new MediaFormat("C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            new[]
+            {
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                CreateAudioStream(1, "truehd", "eng", 8, "TrueHD 7.1"),
+                CreateAudioStream(2, "ac3", "eng", 6, "AC3 5.1"),
+                CreateAudioStream(3, "aac", "eng", 2, "Commentary")
+            },
+            "{}");
+
+        var result = _service.CreateDirectoryEncodeMappings(mediaFile);
+
+        Assert.Equal(3, result.Length);
+
+        var first = Assert.IsType<EncodeAudioTrackMapping>(result[0]);
+        Assert.Equal(1, first.SourceIndex);
+        Assert.Equal(0, first.DestinationIndex);
+        Assert.Equal("aac", first.DestinationCodec);
+        Assert.Equal(6, first.DestinationChannels);
+
+        var second = Assert.IsType<CopyAudioTrackMapping>(result[1]);
+        Assert.Equal(0, second.SourceIndex);
+        Assert.Equal(1, second.DestinationIndex);
+        Assert.Equal("TrueHD 7.1", second.Title);
+    }
 }
