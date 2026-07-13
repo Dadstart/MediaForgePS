@@ -177,6 +177,69 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertVideoFile_WithEncodeProgress_WritesPercentAndSecondsRemaining()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(25),
+                    TimeSpan.FromSeconds(100),
+                    25,
+                    TimeSpan.FromSeconds(12.1)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", mkvPath)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progressRecords = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "File conversion"
+                && record.PercentComplete == 25
+                && record.SecondsRemaining == 13);
+    }
+
+    [Fact]
     public void ConvertVideoFile_WithRecurse_ConvertsNestedMkvFiles()
     {
         var root = CreateTempDirectory();

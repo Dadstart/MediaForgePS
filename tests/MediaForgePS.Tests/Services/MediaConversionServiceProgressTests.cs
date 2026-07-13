@@ -61,6 +61,63 @@ public class MediaConversionServiceProgressTests
         Assert.Equal(100, reports[1].PercentComplete);
     }
 
+    [Fact]
+    public void ExecuteConversion_SinglePass_ForwardsProgressUnchanged()
+    {
+        var ffmpegMock = new Mock<IFfmpegService>();
+        var platformMock = new Mock<IPlatformService>();
+        var reports = new List<FfmpegProgress>();
+        IProgress<FfmpegProgress>? capturedProgress = null;
+
+        ffmpegMock
+            .Setup(service => service.ConvertAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<IEnumerable<string>?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken>((_, _, _, progress, _) =>
+            {
+                capturedProgress = progress;
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(40),
+                    TimeSpan.FromSeconds(100),
+                    40,
+                    TimeSpan.FromSeconds(90)));
+                return Task.FromResult(true);
+            });
+
+        var service = new MediaConversionService(ffmpegMock.Object, platformMock.Object);
+        var settings = new ConstantRateVideoEncodingSettings(
+            "libx265",
+            "medium",
+            "main",
+            "film",
+            18,
+            "yuv420p10le");
+        var reporter = new SynchronousProgressReporter(reports.Add);
+
+        service.ExecuteConversion(
+            "input.mkv",
+            "output.mp4",
+            settings,
+            [],
+            progress: reporter);
+
+        Assert.Same(reporter, capturedProgress);
+        var report = Assert.Single(reports);
+        Assert.Equal(40, report.PercentComplete);
+        Assert.Equal(TimeSpan.FromSeconds(90), report.EstimatedTimeRemaining);
+        ffmpegMock.Verify(
+            service => service.ConvertAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<IEnumerable<string>?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     private sealed class SynchronousProgressReporter(Action<FfmpegProgress> handler) : IProgress<FfmpegProgress>
     {
         public void Report(FfmpegProgress value) => handler(value);

@@ -107,6 +107,98 @@ public class FfmpegServiceConvertProgressTests
             Times.Never);
     }
 
+    [Theory]
+    [InlineData(false, "{}")]
+    [InlineData(true, "")]
+    [InlineData(true, "not-json")]
+    [InlineData(true, """{"streams":[]}""")]
+    [InlineData(true, """{"format":{}}""")]
+    [InlineData(true, """{"format":{"duration":"0"}}""")]
+    [InlineData(true, """{"format":{"duration":"-1"}}""")]
+    [InlineData(true, """{"format":{"duration":"abc"}}""")]
+    public async Task ConvertAsync_WithUnusableDuration_ConvertsWithZeroTotalDuration(bool probeSuccess, string json)
+    {
+        var executableMock = new Mock<IExecutableService>();
+        var ffprobeMock = new Mock<IFfprobeService>();
+        var reports = new List<FfmpegProgress>();
+
+        ffprobeMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FfprobeResult(probeSuccess, json));
+
+        executableMock
+            .Setup(service => service.ExecuteAsync(
+                "ffmpeg",
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Action<string>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, _, callback, _) =>
+            {
+                callback("out_time=00:00:05.000000");
+                callback("progress=continue");
+                callback("progress=end");
+                return Task.FromResult(new ExecutableResult(string.Empty, string.Empty, 0));
+            });
+
+        var service = new FfmpegService(
+            executableMock.Object,
+            ffprobeMock.Object,
+            NullLogger<FfmpegService>.Instance);
+
+        var result = await service.ConvertAsync(
+            "input.mkv",
+            "output.mp4",
+            progress: new SynchronousProgressReporter(reports.Add),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result);
+        Assert.Equal(2, reports.Count);
+        Assert.Equal(TimeSpan.Zero, reports[0].TotalDuration);
+        Assert.Equal(0, reports[0].PercentComplete);
+        Assert.Equal(100, reports[1].PercentComplete);
+    }
+
+    [Fact]
+    public async Task ConvertAsync_WithNumericDuration_ParsesSuccessfully()
+    {
+        var executableMock = new Mock<IExecutableService>();
+        var ffprobeMock = new Mock<IFfprobeService>();
+        var reports = new List<FfmpegProgress>();
+
+        ffprobeMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":20.5}}"""));
+
+        executableMock
+            .Setup(service => service.ExecuteAsync(
+                "ffmpeg",
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Action<string>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, _, callback, _) =>
+            {
+                callback("out_time=00:00:10.250000");
+                callback("progress=continue");
+                return Task.FromResult(new ExecutableResult(string.Empty, string.Empty, 0));
+            });
+
+        var service = new FfmpegService(
+            executableMock.Object,
+            ffprobeMock.Object,
+            NullLogger<FfmpegService>.Instance);
+
+        var result = await service.ConvertAsync(
+            "input.mkv",
+            "output.mp4",
+            progress: new SynchronousProgressReporter(reports.Add),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result);
+        var report = Assert.Single(reports);
+        Assert.Equal(TimeSpan.FromSeconds(20.5), report.TotalDuration);
+        Assert.Equal(50, report.PercentComplete);
+    }
+
     private sealed class SynchronousProgressReporter(Action<FfmpegProgress> handler) : IProgress<FfmpegProgress>
     {
         public void Report(FfmpegProgress value) => handler(value);

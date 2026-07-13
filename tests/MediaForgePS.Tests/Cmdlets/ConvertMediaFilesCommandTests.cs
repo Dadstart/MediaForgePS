@@ -283,6 +283,68 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
+    [Fact]
+    public void ConvertMediaFiles_WithEncodeProgress_WritesPercentAndSecondsRemaining()
+    {
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
+        var resolvedInputPath = inputPath;
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
+        var autoMappings = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Auto AAC", 0, 0, 0, "aac", 192, 2)
+        };
+
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
+            .Returns(true);
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveOutputPath(PathCombine(outputDirectory, "episode1.mp4"), out resolvedOutputPath))
+            .Returns(true);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(resolvedInputPath, [CreateAudioStream(1, "aac", "eng", 2)]));
+        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()))
+            .Returns(autoMappings);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(42),
+                    TimeSpan.FromSeconds(100),
+                    42,
+                    TimeSpan.FromSeconds(30.2)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MediaFiles")
+            .AddParameter("InputPath", new object[] { inputPath })
+            .AddParameter("OutputDirectory", outputDirectory);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progress = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progress,
+            record => record.Activity == "File Conversion"
+                && record.PercentComplete == 42
+                && record.SecondsRemaining == 31);
+    }
+
     private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertMediaFilesCommand>("Convert-MediaFiles");
 
     private static MediaFile CreateMediaFile(string path, MediaStream[] streams)
