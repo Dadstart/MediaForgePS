@@ -1,16 +1,72 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Management.Automation;
 using System.Reflection;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 
-public class InvokeBonusFileProcessingCommandTests
+public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 {
+    private readonly Mock<IPathResolver> _pathResolverMock = new();
+    private readonly Mock<IMediaReaderService> _mediaReaderServiceMock = new();
+    private readonly Mock<IMediaConversionService> _mediaConversionServiceMock = new();
+    private readonly Mock<IExecutableService> _executableServiceMock = new();
+    private readonly Mock<ILoggerFactory> _loggerFactoryMock = new();
+    private readonly Mock<ILogger<InvokeBonusFileProcessingCommand>> _loggerMock = new();
+    private readonly Mock<IDebuggerService> _debuggerServiceMock = new();
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ModuleServicesTestScope _moduleServicesScope;
+    private readonly List<string> _tempDirectories = new();
+
+    public InvokeBonusFileProcessingCommandTests()
+    {
+        _loggerFactoryMock.Setup(factory => factory.CreateLogger(It.IsAny<string>()))
+            .Returns(_loggerMock.Object);
+        _debuggerServiceMock.Setup(debugger => debugger.BreakIfDebugging(It.IsAny<bool>()));
+
+        var services = new ServiceCollection();
+        services.AddSingleton(_pathResolverMock.Object);
+        services.AddSingleton(_mediaReaderServiceMock.Object);
+        services.AddSingleton(_mediaConversionServiceMock.Object);
+        services.AddSingleton(_executableServiceMock.Object);
+        services.AddSingleton(_loggerFactoryMock.Object);
+        services.AddSingleton(_debuggerServiceMock.Object);
+
+        _serviceProvider = services.BuildServiceProvider();
+        _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
+    }
+
+    public void Dispose()
+    {
+        _moduleServicesScope.Dispose();
+        _serviceProvider.Dispose();
+
+        foreach (var directory in _tempDirectories)
+        {
+            try
+            {
+                if (Directory.Exists(directory))
+                    Directory.Delete(directory, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+        }
+    }
+
     [Fact]
     public void Defaults_AreInitializedCorrectly()
     {
@@ -182,6 +238,154 @@ public class InvokeBonusFileProcessingCommandTests
         Assert.Equal(0, size);
     }
 
+    [Fact]
+    public void InvokeBonusFileProcessing_WithEncodeProgress_WritesPercentAndSecondsRemaining()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateBonusOutputDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution(output);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(25),
+                    TimeSpan.FromSeconds(100),
+                    25,
+                    TimeSpan.FromSeconds(12.1)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progressRecords = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "Current file"
+                && record.StatusDescription.Contains("00:25 / 01:40", StringComparison.Ordinal)
+                && record.PercentComplete == 25
+                && record.SecondsRemaining == 13);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "Bonus file conversion");
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WithOneSecondRemaining_WritesFinishingSpinner()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateBonusOutputDirectory();
+        var mkvPath = Path.Combine(input, "clip-featurette.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution(output);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(99),
+                    TimeSpan.FromSeconds(100),
+                    99,
+                    TimeSpan.FromSeconds(1)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progressRecords = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "Current file"
+                && record.StatusDescription.StartsWith("finishing ", StringComparison.Ordinal)
+                && record.PercentComplete == 99
+                && record.SecondsRemaining == -1);
+    }
+
+    private void SetupOutputPathResolution(string outputPath)
+    {
+        _pathResolverMock
+            .Setup(resolver => resolver.TryResolveOutputPath(outputPath, out It.Ref<string>.IsAny))
+            .Returns((string path, out string resolved) =>
+            {
+                resolved = path;
+                return true;
+            });
+    }
+
+    private string CreateTempDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"MediaForgePS-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(path);
+        _tempDirectories.Add(path);
+        return path;
+    }
+
+    private string CreateBonusOutputDirectory()
+    {
+        if (OperatingSystem.IsWindows() && Directory.Exists(@"P:\"))
+        {
+            var path = Path.Combine(@"P:\", $"MediaForgePS-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(path);
+            _tempDirectories.Add(path);
+            return path;
+        }
+
+        return CreateTempDirectory();
+    }
+
+    private static PowerShell CreatePowerShell() =>
+        PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+
     private static long InvokeGetFileSizeOrZero(string path)
     {
         var method = typeof(InvokeBonusFileProcessingCommand)
@@ -191,6 +395,31 @@ public class InvokeBonusFileProcessingCommandTests
         var result = method!.Invoke(null, new object[] { path });
         Assert.NotNull(result);
         return (long)result!;
+    }
+
+    private static MediaFile CreateMediaFile(string path)
+    {
+        var stream = new MediaStream(
+            "audio",
+            1,
+            "aac",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng",
+            @"{""index"":1,""codec_type"":""audio"",""channels"":2}");
+
+        return new MediaFile(
+            path,
+            new MediaFormat(path, 2, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            new[]
+            {
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                stream
+            },
+            "{}");
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, string language, int channels, string? title = null)
@@ -225,4 +454,3 @@ public class InvokeBonusFileProcessingCommandTests
             rawJson);
     }
 }
-
