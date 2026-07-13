@@ -34,6 +34,7 @@ public abstract class ProgressCmdletBase : CmdletBase
         try
         {
             Console.Beep();
+            Console.Beep();
         }
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {
