@@ -21,7 +21,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Three-step workflow: (1) convert bonus MKV files (names ending with -trailer, -featurette, etc.) to MP4,
 /// (2) extract English subtitles and optionally OCR image-based tracks (-Ocr Auto/Skip/Force),
 /// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
-/// On Windows, OutputPath must be under P:\. Existing destination files are skipped.
+/// Existing destination files are skipped.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing")]
 [OutputType(typeof(void))]
@@ -69,12 +69,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     public string InputPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Destination directory for organized Plex files. Must be under P:\ drive on Windows.
+    /// Destination directory for organized Plex files.
     /// </summary>
     [Parameter(
         Mandatory = true,
         Position = 1,
-        HelpMessage = "Destination directory for organized Plex files (must be under P:\\ on Windows)")]
+        HelpMessage = "Destination directory for organized Plex files")]
     [ValidateNotNullOrEmpty]
     public string OutputPath { get; set; } = string.Empty;
 
@@ -151,12 +151,9 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         WriteHostMessage($"  Input:  {inputFullPath}", ConsoleColor.Gray);
         WriteHostMessage($"  Output: {outputFullPath}", ConsoleColor.Gray);
 
-        if (!ValidatePlexOutputPath(outputFullPath))
-            return;
-
         // Ensure output directory exists
         Directory.CreateDirectory(outputFullPath);
-        WriteHostMessage($"Output path validated: {outputFullPath}", ConsoleColor.Green);
+        WriteHostMessage($"Output path ready: {outputFullPath}", ConsoleColor.Green);
 
         _conversionResults.Clear();
 
@@ -267,29 +264,6 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         }
 
         return false;
-    }
-
-    private bool ValidatePlexOutputPath(string outputFullPath)
-    {
-        // Match original script behavior on Windows: enforce P:\ drive
-        if (OperatingSystem.IsWindows())
-        {
-            var root = Path.GetPathRoot(outputFullPath);
-            if (!string.IsNullOrEmpty(root) &&
-                !root.StartsWith("P:", StringComparison.OrdinalIgnoreCase))
-            {
-                var message = $"Output path must be under P:\\ drive. Current path: {outputFullPath}";
-                var error = new ErrorRecord(
-                    new InvalidOperationException(message),
-                    "InvalidPlexOutputPath",
-                    ErrorCategory.InvalidArgument,
-                    outputFullPath);
-                WriteError(error);
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private int ConvertBonusFiles(string inputDirectory)

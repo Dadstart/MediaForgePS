@@ -242,7 +242,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     public void InvokeBonusFileProcessing_WithEncodeProgress_WritesPercentAndSecondsRemaining()
     {
         var input = CreateTempDirectory();
-        var output = CreateBonusOutputDirectory();
+        var output = CreateTempDirectory();
         var mkvPath = Path.Combine(input, "clip-trailer.mkv");
         File.WriteAllText(mkvPath, "x");
 
@@ -300,7 +300,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     public void InvokeBonusFileProcessing_WithOneSecondRemaining_WritesFinishingSpinner()
     {
         var input = CreateTempDirectory();
-        var output = CreateBonusOutputDirectory();
+        var output = CreateTempDirectory();
         var mkvPath = Path.Combine(input, "clip-featurette.mkv");
         File.WriteAllText(mkvPath, "x");
 
@@ -368,19 +368,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         Directory.CreateDirectory(path);
         _tempDirectories.Add(path);
         return path;
-    }
-
-    private string CreateBonusOutputDirectory()
-    {
-        if (OperatingSystem.IsWindows() && Directory.Exists(@"P:\"))
-        {
-            var path = Path.Combine(@"P:\", $"MediaForgePS-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(path);
-            _tempDirectories.Add(path);
-            return path;
-        }
-
-        return CreateTempDirectory();
     }
 
     private static PowerShell CreatePowerShell() =>

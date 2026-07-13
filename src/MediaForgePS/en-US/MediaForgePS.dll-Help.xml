@@ -1899,7 +1899,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
           <maml:name>OutputPath</maml:name>
           <maml:description>
-            <maml:para>Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
+            <maml:para>Destination root for Plex bonus folders. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
           <dev:type>
@@ -2073,7 +2073,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
         <maml:name>OutputPath</maml:name>
         <maml:description>
-          <maml:para>Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
+          <maml:para>Destination root for Plex bonus folders. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
@@ -2129,7 +2129,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows. On Windows, output must be under P:\.</maml:para>
+        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
