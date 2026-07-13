@@ -6,6 +6,49 @@
     CompanyName          = 'Dadstart LLC'
     Copyright            = '(c) Dadstart. All rights reserved.'
     Description          = 'PowerShell module for managing video files (MP4, MKV, etc.) directly from the terminal or other scripts.'
-    PowerShellVersion    = '7.5'
-    CompatiblePSEditions  = @('Core')
+    PowerShellVersion    = '7.6'
+    CompatiblePSEditions = @('Core')
+
+    # Binary assembly loaded before the root script module (DI bootstrap in MediaForgePS.psm1).
+    RequiredAssemblies   = @('MediaForgePS.dll')
+
+    CmdletsToExport      = @(
+        'Get-MediaFile'
+        'Get-AudioStreams'
+        'Convert-MediaFiles'
+        'Convert-MediaFileAdvanced'
+        'Convert-VideoFile'
+        'Export-MediaStream'
+        'Export-Subtitles'
+        'Convert-ImageSubtitlesToSrt'
+        'Repair-Subtitles'
+        'Invoke-SubtitleOcrRepair'
+        'Split-Chapters'
+        'Split-SeriesChapters'
+        'Invoke-SeasonScan'
+        'Invoke-VideoCopy'
+        'Invoke-SeriesProcessing'
+        'Invoke-BonusFileProcessing'
+        'New-VideoEncodingSettings'
+        'New-AudioTrackMapping'
+    )
+    FunctionsToExport    = @()
+    VariablesToExport    = @()
+    AliasesToExport      = @()
+
+    FileList             = @(
+        'MediaForgePS.psd1'
+        'MediaForgePS.psm1'
+        'MediaForgePS.dll'
+        'en-US/MediaForgePS.dll-Help.xml'
+    )
+
+    PrivateData          = @{
+        PSData = @{
+            Tags         = @('Media', 'Video', 'FFmpeg', 'Ffprobe', 'MediaForge', 'PowerShell')
+            LicenseUri   = 'https://github.com/Dadstart/MediaForgePS/blob/main/LICENSE'
+            ProjectUri   = 'https://github.com/Dadstart/MediaForgePS'
+            ReleaseNotes = 'https://github.com/Dadstart/MediaForgePS/releases'
+        }
+    }
 }

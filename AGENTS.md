@@ -6,7 +6,7 @@
 - Prefer experimenting with cutting edge technologies
 - Prefer open source projects
 - All changes should be reviewed before commit
-- Use PowerShell 7.5 in the editor and terminal
+- Use PowerShell 7.6 in the editor and terminal
 
 ## Local Workflow
 
@@ -57,7 +57,7 @@
 
 ### PowerShell
 
-- Use PowerShell 7.5
+- Use PowerShell 7.6
 
 ### Ffmpeg and Ffprobe
 
@@ -76,7 +76,7 @@
 
 ## Terminal / Scripting
 
-- Use PowerShell 7.5 for cross-platform scripting
+- Use PowerShell 7.6 for cross-platform scripting
 
 ## Architecture
 

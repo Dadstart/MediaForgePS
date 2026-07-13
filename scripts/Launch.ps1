@@ -4,7 +4,7 @@
     Launches a new PowerShell instance with the MediaForgePS module imported for debugging.
 
 .DESCRIPTION
-    This script launches a new PowerShell 7.5 instance, imports the MediaForgePS module
+    This script launches a new PowerShell 7.6 instance, imports the MediaForgePS module
     from the published DLL location, and displays the process ID (PID) so you can attach
     a debugger to the process. The session remains open for interactive use and debugging.
 
