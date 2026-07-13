@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using Xunit;
 using Xunit.Sdk;
 
 namespace Dadstart.Labs.MediaForge.ComponentTests;
@@ -48,15 +47,37 @@ public abstract class ComponentTestBase : IDisposable
 
     protected void SkipIfTestAssetsMissing()
     {
-        if (!File.Exists(SampleVideoPath) || !File.Exists(InvalidMediaPath))
-            throw SkipException.ForSkip("Component test media assets are missing. Generate sample-1s.mkv and invalid-media.mkv under TestAssets.");
+        if (File.Exists(SampleVideoPath) && File.Exists(InvalidMediaPath))
+            return;
+
+        FailOrSkip("Component test media assets are missing. Generate sample-1s.mkv and invalid-media.mkv under TestAssets.");
     }
 
     protected static void SkipIfMediaToolsMissing()
     {
-        if (!IsToolAvailable("ffmpeg") || !IsToolAvailable("ffprobe"))
-            throw SkipException.ForSkip("ffmpeg and/or ffprobe not found on PATH. Install them to run component tests.");
+        if (IsToolAvailable("ffmpeg") && IsToolAvailable("ffprobe"))
+            return;
+
+        FailOrSkip("ffmpeg and/or ffprobe not found on PATH. Install them to run component tests.");
     }
+
+    /// <summary>
+    /// When <c>MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1</c> (set in CI), missing tools/assets fail the test
+    /// instead of skipping so coverage cannot silently degrade.
+    /// </summary>
+    private static void FailOrSkip(string message)
+    {
+        if (RequiresComponentTests)
+            throw new InvalidOperationException(message);
+
+        throw SkipException.ForSkip(message);
+    }
+
+    private static bool RequiresComponentTests =>
+        string.Equals(
+            Environment.GetEnvironmentVariable("MEDIAFORGE_REQUIRE_COMPONENT_TESTS"),
+            "1",
+            StringComparison.Ordinal);
 
     private static bool IsToolAvailable(string toolName)
     {
