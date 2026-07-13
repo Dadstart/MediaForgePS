@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 [Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt")]
 [Alias("Convert-SupToSrt")]
 [OutputType(typeof(string))]
-public class ConvertImageSubtitlesToSrtCommand : CmdletBase
+public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 {
     /// <summary>
     /// Path to a .sup or .sub file, or directory containing .sup/.sub files. Pipeline accepts path strings.

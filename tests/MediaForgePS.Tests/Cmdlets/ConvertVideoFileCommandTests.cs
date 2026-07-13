@@ -7,6 +7,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
 using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,19 +103,19 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             firstOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             secondMkv,
             secondOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             nestedMkv,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -176,6 +177,134 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertVideoFile_WithEncodeProgress_WritesPercentAndSecondsRemaining()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(25),
+                    TimeSpan.FromSeconds(100),
+                    25,
+                    TimeSpan.FromSeconds(12.1)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", mkvPath)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progressRecords = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "File conversion"
+                && record.StatusDescription.Contains("00:25 / 01:40", StringComparison.Ordinal)
+                && record.PercentComplete == 25
+                && record.SecondsRemaining == 13);
+    }
+
+    [Fact]
+    public void ConvertVideoFile_WithOneSecondRemaining_WritesFinishingSpinner()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>()))
+            .Callback((
+                string _,
+                string _,
+                VideoEncodingSettings _,
+                AudioTrackMapping[] _,
+                string[]? _,
+                IProgress<FfmpegProgress>? progress) =>
+            {
+                progress?.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(99),
+                    TimeSpan.FromSeconds(100),
+                    99,
+                    TimeSpan.FromSeconds(1)));
+                Thread.Sleep(200);
+            });
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", mkvPath)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var progressRecords = ps.Streams.Progress.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(
+            progressRecords,
+            record => record.Activity == "File conversion"
+                && record.StatusDescription.StartsWith("finishing ", StringComparison.Ordinal)
+                && record.PercentComplete == 99
+                && record.SecondsRemaining == -1);
+    }
+
+    [Fact]
     public void ConvertVideoFile_WithRecurse_ConvertsNestedMkvFiles()
     {
         var root = CreateTempDirectory();
@@ -214,7 +343,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
     }
 
     [Fact]
@@ -254,13 +383,13 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             otherMkvPath,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -306,19 +435,19 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             firstOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             secondMkvPath,
             secondOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             ignoredMkvPath,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -443,7 +572,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
     }
 
     [Fact]
@@ -510,7 +639,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 expected,
                 It.IsAny<VideoEncodingSettings>(),
                 mapping,
-                It.IsAny<string[]?>()), Times.Once);
+                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
         }
 
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
@@ -518,7 +647,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -546,7 +675,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -574,7 +703,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]

@@ -119,10 +119,19 @@ public abstract class CmdletBase : PSCmdlet
         }
         finally
         {
+            TryAlertOnCompletion();
             _commandTitleScope?.Dispose();
             _commandTitleScope = null;
             CmdletContext.Current = null;
         }
+    }
+
+    /// <summary>
+    /// Optionally plays a completion alert after the cmdlet finishes.
+    /// Overridden by <see cref="ProgressCmdletBase"/> when <c>-Alert</c> is specified.
+    /// </summary>
+    protected virtual void TryAlertOnCompletion()
+    {
     }
 
     protected IDisposable PushOperationTerminalTitle(string operationName)

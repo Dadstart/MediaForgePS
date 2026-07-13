@@ -17,7 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing")]
 [OutputType(typeof(void))]
-public class InvokeSeriesProcessingCommand : CmdletBase
+public class InvokeSeriesProcessingCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 

@@ -21,7 +21,7 @@ Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-Defaul
 ## DESCRIPTION
 Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default **nvenc**). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` (**Auto**, **Skip**, or **Force**; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.
 
-On Windows, `-OutputPath` must be under the `P:\` drive. Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.
+Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.
 
 ## EXAMPLES
 
@@ -140,7 +140,7 @@ Accept wildcard characters: False
 ```
 
 ### -OutputPath
-Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).
+Destination root for Plex bonus folders. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).
 
 ```yaml
 Type: String
@@ -198,7 +198,7 @@ Parameters are specified directly.
 This cmdlet does not write to the pipeline.
 
 ## NOTES
-Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows. On Windows, output must be under P:\.
+Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.
 
 ## RELATED LINKS
 

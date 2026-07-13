@@ -45,13 +45,37 @@ public class MediaConversionService : IMediaConversionService
             args.AddRange(audioMapping.ToFfmpegArgs(_platformService));
         }
 
-        // Add additional arguments if provided
-        if (additionalArguments != null)
+        // Enable experimental TrueHD-in-MP4 muxing when copying TrueHD/Atmos tracks.
+        if (!ContainsStrictExperimental(additionalArguments))
         {
-            args.AddRange(additionalArguments);
+            args.Add("-strict");
+            args.Add("-2");
         }
 
+        // Add additional arguments if provided
+        if (additionalArguments != null)
+            args.AddRange(additionalArguments);
+
         return args;
+    }
+
+    private static bool ContainsStrictExperimental(string[]? additionalArguments)
+    {
+        if (additionalArguments is null || additionalArguments.Length < 2)
+            return false;
+
+        for (var i = 0; i < additionalArguments.Length - 1; i++)
+        {
+            if (!string.Equals(additionalArguments[i], "-strict", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var value = additionalArguments[i + 1];
+            if (string.Equals(value, "-2", StringComparison.Ordinal) ||
+                string.Equals(value, "experimental", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <inheritdoc />
@@ -60,7 +84,8 @@ public class MediaConversionService : IMediaConversionService
         string resolvedOutputPath,
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
-        string[]? additionalArguments = null)
+        string[]? additionalArguments = null,
+        IProgress<FfmpegProgress>? progress = null)
     {
         if (videoSettings.IsSinglePass)
         {
@@ -68,23 +93,42 @@ public class MediaConversionService : IMediaConversionService
                 resolvedInputPath,
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
+                progress,
                 CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         else
         {
-            // First pass
+            // First pass maps to 0-50%; second pass maps to 50-100%.
+            var firstPassProgress = CreatePassProgress(progress, passOffsetPercent: 0, passWeightPercent: 50);
             _ffmpegService.ConvertAsync(
                 resolvedInputPath,
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 1, additionalArguments),
+                firstPassProgress,
                 CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
 
-            // Second pass
+            var secondPassProgress = CreatePassProgress(progress, passOffsetPercent: 50, passWeightPercent: 50);
             _ffmpegService.ConvertAsync(
                 resolvedInputPath,
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 2, additionalArguments),
+                secondPassProgress,
                 CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         }
+    }
+
+    private static IProgress<FfmpegProgress>? CreatePassProgress(
+        IProgress<FfmpegProgress>? progress,
+        int passOffsetPercent,
+        int passWeightPercent)
+    {
+        if (progress is null)
+            return null;
+
+        return new SynchronousProgress<FfmpegProgress>(update =>
+        {
+            var mappedPercent = passOffsetPercent + (update.PercentComplete * passWeightPercent / 100);
+            progress.Report(update with { PercentComplete = mappedPercent });
+        });
     }
 }

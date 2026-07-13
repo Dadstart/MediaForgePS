@@ -26,7 +26,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile")]
 [OutputType(typeof(VideoFileConversionResult))]
-public class ConvertVideoFileCommand : CmdletBase
+public class ConvertVideoFileCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 
@@ -419,11 +419,10 @@ public class ConvertVideoFileCommand : CmdletBase
         try
         {
             Logger.LogInformation("Starting conversion: {Input} -> {Output}", resolvedInputPath, resolvedOutputPath);
-            UpdateFileProgress(
-                $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)",
-                outputFileName,
-                percentComplete: 60);
+            var encodeStatus = $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)";
+            UpdateFileProgress(encodeStatus, outputFileName, percentComplete: 0);
 
+            var encodeProgress = new LatestFfmpegProgress();
             var spinner = new[] { "|", "/", "-", "\\" };
             var spinnerIndex = 0;
             var lastBatchUpdateTime = DateTime.UtcNow;
@@ -432,7 +431,8 @@ public class ConvertVideoFileCommand : CmdletBase
                 resolvedOutputPath,
                 videoSettings,
                 audioMappings,
-                additionalArguments));
+                additionalArguments,
+                encodeProgress));
 
             TimeSpan? initialBatchEta = null;
             if (_currentFileIndex < _batchTotalFiles)
@@ -443,9 +443,26 @@ public class ConvertVideoFileCommand : CmdletBase
 
             while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
-                var indicator = spinner[spinnerIndex];
-                spinnerIndex = (spinnerIndex + 1) % spinner.Length;
-                UpdateFileProgress($"{outputFileName} {indicator}", outputFileName, percentComplete: 60);
+                var latest = encodeProgress.Latest;
+                if (latest is not null)
+                {
+                    var (status, eta) = MediaConversionHelper.BuildEncodeProgressDisplay(
+                        encodeStatus,
+                        latest,
+                        spinner,
+                        ref spinnerIndex);
+                    UpdateFileProgress(
+                        status,
+                        outputFileName,
+                        percentComplete: latest.PercentComplete,
+                        eta: eta);
+                }
+                else
+                {
+                    var indicator = spinner[spinnerIndex];
+                    spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                    UpdateFileProgress($"{encodeStatus} {indicator}", outputFileName, percentComplete: 0);
+                }
 
                 var now = DateTime.UtcNow;
                 if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue && _batchStopwatch != null)

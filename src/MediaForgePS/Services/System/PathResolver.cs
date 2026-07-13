@@ -132,7 +132,7 @@ public class PathResolver : IPathResolver
         resolvedPath = null;
         try
         {
-            var escapedPath = EscapePath(path);
+            var escapedPath = EscapeLiteralProviderPath(path);
             var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(escapedPath, out _);
             if (providerPaths.Count > 0)
             {
@@ -160,7 +160,7 @@ public class PathResolver : IPathResolver
         resolvedPath = null;
         try
         {
-            var escapedPath = EscapePath(path);
+            var escapedPath = EscapeLiteralProviderPath(path);
             resolvedPath = cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(escapedPath);
             return !string.IsNullOrEmpty(resolvedPath);
         }
@@ -247,9 +247,37 @@ public class PathResolver : IPathResolver
         File.Copy(sourceFilePath, backupDest, overwrite: true);
     }
 
-    private static string EscapePath(string path)
+    /// <summary>
+    /// Escapes a path for literal PowerShell provider resolution.
+    /// Collapses any existing PowerShell wildcard escapes first so escaping is idempotent
+    /// (both <c>file [DVD].mkv</c> and <c>file `[DVD`].mkv</c> resolve to the same literal path).
+    /// </summary>
+    /// <param name="path">Path that may contain unescaped or already-escaped wildcard characters.</param>
+    /// <returns>Path escaped for literal provider resolution.</returns>
+    public static string EscapeLiteralProviderPath(string path)
     {
-        return WildcardPattern.Escape(path);
+        ArgumentNullException.ThrowIfNull(path);
+        return WildcardPattern.Escape(CollapseWildcardEscapes(path));
+    }
+
+    /// <summary>
+    /// Removes PowerShell wildcard escape backticks so <see cref="WildcardPattern.Escape"/> is not applied twice.
+    /// </summary>
+    internal static string CollapseWildcardEscapes(string path)
+    {
+        var normalized = path;
+        string previous;
+        do
+        {
+            previous = normalized;
+            normalized = previous
+                .Replace("`[", "[", StringComparison.Ordinal)
+                .Replace("`]", "]", StringComparison.Ordinal)
+                .Replace("`*", "*", StringComparison.Ordinal)
+                .Replace("`?", "?", StringComparison.Ordinal);
+        } while (!string.Equals(normalized, previous, StringComparison.Ordinal));
+
+        return normalized;
     }
 }
 

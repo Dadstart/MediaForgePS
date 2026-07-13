@@ -1879,7 +1879,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:details>
     <maml:description>
       <maml:para>Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default nvenc ). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` ( Auto , Skip , or Force ; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.</maml:para>
-      <maml:para>On Windows, `-OutputPath` must be under the `P:` drive. Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.</maml:para>
+      <maml:para>Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -1899,7 +1899,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
           <maml:name>OutputPath</maml:name>
           <maml:description>
-            <maml:para>Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
+            <maml:para>Destination root for Plex bonus folders. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
           <dev:type>
@@ -2073,7 +2073,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
         <maml:name>OutputPath</maml:name>
         <maml:description>
-          <maml:para>Destination root for Plex bonus folders. On Windows must be under P:\. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
+          <maml:para>Destination root for Plex bonus folders. Converted and matching SRT files are moved into subfolders (Behind The Scenes, Trailers, etc.).</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
@@ -2129,7 +2129,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows. On Windows, output must be under P:\.</maml:para>
+        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>

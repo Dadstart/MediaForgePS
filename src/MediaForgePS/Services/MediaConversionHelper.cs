@@ -36,15 +36,60 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
-    /// Formats a timespan as a human-readable string (e.g. "2m 30s", "1h 5m 0s").
+    /// Formats a timespan as <c>mm:ss</c>, or <c>h:mm:ss</c> when one hour or longer.
     /// </summary>
     public static string FormatTimespan(TimeSpan time)
     {
+        if (time < TimeSpan.Zero)
+            time = TimeSpan.Zero;
+
         if (time.TotalHours >= 1)
-            return $"{time.Hours}h {time.Minutes}m {time.Seconds}s";
-        if (time.TotalMinutes >= 1)
-            return $"{time.Minutes}m {time.Seconds}s";
-        return $"{time.Seconds}s";
+            return $"{(int)time.TotalHours}:{time.Minutes:D2}:{time.Seconds:D2}";
+
+        return $"{(int)time.TotalMinutes:D2}:{time.Seconds:D2}";
+    }
+
+    /// <summary>
+    /// Builds encode status text including media position as <c>mm:ss / mm:ss</c>.
+    /// </summary>
+    public static string BuildEncodeProgressStatus(string baseStatus, FfmpegProgress progress)
+    {
+        var outTime = FormatTimespan(progress.OutTime);
+        if (progress.TotalDuration > TimeSpan.Zero)
+            return $"{baseStatus} — {outTime} / {FormatTimespan(progress.TotalDuration)}";
+
+        return $"{baseStatus} — {outTime}";
+    }
+
+    /// <summary>
+    /// Whether encode ETA is one second or less and the finishing spinner should be shown.
+    /// </summary>
+    public static bool IsEncodeFinishing(FfmpegProgress progress) =>
+        progress.EstimatedTimeRemaining is { TotalSeconds: <= 1 };
+
+    /// <summary>
+    /// Builds the next <c>finishing</c> status frame and advances the spinner index.
+    /// </summary>
+    public static string BuildEncodeFinishingStatus(string[] spinner, ref int spinnerIndex)
+    {
+        var frame = spinner[spinnerIndex];
+        spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+        return $"finishing {frame}";
+    }
+
+    /// <summary>
+    /// Builds encode progress display text and ETA, switching to a finishing spinner near completion.
+    /// </summary>
+    public static (string Status, TimeSpan? Eta) BuildEncodeProgressDisplay(
+        string baseStatus,
+        FfmpegProgress progress,
+        string[] spinner,
+        ref int spinnerIndex)
+    {
+        if (IsEncodeFinishing(progress))
+            return (BuildEncodeFinishingStatus(spinner, ref spinnerIndex), null);
+
+        return (BuildEncodeProgressStatus(baseStatus, progress), progress.EstimatedTimeRemaining);
     }
 
     /// <summary>
@@ -361,8 +406,7 @@ public static class MediaConversionHelper
             status,
             percentComplete,
             recordType: recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+        ApplyEta(progressRecord, eta);
         cmdlet.WriteProgress(progressRecord);
     }
 
@@ -386,9 +430,17 @@ public static class MediaConversionHelper
             currentOperation,
             percentComplete,
             recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"File ETA: {FormatTimespan(eta.Value)}";
+        ApplyEta(progressRecord, eta);
         cmdlet.WriteProgress(progressRecord);
+    }
+
+    private static void ApplyEta(ProgressRecord progressRecord, TimeSpan? eta)
+    {
+        if (!eta.HasValue)
+            return;
+
+        var clampedSeconds = (int)Math.Clamp(Math.Ceiling(eta.Value.TotalSeconds), 0, int.MaxValue);
+        progressRecord.SecondsRemaining = clampedSeconds;
     }
 
     /// <summary>

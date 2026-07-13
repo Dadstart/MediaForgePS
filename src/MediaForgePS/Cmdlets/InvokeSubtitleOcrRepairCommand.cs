@@ -16,7 +16,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SubtitleOcrRepair")]
-public class InvokeSubtitleOcrRepairCommand : CmdletBase
+public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 
