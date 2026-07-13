@@ -1879,7 +1879,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:details>
     <maml:description>
       <maml:para>Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default nvenc ). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` ( Auto , Skip , or Force ; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.</maml:para>
-      <maml:para>On Windows, `-OutputPath` must be under the `P:` drive. Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.</maml:para>
+      <maml:para>Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
