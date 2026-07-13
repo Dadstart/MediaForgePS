@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -465,6 +466,123 @@ public class MediaConversionHelperTests
         var message = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
 
         Assert.Equal("Conversion failed (exit code: 1): first line", message);
+    }
+
+    [Fact]
+    public void RunConversionWithProgress_ReportsInitialStatusThenCompletes()
+    {
+        var updates = new List<MediaConversionHelper.EncodeProgressUpdate>();
+        using var started = new ManualResetEventSlim(false);
+
+        MediaConversionHelper.RunConversionWithProgress(
+            (progress, _) =>
+            {
+                started.Set();
+                Thread.Sleep(80);
+            },
+            "Encoding to libx265 (slow preset)",
+            "out.mp4",
+            updates.Add,
+            CancellationToken.None,
+            pollInterval: TimeSpan.FromMilliseconds(10));
+
+        Assert.NotEmpty(updates);
+        Assert.Equal("Encoding to libx265 (slow preset)", updates[0].Status);
+        Assert.Equal("out.mp4", updates[0].CurrentOperation);
+        Assert.Equal(0, updates[0].PercentComplete);
+        Assert.True(started.IsSet);
+    }
+
+    [Fact]
+    public void RunConversionWithProgress_WithProgressReports_UsesPercentAndStatus()
+    {
+        var updates = new List<MediaConversionHelper.EncodeProgressUpdate>();
+        using var reported = new ManualResetEventSlim(false);
+
+        MediaConversionHelper.RunConversionWithProgress(
+            (progress, _) =>
+            {
+                progress.Report(new FfmpegProgress(
+                    TimeSpan.FromSeconds(30),
+                    TimeSpan.FromSeconds(100),
+                    30,
+                    TimeSpan.FromSeconds(20)));
+                Assert.True(reported.Wait(TimeSpan.FromSeconds(2)));
+            },
+            "Encoding",
+            "out.mp4",
+            update =>
+            {
+                updates.Add(update);
+                if (update.PercentComplete == 30)
+                    reported.Set();
+            },
+            CancellationToken.None,
+            pollInterval: TimeSpan.FromMilliseconds(10));
+
+        Assert.Contains(updates, u =>
+            u.PercentComplete == 30 &&
+            u.Status.Contains("00:30 / 01:40", StringComparison.Ordinal) &&
+            u.Eta == TimeSpan.FromSeconds(20));
+    }
+
+    [Fact]
+    public void RunConversionWithProgress_InvokesBatchProgressCallback()
+    {
+        var batchTicks = 0;
+        using var allowFinish = new ManualResetEventSlim(false);
+
+        MediaConversionHelper.RunConversionWithProgress(
+            (_, _) => Assert.True(allowFinish.Wait(TimeSpan.FromSeconds(3))),
+            "Encoding",
+            "out.mp4",
+            _ => { },
+            CancellationToken.None,
+            reportBatchProgress: () =>
+            {
+                Interlocked.Increment(ref batchTicks);
+                allowFinish.Set();
+            },
+            pollInterval: TimeSpan.FromMilliseconds(10),
+            batchUpdateInterval: TimeSpan.FromMilliseconds(20));
+
+        Assert.True(batchTicks >= 1);
+    }
+
+    [Fact]
+    public void RunConversionWithProgress_PropagatesConversionException()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            MediaConversionHelper.RunConversionWithProgress(
+                (_, _) => throw new InvalidOperationException("encode failed"),
+                "Encoding",
+                "out.mp4",
+                _ => { },
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public void RunConversionWithProgress_WhenCancelled_ThrowsOperationCanceledException()
+    {
+        using var cts = new CancellationTokenSource();
+        using var convertStarted = new ManualResetEventSlim(false);
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            MediaConversionHelper.RunConversionWithProgress(
+                (_, _) =>
+                {
+                    convertStarted.Set();
+                    Thread.Sleep(TimeSpan.FromSeconds(5));
+                },
+                "Encoding",
+                "out.mp4",
+                _ =>
+                {
+                    if (convertStarted.IsSet)
+                        cts.Cancel();
+                },
+                cts.Token,
+                pollInterval: TimeSpan.FromMilliseconds(10)));
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, int channels, string? title = null, string language = "eng")

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
+using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -14,6 +16,10 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class MediaConversionHelper
 {
+    private static readonly TimeSpan _defaultProgressPollInterval = TimeSpan.FromSeconds(0.05);
+    private static readonly TimeSpan _defaultBatchProgressInterval = TimeSpan.FromSeconds(1.0);
+    private static readonly string[] _encodeProgressSpinner = ["|", "/", "-", "\\"];
+
     /// <summary>
     /// Result of selecting preferred audio streams for automatic mapping.
     /// </summary>
@@ -21,6 +27,15 @@ public static class MediaConversionHelper
         IReadOnlyList<MediaStream> SelectedStreams,
         int TotalAudioStreamCount,
         int EnglishAudioStreamCount);
+
+    /// <summary>
+    /// Item-level encode progress update produced while <see cref="RunConversionWithProgress"/> polls Ffmpeg.
+    /// </summary>
+    public readonly record struct EncodeProgressUpdate(
+        string Status,
+        string CurrentOperation,
+        int PercentComplete,
+        TimeSpan? Eta);
 
     /// <summary>
     /// Formats a byte count as a human-readable string (B, KB, MB, GB).
@@ -91,6 +106,86 @@ public static class MediaConversionHelper
             return (BuildEncodeFinishingStatus(spinner, ref spinnerIndex), null);
 
         return (BuildEncodeProgressStatus(baseStatus, progress), progress.EstimatedTimeRemaining);
+    }
+
+    /// <summary>
+    /// Runs conversion work on a background thread while polling Ffmpeg progress on the calling thread.
+    /// Keeps PowerShell progress writes on the cmdlet thread and avoids SynchronizationContext deadlocks.
+    /// </summary>
+    /// <param name="convert">Conversion work that reports Ffmpeg progress and honors cancellation.</param>
+    /// <param name="encodeStatus">Base status text shown while encoding (e.g. codec and preset).</param>
+    /// <param name="currentOperation">Current-item progress operation (typically the output file name).</param>
+    /// <param name="reportItemProgress">Callback that writes nested item progress on the calling thread.</param>
+    /// <param name="cancellationToken">Token used to stop polling and cancel the conversion.</param>
+    /// <param name="reportBatchProgress">Optional callback invoked on a timer for top-level batch progress.</param>
+    /// <param name="pollInterval">How often to poll for encode progress. Defaults to 50ms.</param>
+    /// <param name="batchUpdateInterval">How often to invoke <paramref name="reportBatchProgress"/>. Defaults to 1s.</param>
+    public static void RunConversionWithProgress(
+        Action<IProgress<FfmpegProgress>, CancellationToken> convert,
+        string encodeStatus,
+        string currentOperation,
+        Action<EncodeProgressUpdate> reportItemProgress,
+        CancellationToken cancellationToken,
+        Action? reportBatchProgress = null,
+        TimeSpan? pollInterval = null,
+        TimeSpan? batchUpdateInterval = null)
+    {
+        ArgumentNullException.ThrowIfNull(convert);
+        ArgumentNullException.ThrowIfNull(reportItemProgress);
+        ArgumentException.ThrowIfNullOrWhiteSpace(encodeStatus);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentOperation);
+
+        var poll = pollInterval ?? _defaultProgressPollInterval;
+        var batchInterval = batchUpdateInterval ?? _defaultBatchProgressInterval;
+
+        reportItemProgress(new EncodeProgressUpdate(encodeStatus, currentOperation, 0, null));
+
+        var encodeProgress = new LatestFfmpegProgress();
+        var spinnerIndex = 0;
+        var lastBatchUpdateTime = DateTime.UtcNow;
+        var conversionTask = Task.Run(() => convert(encodeProgress, cancellationToken));
+
+        while (Task.WaitAny([conversionTask], poll) < 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var latest = encodeProgress.Latest;
+            if (latest is not null)
+            {
+                var (status, eta) = BuildEncodeProgressDisplay(
+                    encodeStatus,
+                    latest,
+                    _encodeProgressSpinner,
+                    ref spinnerIndex);
+                reportItemProgress(new EncodeProgressUpdate(
+                    status,
+                    currentOperation,
+                    latest.PercentComplete,
+                    eta));
+            }
+            else
+            {
+                var indicator = _encodeProgressSpinner[spinnerIndex];
+                spinnerIndex = (spinnerIndex + 1) % _encodeProgressSpinner.Length;
+                reportItemProgress(new EncodeProgressUpdate(
+                    $"{encodeStatus} {indicator}",
+                    currentOperation,
+                    0,
+                    null));
+            }
+
+            if (reportBatchProgress is null)
+                continue;
+
+            var now = DateTime.UtcNow;
+            if (now - lastBatchUpdateTime < batchInterval)
+                continue;
+
+            reportBatchProgress();
+            lastBatchUpdateTime = now;
+        }
+
+        conversionTask.GetAwaiter().GetResult();
     }
 
     /// <summary>

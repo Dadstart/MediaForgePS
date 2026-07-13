@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
-using System.Threading;
-using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -516,22 +514,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             Logger.LogDebug("Starting media file conversion: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var outputFileName = GetFileName(resolvedOutputPath);
             var encodeStatus = $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)";
-            UpdateFileProgress(encodeStatus, outputFileName, percentComplete: 0);
 
-            var encodeProgress = new LatestFfmpegProgress();
-            var spinner = new[] { "|", "/", "-", "\\" };
-            var spinnerIndex = 0;
-            var lastBatchUpdateTime = DateTime.UtcNow;
-            var conversionTask = Task.Run(() => MediaConversionService.ExecuteConversion(
-                resolvedInputPath,
-                resolvedOutputPath,
-                videoSettings,
-                audioMappings,
-                additionalArguments,
-                encodeProgress,
-                StoppingToken));
-
-            // Calculate initial batch ETA
             TimeSpan? initialBatchEta = null;
             if (_currentFileIndex < _batchTotalFiles)
             {
@@ -539,47 +522,51 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 initialBatchEta = CalculateRemainingTime(resolvedInputPath, remainingFiles);
             }
 
-            while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
+            Action? reportBatchProgress = null;
+            if (initialBatchEta.HasValue && _batchStopwatch != null)
             {
-                StoppingToken.ThrowIfCancellationRequested();
+                var batchStopwatch = _batchStopwatch;
+                var batchEta = initialBatchEta.Value;
+                reportBatchProgress = () =>
+                {
+                    var remaining = batchEta - batchStopwatch.Elapsed;
+                    if (remaining.TotalSeconds <= 0)
+                        return;
 
-                var latest = encodeProgress.Latest;
-                if (latest is not null)
-                {
-                    var (status, eta) = MediaConversionHelper.BuildEncodeProgressDisplay(
-                        encodeStatus,
-                        latest,
-                        spinner,
-                        ref spinnerIndex);
-                    UpdateFileProgress(
-                        status,
-                        outputFileName,
-                        percentComplete: latest.PercentComplete,
-                        eta: eta);
-                }
-                else
-                {
-                    var indicator = spinner[spinnerIndex];
-                    spinnerIndex = (spinnerIndex + 1) % spinner.Length;
-                    UpdateFileProgress($"{encodeStatus} {indicator}", outputFileName, percentComplete: 0);
-                }
-
-                // Update batch progress with countdown every second
-                var now = DateTime.UtcNow;
-                if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue && _batchStopwatch != null)
-                {
-                    var remaining = initialBatchEta.Value - _batchStopwatch.Elapsed;
-                    if (remaining.TotalSeconds > 0)
-                    {
-                        var (batchStatus, batchPercent) = MediaConversionHelper.BuildBatchProgressStatus(
-                            _currentFileIndex, _batchTotalFiles, GetFileName(resolvedInputPath), _batchCompletedBytes, _batchTotalBytes);
-                        MediaConversionHelper.WriteMainProgress(CmdletIO, "Batch Conversion", batchStatus, batchPercent, remaining, ProgressRecordType.Processing);
-                    }
-                    lastBatchUpdateTime = now;
-                }
+                    var (batchStatus, batchPercent) = MediaConversionHelper.BuildBatchProgressStatus(
+                        _currentFileIndex,
+                        _batchTotalFiles,
+                        GetFileName(resolvedInputPath),
+                        _batchCompletedBytes,
+                        _batchTotalBytes);
+                    MediaConversionHelper.WriteMainProgress(
+                        CmdletIO,
+                        "Batch Conversion",
+                        batchStatus,
+                        batchPercent,
+                        remaining,
+                        ProgressRecordType.Processing);
+                };
             }
 
-            conversionTask.GetAwaiter().GetResult();
+            MediaConversionHelper.RunConversionWithProgress(
+                (progress, cancellationToken) => MediaConversionService.ExecuteConversion(
+                    resolvedInputPath,
+                    resolvedOutputPath,
+                    videoSettings,
+                    audioMappings,
+                    additionalArguments,
+                    progress,
+                    cancellationToken),
+                encodeStatus,
+                outputFileName,
+                update => UpdateFileProgress(
+                    update.Status,
+                    update.CurrentOperation,
+                    update.PercentComplete,
+                    eta: update.Eta),
+                StoppingToken,
+                reportBatchProgress);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var result = new ConversionResult(originalInputPath, true, "Success");
