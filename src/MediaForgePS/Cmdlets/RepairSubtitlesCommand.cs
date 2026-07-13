@@ -66,7 +66,7 @@ public class RepairSubtitlesCommand : ProgressCmdletBase
             return;
         }
 
-        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(CmdletIO.Paths, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -124,7 +124,7 @@ public class RepairSubtitlesCommand : ProgressCmdletBase
         }
 
         SrtRepairHelper.RunRepairLoop(
-            this,
+            CmdletIO,
             Logger,
             PathResolver,
             repairItems,

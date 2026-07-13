@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
@@ -22,11 +23,11 @@ internal sealed class SeriesSeasonScanPhase(ILogger logger)
 
     private static readonly Regex _episodeIdRegex = new(@"/series/[^/]+/episodes/(\d+)", RegexOptions.Compiled);
 
-    public IReadOnlyList<TvDbEpisodeInfo> Run(PSCmdlet cmdlet, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
+    public IReadOnlyList<TvDbEpisodeInfo> Run(ICmdletErrorSink errors, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
     {
         if (string.IsNullOrWhiteSpace(tvDbSeasonUrl) && string.IsNullOrWhiteSpace(tvDbSeriesUrl))
         {
-            cmdlet.WriteError(new ErrorRecord(
+            errors.WriteError(new ErrorRecord(
                 new ArgumentException("Either TvDbSeriesUrl or TvDbSeasonUrl must be provided."),
                 "TvDbUrlMissing",
                 ErrorCategory.InvalidArgument,
@@ -37,7 +38,7 @@ internal sealed class SeriesSeasonScanPhase(ILogger logger)
         if (!string.IsNullOrWhiteSpace(tvDbSeriesUrl) &&
             !tvDbSeriesUrl.StartsWith(TvDbSeriesUrlPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            cmdlet.WriteError(new ErrorRecord(
+            errors.WriteError(new ErrorRecord(
                 new ArgumentException($"Invalid TVDb URL format. Expected: {TvDbSeriesUrlPrefix}show-name"),
                 "InvalidTvDbUrl",
                 ErrorCategory.InvalidArgument,
@@ -49,7 +50,7 @@ internal sealed class SeriesSeasonScanPhase(ILogger logger)
             (!tvDbSeasonUrl.StartsWith(TvDbSeriesUrlPrefix, StringComparison.OrdinalIgnoreCase) ||
              !tvDbSeasonUrl.Contains(TvDbSeasonPathSegment, StringComparison.Ordinal)))
         {
-            cmdlet.WriteError(new ErrorRecord(
+            errors.WriteError(new ErrorRecord(
                 new ArgumentException($"Invalid TVDb season URL format. Expected: {TvDbSeriesUrlPrefix}show-name/seasons/..."),
                 "InvalidTvDbSeasonUrl",
                 ErrorCategory.InvalidArgument,
@@ -70,7 +71,7 @@ internal sealed class SeriesSeasonScanPhase(ILogger logger)
         }
         catch (HttpRequestException ex)
         {
-            cmdlet.WriteError(new ErrorRecord(ex, "TvDbRequestFailed", ErrorCategory.ConnectionError, seasonUrl));
+            errors.WriteError(new ErrorRecord(ex, "TvDbRequestFailed", ErrorCategory.ConnectionError, seasonUrl));
             return Array.Empty<TvDbEpisodeInfo>();
         }
 

@@ -104,7 +104,7 @@ public class InvokeVideoCopyCommand : ProgressCmdletBase
         }
 
         var copied = SeriesProcessingService.InvokeVideoCopy(
-            this,
+            CmdletIO,
             new VideoCopyRequest(
                 _allPaths,
                 Destination,

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -184,7 +185,7 @@ public static class SubtitleExportHelper
     /// </summary>
     public static IEnumerable<MediaFile> ResolveMediaFiles(
         IEnumerable<object> pathOrMediaFiles,
-        PSCmdlet cmdlet,
+        ICmdletPathContext paths,
         IMediaReaderService mediaReaderService,
         ILogger logger,
         Action<ErrorRecord> writeError,
@@ -206,7 +207,7 @@ public static class SubtitleExportHelper
                 continue;
             try
             {
-                var resolved = cmdlet.GetResolvedProviderPathFromPSPath(path, out _);
+                var resolved = paths.GetResolvedProviderPaths(path);
                 foreach (var r in resolved)
                 {
                     if (File.Exists(r))

@@ -122,7 +122,7 @@ public class SplitSeriesChaptersCommand : CmdletBase
         }
 
         var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);
-        var episodes = SeriesProcessingService.InvokeSeasonScan(this, Season, TvDbSeriesUrl, seasonUrl)
+        var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl)
             .OrderBy(e => e.EpisodeNumber)
             .ToArray();
         if (episodes.Length == 0)
@@ -173,7 +173,7 @@ public class SplitSeriesChaptersCommand : CmdletBase
             inputExtension = ".mkv";
 
         var outputFiles = ChapterSplitHelper.ExecuteSplitWorkflow(
-            this,
+            CmdletIO,
             Logger,
             MediaReaderService,
             ExecutableService,

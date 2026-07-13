@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Management.Automation;
 using System.Threading;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
@@ -13,7 +14,7 @@ internal sealed class SeriesChapterExtractionPhase(
     IExecutableService executableService)
 {
     public ProcessingPhaseStats Run(
-        PSCmdlet cmdlet,
+        ICmdletProgress progress,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         int chapterNumber,
@@ -35,8 +36,8 @@ internal sealed class SeriesChapterExtractionPhase(
             var current = i + 1;
             var fileName = Path.GetFileName(file);
             var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(progress, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
 
             if (TryExtractChapterClip(file, chapterDir, chapterNumber, chapterDurationSeconds, cancellationToken))
                 processed++;
@@ -44,11 +45,11 @@ internal sealed class SeriesChapterExtractionPhase(
                 failed++;
 
             (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(progress, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Chapter extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(progress, "Chapter extraction", "Current file");
         return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
     }
 

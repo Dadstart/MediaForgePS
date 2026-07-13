@@ -75,7 +75,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
             return;
         }
 
-        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(CmdletIO.Paths, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -114,12 +114,12 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
                     var fileName = Path.GetFileName(filePath) ?? filePath;
                     var mainPercent = totalFiles > 0 ? (int)((fileIndex * 100.0) / totalFiles) : 0;
                     var mainStatus = $"File {fileIndex} of {totalFiles} ({mainPercent}%) — {fileName}";
-                    MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteMainProgress(CmdletIO, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Converting...", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
                     var srtPath = Path.ChangeExtension(filePath, "srt") ?? filePath + ".srt";
                     if (ConvertFile(subtitleEditPath, filePath, srtPath))
                         writtenPaths.Add(srtPath);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Completed);
+                    MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Completed);
                 }
             }
             else
@@ -127,8 +127,8 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
                 fileIndex++;
                 var mainPercent = totalFiles > 0 ? (int)((fileIndex * 100.0) / totalFiles) : 0;
                 var mainStatus = $"File {fileIndex} of {totalFiles} ({mainPercent}%) — {pathDisplayName}";
-                MediaConversionHelper.WriteMainProgress(this, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Converting...", pathDisplayName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteMainProgress(CmdletIO, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Converting...", pathDisplayName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
                 var defaultOutput = Path.ChangeExtension(resolvedPath, "srt") ?? resolvedPath + ".srt";
                 var outputPath = defaultOutput;
                 if (resolvedPairs.Count == 1 && _inputPaths.Count == 1 && !string.IsNullOrWhiteSpace(OutputPath))
@@ -141,11 +141,11 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 
                 if (outputPath != null && ConvertFile(subtitleEditPath, resolvedPath, outputPath))
                     writtenPaths.Add(outputPath);
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
+                MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
             }
         }
 
-        MediaConversionHelper.WriteProgressCompleted(this, "Converting image subtitles to SRT", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Converting image subtitles to SRT", "Current file");
 
         foreach (var path in writtenPaths)
             WriteObject(path);

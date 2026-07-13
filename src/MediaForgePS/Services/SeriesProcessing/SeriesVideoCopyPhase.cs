@@ -5,20 +5,20 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
-using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 internal sealed class SeriesVideoCopyPhase
 {
     public IReadOnlyList<string> GetFilteredVideoFiles(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         IReadOnlyList<string> paths,
         IReadOnlyList<string> filePatterns,
         long minimumFileSizeBytes)
     {
-        var resolvedDirectories = ResolveDirectories(cmdlet, paths);
+        var resolvedDirectories = ResolveDirectories(io, paths);
         if (resolvedDirectories.Count == 0)
             return Array.Empty<string>();
 
@@ -44,11 +44,11 @@ internal sealed class SeriesVideoCopyPhase
     }
 
     public IReadOnlyList<string> CopyVideoFilesWithMetadata(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         VideoCopyRequest request,
         Func<string, int, TvDbEpisodeInfo, string, string> buildEpisodeFileName)
     {
-        var acceptedFiles = GetFilteredVideoFiles(cmdlet, request.Paths, request.FilePatterns, request.MinimumFileSizeBytes);
+        var acceptedFiles = GetFilteredVideoFiles(io, request.Paths, request.FilePatterns, request.MinimumFileSizeBytes);
         if (acceptedFiles.Count == 0)
             return Array.Empty<string>();
 
@@ -69,7 +69,7 @@ internal sealed class SeriesVideoCopyPhase
             var episodeIndex = (request.EpisodeStart - 1) + fileIndex;
             if (episodeIndex >= sortedEpisodes.Count)
             {
-                cmdlet.WriteWarning(
+                io.WriteWarning(
                     $"No TVDb episode metadata for file '{inputFile}'. " +
                     $"The season scan returned {sortedEpisodes.Count} episode(s), but -EpisodeStart {request.EpisodeStart} maps input files to scan positions " +
                     $"{request.EpisodeStart} onward (file {fileIndex + 1} needs position {episodeIndex + 1}). " +
@@ -85,8 +85,8 @@ internal sealed class SeriesVideoCopyPhase
             var eta = CalculateCopyRemainingTime(completedBytes, totalBytes, copyStats);
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
                 currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), completedBytes, totalBytes);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Video copy", status, percent, eta, ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Copying...", destinationName, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(io, "Video copy", status, percent, eta, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Copying...", destinationName, recordType: ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
             File.Copy(inputFile, destinationPath, true);
@@ -98,11 +98,11 @@ internal sealed class SeriesVideoCopyPhase
 
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
                 currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), completedBytes, totalBytes);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Video copy", status, percent, null, ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", destinationName, recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(io, "Video copy", status, percent, null, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Completed", destinationName, recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Video copy", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(io, "Video copy", "Current file");
 
         return copiedFiles;
     }
@@ -115,14 +115,14 @@ internal sealed class SeriesVideoCopyPhase
             stats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
     }
 
-    private IReadOnlyList<string> ResolveDirectories(PSCmdlet cmdlet, IReadOnlyList<string> paths)
+    private IReadOnlyList<string> ResolveDirectories(ICmdletIO io, IReadOnlyList<string> paths)
     {
         var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in paths.Where(path => !string.IsNullOrWhiteSpace(path)))
         {
             try
             {
-                var resolved = cmdlet.GetResolvedProviderPathFromPSPath(path, out _);
+                var resolved = io.Paths.GetResolvedProviderPaths(path);
                 foreach (var item in resolved)
                 {
                     if (Directory.Exists(item))

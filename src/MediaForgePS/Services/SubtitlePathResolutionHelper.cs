@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -31,12 +32,12 @@ public static class SubtitlePathResolutionHelper
     /// Resolves file or directory paths for subtitle-processing cmdlets.
     /// </summary>
     public static IReadOnlyList<(string ResolvedPath, bool IsDirectory)> ResolveFileOrDirectoryPaths(
-        PSCmdlet cmdlet,
+        ICmdletPathContext paths,
         IReadOnlyList<string> inputPaths,
         ILogger logger,
         Action<ErrorRecord> writeError)
     {
-        return PathResolver.ResolveFileOrDirectoryPaths(cmdlet, inputPaths, logger, writeError);
+        return PathResolver.ResolveFileOrDirectoryPaths(paths, inputPaths, logger, writeError);
     }
 
     /// <summary>

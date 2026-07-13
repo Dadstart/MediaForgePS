@@ -34,7 +34,8 @@ public class PathResolver : IPathResolver
                 return false;
             }
 
-            if (!TryResolveProviderPath(cmdlet, path, out var providerResolvedPath))
+            var paths = new PsCmdletIO(cmdlet).Paths;
+            if (!TryResolveProviderPath(paths, path, out var providerResolvedPath))
             {
                 _logger.LogWarning("Input path resolution returned no results for: {InputPath}", path);
                 return false;
@@ -83,7 +84,8 @@ public class PathResolver : IPathResolver
                 return false;
             }
 
-            if (TryResolveProviderPath(cmdlet, path, out var providerResolvedPath))
+            var paths = new PsCmdletIO(cmdlet).Paths;
+            if (TryResolveProviderPath(paths, path, out var providerResolvedPath))
                 resolvedPath = providerResolvedPath!;
             else
             {
@@ -91,7 +93,7 @@ public class PathResolver : IPathResolver
                 // relative to the current working directory
                 if (!Path.IsPathRooted(path))
                 {
-                    var currentLocation = cmdlet.SessionState.Path.CurrentLocation.Path;
+                    var currentLocation = paths.CurrentLocationPath;
                     resolvedPath = Path.GetFullPath(Path.Combine(currentLocation, path));
                     _logger.LogDebug("Resolved relative output path using current location: {ResolvedOutputPath}", resolvedPath);
                 }
@@ -123,17 +125,17 @@ public class PathResolver : IPathResolver
     /// Attempts to resolve a PowerShell path using the provider path resolution.
     /// Requires the path to exist.
     /// </summary>
-    /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
+    /// <param name="paths">Path context for provider resolution.</param>
     /// <param name="path">The path to resolve.</param>
     /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
     /// <returns>True if the path was successfully resolved, false otherwise.</returns>
-    public static bool TryResolveProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
+    public static bool TryResolveProviderPath(ICmdletPathContext paths, string path, out string? resolvedPath)
     {
         resolvedPath = null;
         try
         {
             var escapedPath = EscapeLiteralProviderPath(path);
-            var providerPaths = cmdlet.GetResolvedProviderPathFromPSPath(escapedPath, out _);
+            var providerPaths = paths.GetResolvedProviderPaths(escapedPath);
             if (providerPaths.Count > 0)
             {
                 resolvedPath = providerPaths[0];
@@ -151,17 +153,17 @@ public class PathResolver : IPathResolver
     /// Resolves a PowerShell path using the session's current location without requiring the path to exist.
     /// Use for directory paths that may not yet exist (e.g. output directory).
     /// </summary>
-    /// <param name="cmdlet">The PowerShell cmdlet to use for path resolution.</param>
+    /// <param name="paths">Path context for provider resolution.</param>
     /// <param name="path">The path to resolve.</param>
     /// <param name="resolvedPath">The resolved path, or null if resolution failed.</param>
     /// <returns>True if the path was successfully resolved, false otherwise.</returns>
-    public static bool TryGetUnresolvedProviderPath(PSCmdlet cmdlet, string path, out string? resolvedPath)
+    public static bool TryGetUnresolvedProviderPath(ICmdletPathContext paths, string path, out string? resolvedPath)
     {
         resolvedPath = null;
         try
         {
             var escapedPath = EscapeLiteralProviderPath(path);
-            resolvedPath = cmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath(escapedPath);
+            resolvedPath = paths.GetUnresolvedProviderPath(escapedPath);
             return !string.IsNullOrEmpty(resolvedPath);
         }
         catch
@@ -174,15 +176,15 @@ public class PathResolver : IPathResolver
     /// Resolves each path to a file or directory that exists. Used by subtitle cmdlets that accept file/directory paths.
     /// </summary>
     public static List<(string ResolvedPath, bool IsDirectory)> ResolveFileOrDirectoryPaths(
-        PSCmdlet cmdlet,
-        IEnumerable<string> paths,
+        ICmdletPathContext paths,
+        IEnumerable<string> inputPaths,
         ILogger? logger,
         Action<ErrorRecord> writeError)
     {
         var result = new List<(string, bool)>();
-        foreach (var path in paths)
+        foreach (var path in inputPaths)
         {
-            if (TryResolveProviderPath(cmdlet, path, out var resolved))
+            if (TryResolveProviderPath(paths, path, out var resolved))
             {
                 if (Directory.Exists(resolved))
                     result.Add((resolved!, true));
@@ -191,7 +193,7 @@ public class PathResolver : IPathResolver
                 else
                     logger?.LogDebug("Resolved path does not exist: {Path}", resolved);
             }
-            else if (TryGetUnresolvedProviderPath(cmdlet, path, out var unresolved))
+            else if (TryGetUnresolvedProviderPath(paths, path, out var unresolved))
             {
                 if (Directory.Exists(unresolved))
                     result.Add((unresolved!, true));

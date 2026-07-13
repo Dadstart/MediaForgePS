@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
@@ -11,16 +12,17 @@ public class MediaConversionHelperProgressWriteTests
     [Fact]
     public void WriteCurrentItemProgress_WithEta_SetsSecondsRemainingAndPreservesStatus()
     {
-        using var ps = PowerShellCmdletTestHost.Create<ProgressWriteProbeCmdlet>("Test-ProgressWrite");
-        ps.AddCommand("Test-ProgressWrite")
-            .AddParameter("WriteCurrentItem")
-            .AddParameter("PercentComplete", 42)
-            .AddParameter("EtaSeconds", 30.2);
+        var io = new FakeCmdletIO();
 
-        _ = ps.Invoke();
+        MediaConversionHelper.WriteCurrentItemProgress(
+            io,
+            "File Conversion",
+            "Encoding",
+            "out.mp4",
+            42,
+            TimeSpan.FromSeconds(30.2));
 
-        Assert.Empty(ps.Streams.Error);
-        var record = Assert.Single(ps.Streams.Progress);
+        var record = Assert.Single(io.ProgressRecords);
         Assert.Equal(ProgressActivityIds.CurrentItem, record.ActivityId);
         Assert.Equal(ProgressActivityIds.Main, record.ParentActivityId);
         Assert.Equal("File Conversion", record.Activity);
@@ -33,16 +35,16 @@ public class MediaConversionHelperProgressWriteTests
     [Fact]
     public void WriteMainProgress_WithEta_SetsSecondsRemainingAndPreservesStatus()
     {
-        using var ps = PowerShellCmdletTestHost.Create<ProgressWriteProbeCmdlet>("Test-ProgressWrite");
-        ps.AddCommand("Test-ProgressWrite")
-            .AddParameter("WriteMain")
-            .AddParameter("PercentComplete", 15)
-            .AddParameter("EtaSeconds", 0.1);
+        var io = new FakeCmdletIO();
 
-        _ = ps.Invoke();
+        MediaConversionHelper.WriteMainProgress(
+            io,
+            "Batch Conversion",
+            "Working",
+            15,
+            TimeSpan.FromSeconds(0.1));
 
-        Assert.Empty(ps.Streams.Error);
-        var record = Assert.Single(ps.Streams.Progress);
+        var record = Assert.Single(io.ProgressRecords);
         Assert.Equal(ProgressActivityIds.Main, record.ActivityId);
         Assert.Equal("Batch Conversion", record.Activity);
         Assert.Equal("Working", record.StatusDescription);
@@ -53,58 +55,29 @@ public class MediaConversionHelperProgressWriteTests
     [Fact]
     public void WriteProgress_WithoutEta_DoesNotSetSecondsRemaining()
     {
-        using var ps = PowerShellCmdletTestHost.Create<ProgressWriteProbeCmdlet>("Test-ProgressWrite");
-        ps.AddCommand("Test-ProgressWrite")
-            .AddParameter("WriteCurrentItem")
-            .AddParameter("PercentComplete", 10);
+        var io = new FakeCmdletIO();
 
-        _ = ps.Invoke();
+        MediaConversionHelper.WriteCurrentItemProgress(
+            io,
+            "File Conversion",
+            "Encoding",
+            percentComplete: 10);
 
-        Assert.Empty(ps.Streams.Error);
-        var record = Assert.Single(ps.Streams.Progress);
+        var record = Assert.Single(io.ProgressRecords);
         Assert.Equal(10, record.PercentComplete);
         Assert.Equal(-1, record.SecondsRemaining);
     }
 
-    [Cmdlet(VerbsDiagnostic.Test, "ProgressWrite")]
-    private sealed class ProgressWriteProbeCmdlet : PSCmdlet
+    [Fact]
+    public void WriteProgressCompleted_WritesCompletedMainAndCurrentItemRecords()
     {
-        [Parameter]
-        public SwitchParameter WriteMain { get; set; }
+        var io = new FakeCmdletIO();
 
-        [Parameter]
-        public SwitchParameter WriteCurrentItem { get; set; }
+        MediaConversionHelper.WriteProgressCompleted(io, "Batch Conversion", "File Conversion");
 
-        [Parameter]
-        public int? PercentComplete { get; set; }
-
-        [Parameter]
-        public double? EtaSeconds { get; set; }
-
-        protected override void ProcessRecord()
-        {
-            TimeSpan? eta = EtaSeconds.HasValue ? TimeSpan.FromSeconds(EtaSeconds.Value) : null;
-
-            if (WriteMain)
-            {
-                MediaConversionHelper.WriteMainProgress(
-                    this,
-                    "Batch Conversion",
-                    "Working",
-                    PercentComplete,
-                    eta);
-            }
-
-            if (WriteCurrentItem)
-            {
-                MediaConversionHelper.WriteCurrentItemProgress(
-                    this,
-                    "File Conversion",
-                    "Encoding",
-                    "out.mp4",
-                    PercentComplete,
-                    eta);
-            }
-        }
+        Assert.Equal(2, io.ProgressRecords.Count);
+        Assert.All(io.ProgressRecords, r => Assert.Equal(ProgressRecordType.Completed, r.RecordType));
+        Assert.Equal(ProgressActivityIds.Main, io.ProgressRecords[0].ActivityId);
+        Assert.Equal(ProgressActivityIds.CurrentItem, io.ProgressRecords[1].ActivityId);
     }
 }

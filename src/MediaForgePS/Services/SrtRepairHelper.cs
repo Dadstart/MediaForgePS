@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 using PathResolverImpl = Dadstart.Labs.MediaForge.Services.System.PathResolver;
@@ -20,10 +21,10 @@ public static class SrtRepairHelper
     public readonly record struct SrtRepairItem(string InputPath, string OutputPath, string? BackupRelativePath = null);
 
     /// <summary>
-    /// Copies a file to backup using an explicit relative path. Reports via cmdlet.
+    /// Copies a file to backup using an explicit relative path. Reports via cmdlet I/O.
     /// </summary>
     public static bool CopyToBackupWithRelativePath(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         string backupRoot,
         string sourceFilePath,
@@ -32,22 +33,22 @@ public static class SrtRepairHelper
         try
         {
             PathResolverImpl.CopyFileToBackup(backupRoot, sourceFilePath, relativePath);
-            cmdlet.WriteVerbose($"Backed up to: {Path.Combine(backupRoot, relativePath)}");
+            io.WriteVerbose($"Backed up to: {Path.Combine(backupRoot, relativePath)}");
             return true;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to copy to backup: {Source} -> {BackupPath}", sourceFilePath, backupRoot);
-            cmdlet.WriteError(new ErrorRecord(ex, "BackupFailed", ErrorCategory.WriteError, sourceFilePath));
+            io.WriteError(new ErrorRecord(ex, "BackupFailed", ErrorCategory.WriteError, sourceFilePath));
             return false;
         }
     }
 
     /// <summary>
-    /// Copies a file to backup using a relative path from the path root (flat structure under backupRoot). Reports via cmdlet.
+    /// Copies a file to backup using a relative path from the path root (flat structure under backupRoot). Reports via cmdlet I/O.
     /// </summary>
     public static bool CopyToBackupFromPathRoot(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         string backupRoot,
         string sourceFilePath)
@@ -57,14 +58,14 @@ public static class SrtRepairHelper
         var relative = string.IsNullOrEmpty(pathRoot)
             ? Path.GetFileName(sourceFilePath)
             : Path.GetRelativePath(pathRoot, fullPath).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return CopyToBackupWithRelativePath(cmdlet, logger, backupRoot, sourceFilePath, relative);
+        return CopyToBackupWithRelativePath(io, logger, backupRoot, sourceFilePath, relative);
     }
 
     /// <summary>
-    /// Repairs an SRT file in place (or to outputPath). Reports success/failure via cmdlet; returns false on exception.
+    /// Repairs an SRT file in place (or to outputPath). Reports success/failure via cmdlet I/O; returns false on exception.
     /// </summary>
     public static bool RepairFileWithReporting(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         string inputPath,
         string outputPath)
@@ -72,13 +73,13 @@ public static class SrtRepairHelper
         try
         {
             SrtOcrFixHelper.RepairFile(inputPath, outputPath);
-            cmdlet.WriteVerbose($"Repaired: {outputPath}");
+            io.WriteVerbose($"Repaired: {outputPath}");
             return true;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to repair subtitles: {Path}", inputPath);
-            cmdlet.WriteError(new ErrorRecord(ex, "RepairSubtitlesFailed", ErrorCategory.WriteError, inputPath));
+            io.WriteError(new ErrorRecord(ex, "RepairSubtitlesFailed", ErrorCategory.WriteError, inputPath));
             return false;
         }
     }
@@ -87,7 +88,7 @@ public static class SrtRepairHelper
     /// Runs the repair loop: optionally resolve backup path, then for each SRT path optionally backup and repair, and write path to pipeline on success.
     /// </summary>
     public static void RunRepairLoop(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         IPathResolver pathResolver,
         IReadOnlyList<string> srtPaths,
@@ -98,14 +99,14 @@ public static class SrtRepairHelper
             .Select(path => new SrtRepairItem(path, path))
             .ToList();
 
-        RunRepairLoop(cmdlet, logger, pathResolver, repairItems, shouldRepair, backupPath);
+        RunRepairLoop(io, logger, pathResolver, repairItems, shouldRepair, backupPath);
     }
 
     /// <summary>
     /// Runs the repair loop using explicit input/output repair items.
     /// </summary>
     public static void RunRepairLoop(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         IPathResolver pathResolver,
         IReadOnlyList<SrtRepairItem> repairItems,
@@ -115,7 +116,7 @@ public static class SrtRepairHelper
         if (repairItems.Count == 0)
             return;
         string? resolvedBackupRoot = null;
-        if (shouldRepair && !PathResolverImpl.ResolveBackupPath(pathResolver, backupPath, er => cmdlet.WriteError(er), out resolvedBackupRoot))
+        if (shouldRepair && !PathResolverImpl.ResolveBackupPath(pathResolver, backupPath, io.WriteError, out resolvedBackupRoot))
             return;
         var totalRepair = repairItems.Count;
         for (var idx = 0; idx < repairItems.Count; idx++)
@@ -123,21 +124,21 @@ public static class SrtRepairHelper
             var repairItem = repairItems[idx];
             var displayName = Path.GetFileName(repairItem.InputPath);
             var pct = totalRepair > 0 ? (int)(((idx + 1) * 100.0) / totalRepair) : 0;
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Repairing subtitles", $"File {idx + 1} of {totalRepair} — {displayName}", pct, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(io, "Repairing subtitles", $"File {idx + 1} of {totalRepair} — {displayName}", pct, recordType: ProgressRecordType.Processing);
             if (shouldRepair)
             {
                 if (resolvedBackupRoot != null)
                 {
                     var copied = string.IsNullOrWhiteSpace(repairItem.BackupRelativePath)
-                        ? CopyToBackupFromPathRoot(cmdlet, logger, resolvedBackupRoot, repairItem.InputPath)
-                        : CopyToBackupWithRelativePath(cmdlet, logger, resolvedBackupRoot, repairItem.InputPath, repairItem.BackupRelativePath!);
+                        ? CopyToBackupFromPathRoot(io, logger, resolvedBackupRoot, repairItem.InputPath)
+                        : CopyToBackupWithRelativePath(io, logger, resolvedBackupRoot, repairItem.InputPath, repairItem.BackupRelativePath!);
                     if (!copied)
                         continue;
                 }
 
-                RepairFileWithReporting(cmdlet, logger, repairItem.InputPath, repairItem.OutputPath);
+                RepairFileWithReporting(io, logger, repairItem.InputPath, repairItem.OutputPath);
             }
         }
-        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Repairing subtitles", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(io, "Repairing subtitles", "Current file");
     }
 }

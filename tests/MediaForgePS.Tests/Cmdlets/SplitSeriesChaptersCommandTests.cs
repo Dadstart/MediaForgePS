@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -71,7 +72,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
         string? resolvedPath = null;
         _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedPath))
             .Returns(false);
-        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<PSCmdlet>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new[]
             {
                 new TvDbEpisodeInfo("101", 1, "Episode 1", 1)
@@ -96,7 +97,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
     [Fact]
     public void SplitSeriesChapters_WhenNotEnoughTvDbEpisodes_WritesError()
     {
-        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<PSCmdlet>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new[]
             {
                 new TvDbEpisodeInfo("101", 1, "Episode 1", 1)
@@ -138,7 +139,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
                 .Callback(new TryResolveInputPathCallback((string p, out string r) => r = p))
                 .Returns(true);
 
-            _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<PSCmdlet>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+            _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
                 .Returns(new[]
                 {
                     new TvDbEpisodeInfo("123456", 1, "Episode 1", 1)

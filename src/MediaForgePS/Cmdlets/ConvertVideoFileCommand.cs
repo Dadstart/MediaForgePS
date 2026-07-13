@@ -137,7 +137,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         _currentFileIndex = 0;
 
         var resolvedEntries = global::Dadstart.Labs.MediaForge.Services.System.PathResolver.ResolveFileOrDirectoryPaths(
-            this,
+            CmdletIO.Paths,
             InputPath,
             Logger,
             WriteError);
@@ -241,7 +241,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 _currentFileIndex, _batchTotalFiles, fileName, _batchCompletedBytes, _batchTotalBytes);
             var batchEta = CalculateBatchRemainingTime(inputPath, _batchTotalFiles - _currentFileIndex);
             MediaConversionHelper.WriteMainProgress(
-                this, "Video file conversion", status, percent, batchEta, ProgressRecordType.Processing);
+                CmdletIO, "Video file conversion", status, percent, batchEta, ProgressRecordType.Processing);
 
             var result = ConvertSingleFile(
                 inputRoot,
@@ -259,7 +259,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         }
 
         _batchStopwatch?.Stop();
-        MediaConversionHelper.WriteProgressCompleted(this, "Video file conversion", "File conversion");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Video file conversion", "File conversion");
 
         if (!SkipSubtitles.IsPresent)
         {
@@ -276,17 +276,17 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                     var current = i + 1;
                     var name = GetFileName(r.InputPath);
                     var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, name);
-                    MediaConversionHelper.WriteMainProgress(this, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Extracting captions...", name, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteMainProgress(CmdletIO, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Extracting captions...", name, recordType: ProgressRecordType.Processing);
 
                     extractedCaptionPaths.AddRange(ExtractEnglishSubtitlesToOutputSidecars(r.InputPath, r.OutputPath));
 
                     (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, name);
-                    MediaConversionHelper.WriteMainProgress(this, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-                    MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", name, recordType: ProgressRecordType.Completed);
+                    MediaConversionHelper.WriteMainProgress(CmdletIO, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", name, recordType: ProgressRecordType.Completed);
                 }
 
-                MediaConversionHelper.WriteProgressCompleted(this, "Caption extraction", "Current file");
+                MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Caption extraction", "Current file");
                 WriteHostMessage(
                     $"  Processed {total} file(s), {extractedCaptionPaths.Count} caption file(s) extracted.",
                     ConsoleColor.Green);
@@ -301,7 +301,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
                         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                            this,
+                            CmdletIO,
                             Logger,
                             ExecutableService,
                             PathResolver,
@@ -445,7 +445,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         _batchCompletedBytes,
                         _batchTotalBytes);
                     MediaConversionHelper.WriteMainProgress(
-                        this,
+                        CmdletIO,
                         "Video file conversion",
                         batchStatus,
                         batchPercent,
@@ -500,7 +500,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         int? percentComplete = null,
         ProgressRecordType recordType = ProgressRecordType.Processing,
         TimeSpan? eta = null) =>
-        MediaConversionHelper.WriteCurrentItemProgress(this, "File conversion", status, currentOperation, percentComplete, eta, recordType);
+        MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "File conversion", status, currentOperation, percentComplete, eta, recordType);
 
     private TimeSpan? CalculateBatchRemainingTime(string currentFilePath, int remainingFilesCount)
     {
@@ -648,13 +648,13 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     {
         resolvedPath = string.Empty;
 
-        if (Dadstart.Labs.MediaForge.Services.System.PathResolver.TryResolveProviderPath(this, path, out var fromProvider))
+        if (Dadstart.Labs.MediaForge.Services.System.PathResolver.TryResolveProviderPath(CmdletIO.Paths, path, out var fromProvider))
         {
             resolvedPath = fromProvider!;
             return !requireExists || Directory.Exists(resolvedPath);
         }
 
-        if (Dadstart.Labs.MediaForge.Services.System.PathResolver.TryGetUnresolvedProviderPath(this, path, out var unresolved))
+        if (Dadstart.Labs.MediaForge.Services.System.PathResolver.TryGetUnresolvedProviderPath(CmdletIO.Paths, path, out var unresolved))
         {
             resolvedPath = unresolved!;
             return !requireExists || Directory.Exists(resolvedPath);
