@@ -32,11 +32,11 @@ public sealed class ProgressCmdletAlertTests
     }
 
     [Fact]
-    public void ProgressCmdlets_ExposeAlertSwitchParameter()
+    public void ProgressCmdlets_ExposeNoAlertSwitchParameter()
     {
         foreach (var cmdletType in _progressCmdletTypes)
         {
-            var property = cmdletType.GetProperty(nameof(ProgressCmdletBase.Alert), BindingFlags.Instance | BindingFlags.Public);
+            var property = cmdletType.GetProperty(nameof(ProgressCmdletBase.NoAlert), BindingFlags.Instance | BindingFlags.Public);
             Assert.NotNull(property);
             Assert.Equal(typeof(SwitchParameter), property!.PropertyType);
 
@@ -64,13 +64,13 @@ public sealed class ProgressCmdletAlertTests
     }
 
     [Fact]
-    public void Alert_WhenSet_PlaysCompletionAlertOnce()
+    public void Alert_WhenNoAlertNotSet_PlaysCompletionAlertOnce()
     {
         lock (AlertProbeCmdlet.SyncRoot)
         {
             AlertProbeCmdlet.Reset();
             using var ps = PowerShellCmdletTestHost.Create<AlertProbeCmdlet>("Invoke-AlertProbe");
-            ps.AddCommand("Invoke-AlertProbe").AddParameter("Alert");
+            ps.AddCommand("Invoke-AlertProbe");
 
             _ = ps.Invoke();
 
@@ -80,13 +80,13 @@ public sealed class ProgressCmdletAlertTests
     }
 
     [Fact]
-    public void Alert_WhenNotSet_DoesNotPlayCompletionAlert()
+    public void Alert_WhenNoAlertSet_DoesNotPlayCompletionAlert()
     {
         lock (AlertProbeCmdlet.SyncRoot)
         {
             AlertProbeCmdlet.Reset();
             using var ps = PowerShellCmdletTestHost.Create<AlertProbeCmdlet>("Invoke-AlertProbe");
-            ps.AddCommand("Invoke-AlertProbe");
+            ps.AddCommand("Invoke-AlertProbe").AddParameter("NoAlert");
 
             _ = ps.Invoke();
 

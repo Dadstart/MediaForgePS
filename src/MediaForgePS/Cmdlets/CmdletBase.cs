@@ -128,7 +128,7 @@ public abstract class CmdletBase : PSCmdlet
 
     /// <summary>
     /// Optionally plays a completion alert after the cmdlet finishes.
-    /// Overridden by <see cref="ProgressCmdletBase"/> when <c>-Alert</c> is specified.
+    /// Overridden by <see cref="ProgressCmdletBase"/> unless <c>-NoAlert</c> is specified.
     /// </summary>
     protected virtual void TryAlertOnCompletion()
     {

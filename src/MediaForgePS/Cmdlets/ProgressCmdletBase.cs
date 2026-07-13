@@ -7,20 +7,20 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
 /// Base class for long-running cmdlets that report progress.
-/// Adds <c>-Alert</c> to play a system beep when the cmdlet finishes.
+/// Plays a system beep when the cmdlet finishes unless <c>-NoAlert</c> is specified.
 /// </summary>
 public abstract class ProgressCmdletBase : CmdletBase
 {
     /// <summary>
-    /// Play a system beep when the cmdlet finishes.
+    /// Suppress the system beep played when the cmdlet finishes.
     /// </summary>
-    [Parameter(HelpMessage = "Play a system beep when the cmdlet finishes.")]
-    public SwitchParameter Alert { get; set; }
+    [Parameter(HelpMessage = "Suppress the system beep played when the cmdlet finishes.")]
+    public SwitchParameter NoAlert { get; set; }
 
     /// <inheritdoc />
     protected override void TryAlertOnCompletion()
     {
-        if (!Alert)
+        if (NoAlert)
             return;
 
         PlayCompletionAlert();
