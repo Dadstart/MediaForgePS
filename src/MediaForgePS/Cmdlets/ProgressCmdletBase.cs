@@ -7,20 +7,20 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
 /// Base class for long-running cmdlets that report progress.
-/// Plays a system beep when the cmdlet finishes unless <c>-NoAlert</c> is specified.
+/// Plays a system beep when the cmdlet finishes if <c>-Alert</c> is specified.
 /// </summary>
 public abstract class ProgressCmdletBase : CmdletBase
 {
     /// <summary>
-    /// Suppress the system beep played when the cmdlet finishes.
+    /// Play a system beep when the cmdlet finishes.
     /// </summary>
-    [Parameter(HelpMessage = "Suppress the system beep played when the cmdlet finishes.")]
-    public SwitchParameter NoAlert { get; set; }
+    [Parameter(HelpMessage = "Play a system beep when the cmdlet finishes.")]
+    public SwitchParameter Alert { get; set; }
 
     /// <inheritdoc />
     protected override void TryAlertOnCompletion()
     {
-        if (NoAlert)
+        if (!Alert)
             return;
 
         PlayCompletionAlert();
@@ -33,7 +33,6 @@ public abstract class ProgressCmdletBase : CmdletBase
     {
         try
         {
-            Console.Beep();
             Console.Beep();
         }
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
