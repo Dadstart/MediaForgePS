@@ -3,7 +3,7 @@ if (-not (Test-Path $dllPath)) {
     throw "Module not found at $dllPath"
 }
 
-# Import the binary module directly
+# Import the binary module (RequiredAssemblies may already have loaded the assembly).
 $importedModule = Import-Module $dllPath -PassThru
 
 # Initialize dependency injection container

@@ -158,15 +158,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Pack artifacts
+      - name: Pack PowerShell module
         if: runner.os == 'Linux'
-        run: dotnet pack MediaForgePS.sln --configuration Release --no-build --output ./artifacts
+        run: ./scripts/Pack-Module.ps1 -Configuration Release
 
-      - name: Upload packages
+      - name: Upload module package
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages
-          path: ./artifacts/*.nupkg
+          name: powershell-module
+          path: |
+            ./artifacts/MediaForgePS
+            ./artifacts/MediaForgePS.*.zip
           if-no-files-found: error
           retention-days: 30

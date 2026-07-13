@@ -5,7 +5,7 @@ PowerShell module for managing video files (MP4, MKV, etc.) directly from the te
 ## Requirements
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (10.0.300 or later; see `global.json`)
-- [PowerShell 7.5+](https://github.com/PowerShell/PowerShell/releases)
+- [PowerShell 7.6+](https://github.com/PowerShell/PowerShell/releases)
 - [FFmpeg](https://ffmpeg.org/) (`ffmpeg` and `ffprobe` on `PATH`) — required for most cmdlets
 
 Optional tools used by specific workflows:
@@ -32,7 +32,7 @@ Build the module, then launch an interactive session with the module imported:
 .\scripts\Launch.ps1
 ```
 
-`Launch.ps1` builds if needed, opens a new PowerShell 7.5 window, imports the Debug build, and prints the process ID for attaching a debugger. Use `-Configuration Release` for a Release build.
+`Launch.ps1` builds if needed, opens a new PowerShell 7.6 window, imports the Debug build, and prints the process ID for attaching a debugger. Use `-Configuration Release` for a Release build.
 
 ### Import from a build
 
@@ -41,6 +41,15 @@ After `dotnet build`, import the module from the build output:
 ```powershell
 Import-Module .\src\MediaForgePS\bin\Debug\net10.0\MediaForgePS.psd1 -Force
 ```
+
+### Pack a Gallery-style module folder
+
+```powershell
+.\scripts\Build.ps1 -Configuration Release -Build
+.\scripts\Pack-Module.ps1 -Configuration Release
+```
+
+This stages `artifacts/MediaForgePS` and `artifacts/MediaForgePS.<version>.zip` (not a C# NuGet package). CI uploads that zip as the pack artifact.
 
 ### Get help
 

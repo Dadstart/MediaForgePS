@@ -6,7 +6,7 @@ Follow these steps to add full `Get-Help` documentation for MediaForgePS cmdlets
 
 ## Step 1: Install platyPS
 
-In PowerShell 7.5:
+In PowerShell 7.6:
 
 ```powershell
 Install-Module platyPS -Scope CurrentUser
