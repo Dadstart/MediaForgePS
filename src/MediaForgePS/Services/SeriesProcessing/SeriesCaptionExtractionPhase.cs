@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using System.Threading;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,7 @@ internal sealed class SeriesCaptionExtractionPhase(
     ILogger logger)
 {
     public CaptionExtractionPhaseResult Run(
-        PSCmdlet cmdlet,
+        ICmdletProgress progress,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         string captionDirectory,
@@ -36,8 +37,8 @@ internal sealed class SeriesCaptionExtractionPhase(
             var current = i + 1;
             var fileName = Path.GetFileName(file);
             var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting captions...", fileName, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(progress, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Extracting captions...", fileName, recordType: ProgressRecordType.Processing);
 
             var extractedFromFile = TryExtractCaptions(file, captionDir, cancellationToken);
             if (extractedFromFile.Count > 0)
@@ -49,11 +50,11 @@ internal sealed class SeriesCaptionExtractionPhase(
                 failed++;
 
             (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(progress, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Caption extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(progress, "Caption extraction", "Current file");
         return new CaptionExtractionPhaseResult(processed, failed, copiedFiles.Count, extractedCaptionPaths);
     }
 

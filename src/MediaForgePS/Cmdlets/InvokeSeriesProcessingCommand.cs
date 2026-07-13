@@ -130,14 +130,14 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
 
         var seasonUrl = EnsureSeasonUrl(TvDbSeasonUrl, Season);
         WriteHostMessage("Step 1: Creating directory structure...", ConsoleColor.Cyan);
-        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(this, Title, Season, basePath: OutputPath);
+        var directoryStructure = SeriesProcessingService.NewProcessingDirectoryStructure(CmdletIO, Title, Season, basePath: OutputPath);
         if (string.IsNullOrWhiteSpace(directoryStructure.SeasonDir))
             return;
         WriteHostMessage($"  Season directory: {directoryStructure.SeasonDir}", ConsoleColor.Gray);
 
         WriteHostMessage(string.Empty);
         WriteHostMessage("Step 2: Scanning season (TVDb)...", ConsoleColor.Cyan);
-        var episodes = SeriesProcessingService.InvokeSeasonScan(this, Season, TvDbSeriesUrl, seasonUrl);
+        var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl);
         if (episodes.Count == 0)
         {
             WriteError(new ErrorRecord(
@@ -152,7 +152,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
         WriteHostMessage(string.Empty);
         WriteHostMessage("Step 3: Copying video files...", ConsoleColor.Cyan);
         var copiedFiles = SeriesProcessingService.InvokeVideoCopy(
-            this,
+            CmdletIO,
             new VideoCopyRequest(
                 InputPath,
                 directoryStructure.SeasonDir,
@@ -182,7 +182,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
         {
             WriteHostMessage(string.Empty);
             WriteHostMessage("Step 4: Extracting chapters...", ConsoleColor.Cyan);
-            var chapterStats = SeriesProcessingService.InvokeChapterExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
+            var chapterStats = SeriesProcessingService.InvokeChapterExtractionPhase(CmdletIO, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
             WriteHostMessage($"  Processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Chapter extraction - processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}.");
         }
@@ -192,7 +192,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
             WriteHostMessage(string.Empty);
             var stepNum = ExtractChapters.IsPresent ? 5 : 4;
             WriteHostMessage($"Step {stepNum}: Extracting captions...", ConsoleColor.Cyan);
-            var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(this, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
+            var captionStats = SeriesProcessingService.InvokeCaptionExtractionPhase(CmdletIO, directoryStructure.SeasonDir, copiedFiles, cancellationToken: StoppingToken);
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
 
@@ -206,7 +206,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                     WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
                     var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                        this,
+                        CmdletIO,
                         Logger,
                         ExecutableService,
                         PathResolver,

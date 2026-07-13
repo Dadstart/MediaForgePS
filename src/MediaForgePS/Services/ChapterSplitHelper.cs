@@ -4,6 +4,7 @@ using System.IO;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -18,7 +19,7 @@ public static class ChapterSplitHelper
     /// Executes the shared chapter split workflow for a resolved input file.
     /// </summary>
     public static IReadOnlyList<string>? ExecuteSplitWorkflow(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         IMediaReaderService mediaReaderService,
         IExecutableService executableService,
@@ -35,10 +36,10 @@ public static class ChapterSplitHelper
             pathResolver,
             outputPath,
             resolvedInputPath,
-            cmdlet.SessionState.Path.CurrentLocation.Path);
+            io.Paths.CurrentLocationPath);
         if (string.IsNullOrEmpty(outputDirectory))
         {
-            cmdlet.WriteError(new ErrorRecord(
+            io.WriteError(new ErrorRecord(
                 new InvalidOperationException("Could not resolve output directory."),
                 "OutputPathResolutionFailed",
                 ErrorCategory.InvalidOperation,
@@ -51,7 +52,7 @@ public static class ChapterSplitHelper
         {
             writeHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
             var mediaFile = ReadMediaFile(mediaReaderService, resolvedInputPath, cancellationToken);
-            if (!TryGetChapters(cmdlet, resolvedInputPath, mediaFile, out chapters))
+            if (!TryGetChapters(io, resolvedInputPath, mediaFile, out chapters))
                 return null;
 
             writeHostMessage($"Found {chapters.Length} chapters", ConsoleColor.Green);
@@ -60,7 +61,7 @@ public static class ChapterSplitHelper
             chapters = [.. preloadedChapters];
 
         return SplitChapterRanges(
-            cmdlet,
+            io,
             logger,
             executableService,
             resolvedInputPath,
@@ -107,12 +108,12 @@ public static class ChapterSplitHelper
     /// <summary>
     /// Validates that media metadata contains chapter information and writes a cmdlet error when missing.
     /// </summary>
-    public static bool TryGetChapters(PSCmdlet cmdlet, string resolvedInputPath, MediaFile? mediaFile, out MediaChapter[] chapters)
+    public static bool TryGetChapters(ICmdletErrorSink errors, string resolvedInputPath, MediaFile? mediaFile, out MediaChapter[] chapters)
     {
         chapters = Array.Empty<MediaChapter>();
         if (mediaFile?.Chapters == null || mediaFile.Chapters.Length == 0)
         {
-            cmdlet.WriteError(new ErrorRecord(
+            errors.WriteError(new ErrorRecord(
                 new InvalidOperationException("No chapters found in video file."),
                 "NoChapters",
                 ErrorCategory.InvalidOperation,
@@ -128,7 +129,7 @@ public static class ChapterSplitHelper
     /// Splits the input file into output files for each chapter range.
     /// </summary>
     public static IReadOnlyList<string> SplitChapterRanges(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         IExecutableService executableService,
         string resolvedInputPath,
@@ -172,7 +173,7 @@ public static class ChapterSplitHelper
 
             if (File.Exists(outputFile))
             {
-                cmdlet.WriteWarning($"Output file already exists: {outputFile}. Skipping...");
+                io.WriteWarning($"Output file already exists: {outputFile}. Skipping...");
                 outputFiles.Add(outputFile);
                 continue;
             }

@@ -243,7 +243,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
                     _currentFileIndex, totalFiles, GetFileName(inputPath), _batchCompletedBytes, _batchTotalBytes);
                 var batchEta = CalculateRemainingTime(inputPath, totalFiles - _currentFileIndex);
-                MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
+                MediaConversionHelper.WriteMainProgress(CmdletIO, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
                 ProcessFile(inputPath);
                 if (_conversionResults.Count > 0 && _conversionResults[^1].Success)
                     _batchCompletedBytes += fileSize;
@@ -251,7 +251,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
 
             _batchStopwatch.Stop();
 
-            MediaConversionHelper.WriteProgressCompleted(this, "Batch Conversion", "File Conversion");
+            MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Batch Conversion", "File Conversion");
 
             WriteHostMessage("Batch conversion completed", ConsoleColor.Green);
         }
@@ -389,7 +389,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         int? percentComplete = null,
         ProgressRecordType recordType = ProgressRecordType.Processing,
         TimeSpan? eta = null) =>
-        MediaConversionHelper.WriteCurrentItemProgress(this, "File Conversion", status, currentOperation, percentComplete, eta, recordType);
+        MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "File Conversion", status, currentOperation, percentComplete, eta, recordType);
 
     private void ProcessFile(string inputPath)
     {
@@ -573,7 +573,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                     {
                         var (batchStatus, batchPercent) = MediaConversionHelper.BuildBatchProgressStatus(
                             _currentFileIndex, _batchTotalFiles, GetFileName(resolvedInputPath), _batchCompletedBytes, _batchTotalBytes);
-                        MediaConversionHelper.WriteMainProgress(this, "Batch Conversion", batchStatus, batchPercent, remaining, ProgressRecordType.Processing);
+                        MediaConversionHelper.WriteMainProgress(CmdletIO, "Batch Conversion", batchStatus, batchPercent, remaining, ProgressRecordType.Processing);
                     }
                     lastBatchUpdateTime = now;
                 }

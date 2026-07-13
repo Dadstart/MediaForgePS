@@ -47,7 +47,7 @@ public class InvokeSeasonScanCommand : CmdletBase
     protected override void Process()
     {
         var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);
-        var episodes = SeriesProcessingService.InvokeSeasonScan(this, Season, TvDbSeriesUrl, seasonUrl);
+        var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl);
         if (episodes.Count == 0)
         {
             WriteWarning($"No episode information returned for season {Season}.");

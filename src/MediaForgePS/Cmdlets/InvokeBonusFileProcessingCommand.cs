@@ -195,7 +195,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     {
                         var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
                         SubtitleOcrRepairWorkflow.Run(
-                            this,
+                            CmdletIO,
                             Logger,
                             ExecutableService,
                             PathResolverService,
@@ -256,13 +256,13 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     {
         resolvedPath = string.Empty;
 
-        if (PathResolver.TryResolveProviderPath(this, path, out var fromProvider))
+        if (PathResolver.TryResolveProviderPath(CmdletIO.Paths, path, out var fromProvider))
         {
             resolvedPath = fromProvider!;
             return !requireExists || Directory.Exists(resolvedPath);
         }
 
-        if (PathResolver.TryGetUnresolvedProviderPath(this, path, out var unresolved))
+        if (PathResolver.TryGetUnresolvedProviderPath(CmdletIO.Paths, path, out var unresolved))
         {
             resolvedPath = unresolved!;
             return !requireExists || Directory.Exists(resolvedPath);
@@ -324,7 +324,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 ? MediaConversionHelper.CalculateRemainingTime(remainingBytes.Value, _fileProcessingStats)
                 : null;
 
-            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, eta, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(CmdletIO, "Bonus file conversion", status, percent, eta, ProgressRecordType.Processing);
 
             var summary = ConvertSingleBonusFile(filePath, inputDirectory);
 
@@ -341,11 +341,11 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 fileName,
                 _conversionBatchCompletedBytes,
                 _conversionBatchTotalBytes);
-            MediaConversionHelper.WriteMainProgress(this, "Bonus file conversion", status, percent, null, ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(CmdletIO, "Bonus file conversion", status, percent, null, ProgressRecordType.Processing);
         }
 
         _conversionBatchStopwatch?.Stop();
-        MediaConversionHelper.WriteProgressCompleted(this, "Bonus file conversion", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Bonus file conversion", "Current file");
 
         return bonusFileCount;
     }
@@ -558,7 +558,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                             _conversionBatchCompletedBytes,
                             _conversionBatchTotalBytes);
                         MediaConversionHelper.WriteMainProgress(
-                            this,
+                            CmdletIO,
                             "Bonus file conversion",
                             batchStatus,
                             batchPercent,
@@ -610,7 +610,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         ProgressRecordType recordType = ProgressRecordType.Processing,
         TimeSpan? eta = null) =>
         MediaConversionHelper.WriteCurrentItemProgress(
-            this,
+            CmdletIO,
             "Current file",
             status,
             currentOperation,
@@ -645,7 +645,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         foreach (var mkvPath in bonusMkvPaths)
         {
             var fileName = Path.GetFileName(mkvPath);
-            MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Extracting... - {fileName}", recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Subtitle extraction", $"Extracting... - {fileName}", recordType: ProgressRecordType.Processing);
 
             MediaFile? mediaFile;
             try
@@ -685,10 +685,10 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 exportedPaths.Add(path);
             }
 
-            MediaConversionHelper.WriteCurrentItemProgress(this, "Subtitle extraction", $"Completed - {fileName}", recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Subtitle extraction", $"Completed - {fileName}", recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(this, "Subtitle extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Subtitle extraction", "Current file");
         return exportedPaths;
     }
 
@@ -790,8 +790,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 completedBytes,
                 totalBytes);
 
-            MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"Moving... - {fileName}", recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(CmdletIO, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current move file", $"Moving... - {fileName}", recordType: ProgressRecordType.Processing);
 
             var destinationPath = Path.Combine(destFolder, fileName);
             var currentFileStatus = "Completed";
@@ -843,12 +843,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     fileName,
                     completedBytes,
                     totalBytes);
-                MediaConversionHelper.WriteMainProgress(this, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
-                MediaConversionHelper.WriteCurrentItemProgress(this, "Current move file", $"{currentFileStatus} - {fileName}", recordType: ProgressRecordType.Completed);
+                MediaConversionHelper.WriteMainProgress(CmdletIO, "Plex file organization", status, percent, recordType: ProgressRecordType.Processing);
+                MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current move file", $"{currentFileStatus} - {fileName}", recordType: ProgressRecordType.Completed);
             }
         }
 
-        MediaConversionHelper.WriteProgressCompleted(this, "Plex file organization", "Current move file");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Plex file organization", "Current move file");
 
         if (filesMoved == 0)
             WriteWarning($"No bonus content files found to move in source directory {sourceDirectory}");

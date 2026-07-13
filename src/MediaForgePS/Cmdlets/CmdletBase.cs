@@ -47,6 +47,7 @@ public abstract class CmdletBase : PSCmdlet
 
     private IDebuggerService? _debugger;
     private ILogger? _logger;
+    private ICmdletIO? _cmdletIO;
     private IDisposable? _commandTitleScope;
     private string? _powerShellCommandName;
     private CancellationTokenSource? _cancellationTokenSource;
@@ -56,6 +57,11 @@ public abstract class CmdletBase : PSCmdlet
     /// </summary>
     protected ILogger Logger => _logger ??= ModuleServices.GetRequiredService<ILoggerFactory>()
                 .CreateLogger(GetType());
+
+    /// <summary>
+    /// Host I/O facade for services (progress, error/warning/verbose streams, path context).
+    /// </summary>
+    protected ICmdletIO CmdletIO => _cmdletIO ??= new PsCmdletIO(this);
 
     protected IDebuggerService Debugger => _debugger ??= ModuleServices.GetRequiredService<IDebuggerService>();
 

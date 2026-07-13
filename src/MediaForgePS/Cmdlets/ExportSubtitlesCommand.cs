@@ -90,7 +90,7 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             return;
         }
 
-        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, this, MediaReaderService, Logger, e => WriteError(e), StoppingToken).ToList();
+        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, CmdletIO.Paths, MediaReaderService, Logger, e => WriteError(e), StoppingToken).ToList();
         if (mediaFiles.Count == 0)
         {
             WriteWarning("No media files to process.");
@@ -112,18 +112,18 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             var fileIndex = i + 1;
             var fileName = Path.GetFileName(mf.Path);
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
-            MediaConversionHelper.WriteMainProgress(this, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Exporting...", fileName, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(CmdletIO, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Exporting...", fileName, recordType: ProgressRecordType.Processing);
 
             ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex, exportedPaths);
 
             completedBytes += fileSize;
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
-            MediaConversionHelper.WriteMainProgress(this, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(this, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(CmdletIO, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(this, "Exporting subtitles", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Exporting subtitles", "Current file");
 
         if (exportedPaths.Count == 0)
         {
@@ -146,7 +146,7 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
 
         var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-            this,
+            CmdletIO,
             Logger,
             ExecutableService,
             PathResolver,
@@ -187,7 +187,7 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             {
                 subIndex++;
                 var percent = (int)Math.Round((subIndex * 100.0) / subtitles.Count, 0);
-                MediaConversionHelper.WriteCurrentItemProgress(this, fileName, $"Stream {plan.Stream.Index} ({plan.Stream.Codec})", percentComplete: percent);
+                MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, fileName, $"Stream {plan.Stream.Index} ({plan.Stream.Codec})", percentComplete: percent);
                 return SubtitleExportHelper.GetOutputPath(
                     mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount);
             },
@@ -204,6 +204,6 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             exportedPaths.Add(path);
         }
 
-        MediaConversionHelper.WriteCurrentItemProgress(this, fileName, "Complete", recordType: ProgressRecordType.Completed);
+        MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, fileName, "Complete", recordType: ProgressRecordType.Completed);
     }
 }

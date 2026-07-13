@@ -2,9 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using System.Threading.Tasks;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -82,7 +84,7 @@ public static class ImageSubtitleConversionHelper
     /// <summary>
     /// Converts image subtitle paths to SRT in parallel with throttling, progress reporting, and error collection.
     /// </summary>
-    /// <param name="cmdlet">Cmdlet for progress and stream access.</param>
+    /// <param name="progress">Progress sink for conversion status.</param>
     /// <param name="executableService">Service used to run Subtitle Edit.</param>
     /// <param name="logger">Logger for debug/error.</param>
     /// <param name="subtitleEditPath">Path to Subtitle Edit executable.</param>
@@ -91,7 +93,7 @@ public static class ImageSubtitleConversionHelper
     /// <param name="writeError">Callback to write error records for failed conversions.</param>
     /// <returns>Paths of successfully converted SRT files.</returns>
     public static IReadOnlyList<string> ConvertImagePathsToSrtParallel(
-        PSCmdlet cmdlet,
+        ICmdletProgress progress,
         IExecutableService executableService,
         ILogger logger,
         string subtitleEditPath,
@@ -108,7 +110,7 @@ public static class ImageSubtitleConversionHelper
         using var throttle = new SemaphoreSlim(maxParallel, maxParallel);
 
         MediaConversionHelper.WriteMainProgress(
-            cmdlet,
+            progress,
             "Converting image subtitles to SRT",
             $"Converting {totalConvert} image subtitle file(s) to SRT...",
             0,
@@ -159,7 +161,7 @@ public static class ImageSubtitleConversionHelper
             var current = Volatile.Read(ref completedCount);
             var percent = totalConvert > 0 ? (int)((current * 100.0) / totalConvert) : 0;
             MediaConversionHelper.WriteMainProgress(
-                cmdlet,
+                progress,
                 "Converting image subtitles to SRT",
                 $"Converted {current} of {totalConvert} image subtitle file(s) to SRT...",
                 percent,
@@ -181,7 +183,7 @@ public static class ImageSubtitleConversionHelper
         }
 
         MediaConversionHelper.WriteMainProgress(
-            cmdlet,
+            progress,
             "Converting image subtitles to SRT",
             $"Converted {totalConvert} of {totalConvert} image subtitle file(s) to SRT...",
             100,
@@ -190,7 +192,7 @@ public static class ImageSubtitleConversionHelper
         foreach (var error in errors)
             writeError(new ErrorRecord(error.Exception, "ConvertImageSubtitlesToSrtFailed", ErrorCategory.OperationStopped, error.InputPath));
 
-        MediaConversionHelper.WriteProgressCompleted(cmdlet, "Converting image subtitles to SRT", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(progress, "Converting image subtitles to SRT", "Current file");
         return convertedSrtPaths.ToList();
     }
 }

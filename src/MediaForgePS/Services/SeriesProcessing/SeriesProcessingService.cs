@@ -6,6 +6,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -50,77 +51,77 @@ public class SeriesProcessingService : ISeriesProcessingService
         return normalized;
     }
 
-    public string NewProcessingDirectory(PSCmdlet cmdlet, string path, string description)
+    public string NewProcessingDirectory(ICmdletIO io, string path, string description)
     {
         _logger.LogDebug("Creating {Description} directory: {Path}", description, path);
-        var resolvedPath = ResolveAbsolutePath(cmdlet, path);
+        var resolvedPath = ResolveAbsolutePath(io, path);
         Directory.CreateDirectory(resolvedPath);
         return resolvedPath;
     }
 
     public ProcessingDirectoryStructure NewProcessingDirectoryStructure(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         string title,
         int season,
         IReadOnlyList<string>? subDirectories = null,
         string? basePath = null)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "Directory structure creation",
             new ProcessingDirectoryStructure(string.Empty, string.Empty, Array.Empty<string>()),
             () =>
             {
                 var currentBasePath = string.IsNullOrWhiteSpace(basePath)
-                    ? cmdlet.SessionState.Path.CurrentLocation.Path
-                    : ResolveAbsolutePath(cmdlet, basePath);
+                    ? io.Paths.CurrentLocationPath
+                    : ResolveAbsolutePath(io, basePath);
 
-                var rootDir = NewProcessingDirectory(cmdlet, Path.Combine(currentBasePath, title), "show");
-                var seasonDir = NewProcessingDirectory(cmdlet, Path.Combine(rootDir, $"Season {season:D2}"), "season");
+                var rootDir = NewProcessingDirectory(io, Path.Combine(currentBasePath, title), "show");
+                var seasonDir = NewProcessingDirectory(io, Path.Combine(rootDir, $"Season {season:D2}"), "season");
 
                 var dirs = subDirectories ?? _defaultSubDirectories;
                 var createdSubDirs = dirs
-                    .Select(subDir => NewProcessingDirectory(cmdlet, Path.Combine(seasonDir, subDir), subDir))
+                    .Select(subDir => NewProcessingDirectory(io, Path.Combine(seasonDir, subDir), subDir))
                     .ToList();
 
                 return new ProcessingDirectoryStructure(rootDir, seasonDir, createdSubDirs);
             });
     }
 
-    public IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(PSCmdlet cmdlet, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
+    public IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(ICmdletIO io, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "Season scanning",
             Array.Empty<TvDbEpisodeInfo>(),
-            () => _seasonScanPhase.Run(cmdlet, season, tvDbSeriesUrl, tvDbSeasonUrl));
+            () => _seasonScanPhase.Run(io, season, tvDbSeriesUrl, tvDbSeasonUrl));
     }
 
-    public IReadOnlyList<string> GetFilteredVideoFiles(PSCmdlet cmdlet, IReadOnlyList<string> paths, IReadOnlyList<string> filePatterns, long minimumFileSizeBytes)
+    public IReadOnlyList<string> GetFilteredVideoFiles(ICmdletIO io, IReadOnlyList<string> paths, IReadOnlyList<string> filePatterns, long minimumFileSizeBytes)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "File filtering",
             Array.Empty<string>(),
-            () => _videoCopyPhase.GetFilteredVideoFiles(cmdlet, paths, filePatterns, minimumFileSizeBytes));
+            () => _videoCopyPhase.GetFilteredVideoFiles(io, paths, filePatterns, minimumFileSizeBytes));
     }
 
-    public IReadOnlyList<string> InvokeVideoCopy(PSCmdlet cmdlet, VideoCopyRequest request)
+    public IReadOnlyList<string> InvokeVideoCopy(ICmdletIO io, VideoCopyRequest request)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "Video copy",
             Array.Empty<string>(),
             () =>
             {
                 var normalizedPatterns = NormalizeFilePatterns(request.FilePatterns);
                 var normalizedRequest = request with { FilePatterns = normalizedPatterns };
-                return _videoCopyPhase.CopyVideoFilesWithMetadata(cmdlet, normalizedRequest, BuildEpisodeFileName);
+                return _videoCopyPhase.CopyVideoFilesWithMetadata(io, normalizedRequest, BuildEpisodeFileName);
             });
     }
 
     public ProcessingPhaseStats InvokeChapterExtractionPhase(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         int chapterNumber = 3,
@@ -129,47 +130,47 @@ public class SeriesProcessingService : ISeriesProcessingService
         CancellationToken cancellationToken = default)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "Chapter extraction phase",
             new ProcessingPhaseStats(0, 0, 0),
             () => _chapterExtractionPhase.Run(
-                cmdlet,
+                io,
                 seasonDir,
                 copiedFiles,
                 chapterNumber,
                 chapterDurationSeconds,
                 chapterDirectory,
-                (path, description) => NewProcessingDirectory(cmdlet, path, description),
+                (path, description) => NewProcessingDirectory(io, path, description),
                 cancellationToken));
     }
 
     public CaptionExtractionPhaseResult InvokeCaptionExtractionPhase(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         string captionDirectory = "Captions",
         CancellationToken cancellationToken = default)
     {
         return InvokeWithErrorHandling(
-            cmdlet,
+            io,
             "Caption extraction phase",
             new CaptionExtractionPhaseResult(0, 0, 0, Array.Empty<string>()),
             () => _captionExtractionPhase.Run(
-                cmdlet,
+                io,
                 seasonDir,
                 copiedFiles,
                 captionDirectory,
-                (path, description) => NewProcessingDirectory(cmdlet, path, description),
+                (path, description) => NewProcessingDirectory(io, path, description),
                 cancellationToken));
     }
 
     public static string BuildEpisodeFileName(string title, int season, TvDbEpisodeInfo episode, string extension) =>
         $"{title} {{tvdb {episode.Id}}} - s{season:D2}e{episode.EpisodeNumber:D2}{extension}";
 
-    private static string ResolveAbsolutePath(PSCmdlet cmdlet, string path) =>
-        PathHelper.ResolveAbsolutePath(path, cmdlet.SessionState.Path.CurrentLocation.Path);
+    private static string ResolveAbsolutePath(ICmdletIO io, string path) =>
+        PathHelper.ResolveAbsolutePath(path, io.Paths.CurrentLocationPath);
 
-    private T InvokeWithErrorHandling<T>(PSCmdlet cmdlet, string operationName, T defaultValue, Func<T> action)
+    private T InvokeWithErrorHandling<T>(ICmdletIO io, string operationName, T defaultValue, Func<T> action)
     {
         try
         {
@@ -186,7 +187,7 @@ public class SeriesProcessingService : ISeriesProcessingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} failed", operationName);
-            cmdlet.WriteError(new ErrorRecord(ex, $"{operationName}Failed", ErrorCategory.OperationStopped, null));
+            io.WriteError(new ErrorRecord(ex, $"{operationName}Failed", ErrorCategory.OperationStopped, null));
             return defaultValue;
         }
     }

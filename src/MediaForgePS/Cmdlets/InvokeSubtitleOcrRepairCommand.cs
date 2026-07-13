@@ -76,7 +76,7 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
             return;
         }
 
-        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(this, _inputPaths, Logger, WriteError);
+        var resolvedPairs = SubtitlePathResolutionHelper.ResolveFileOrDirectoryPaths(CmdletIO.Paths, _inputPaths, Logger, WriteError);
         if (resolvedPairs.Count == 0)
         {
             WriteWarning("No existing file or directory paths could be resolved.");
@@ -102,7 +102,7 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
         WriteHostMessage($"Processing {imagePaths.Count} image subtitle(s) and {srtPathsFromInput.Count} SRT file(s).", ConsoleColor.Cyan);
 
         var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-            this,
+            CmdletIO,
             Logger,
             ExecutableService,
             PathResolver,

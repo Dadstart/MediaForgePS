@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
 namespace Dadstart.Labs.MediaForge.Services;
@@ -393,7 +394,7 @@ public static class MediaConversionHelper
     /// Use with <see cref="BuildBatchProgressStatus"/> or <see cref="BuildCountBasedProgressStatus"/> for status and percent.
     /// </summary>
     public static void WriteMainProgress(
-        PSCmdlet cmdlet,
+        ICmdletProgress progress,
         string mainActivity,
         string status,
         int? percentComplete = null,
@@ -407,14 +408,14 @@ public static class MediaConversionHelper
             percentComplete,
             recordType: recordType);
         ApplyEta(progressRecord, eta);
-        cmdlet.WriteProgress(progressRecord);
+        progress.WriteProgress(progressRecord);
     }
 
     /// <summary>
     /// Writes the current-item (nested) progress record.
     /// </summary>
     public static void WriteCurrentItemProgress(
-        PSCmdlet cmdlet,
+        ICmdletProgress progress,
         string currentActivity,
         string status,
         string? currentOperation = null,
@@ -431,7 +432,7 @@ public static class MediaConversionHelper
             percentComplete,
             recordType);
         ApplyEta(progressRecord, eta);
-        cmdlet.WriteProgress(progressRecord);
+        progress.WriteProgress(progressRecord);
     }
 
     private static void ApplyEta(ProgressRecord progressRecord, TimeSpan? eta)
@@ -447,14 +448,14 @@ public static class MediaConversionHelper
     /// Writes both main and current-item progress records as completed.
     /// Call once when the batch or phase is finished.
     /// </summary>
-    public static void WriteProgressCompleted(PSCmdlet cmdlet, string mainActivity, string currentActivity)
+    public static void WriteProgressCompleted(ICmdletProgress progress, string mainActivity, string currentActivity)
     {
-        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+        progress.WriteProgress(CreateSimpleProgressRecord(
             ProgressActivityIds.Main,
             mainActivity,
             "Completed",
             recordType: ProgressRecordType.Completed));
-        cmdlet.WriteProgress(CreateSimpleProgressRecord(
+        progress.WriteProgress(CreateSimpleProgressRecord(
             ProgressActivityIds.CurrentItem,
             currentActivity,
             "Completed",

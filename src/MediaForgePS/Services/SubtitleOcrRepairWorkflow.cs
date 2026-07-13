@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Threading;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -23,7 +24,7 @@ public static class SubtitleOcrRepairWorkflow
     /// Returns null when workflow cannot continue (for example, Subtitle Edit missing when OCR is required).
     /// </summary>
     public static IReadOnlyList<string>? Run(
-        PSCmdlet cmdlet,
+        ICmdletIO io,
         ILogger logger,
         IExecutableService executableService,
         IPathResolver pathResolver,
@@ -41,7 +42,7 @@ public static class SubtitleOcrRepairWorkflow
             var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
             if (string.IsNullOrEmpty(subtitleEditPath))
             {
-                cmdlet.WriteError(new ErrorRecord(
+                io.WriteError(new ErrorRecord(
                     new FileNotFoundException($"Subtitle Edit not found (required to convert {imagePaths.Count} image subtitle(s)). Expected: {WindowsExecutablePathHelper.GetSubtitleEditExpectedPath()}"),
                     "SubtitleEditNotFound",
                     ErrorCategory.ObjectNotFound,
@@ -50,13 +51,13 @@ public static class SubtitleOcrRepairWorkflow
             }
 
             convertedSrtPaths = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
-                cmdlet,
+                io,
                 executableService,
                 logger,
                 subtitleEditPath,
                 imagePaths,
                 Math.Max(1, throttleLimit),
-                cmdlet.WriteError,
+                io.WriteError,
                 cancellationToken);
         }
 
@@ -65,7 +66,7 @@ public static class SubtitleOcrRepairWorkflow
             .ToList();
 
         if (convertedSrtPaths.Count > 0)
-            SrtRepairHelper.RunRepairLoop(cmdlet, logger, pathResolver, convertedSrtPaths, shouldRepair, backupPath);
+            SrtRepairHelper.RunRepairLoop(io, logger, pathResolver, convertedSrtPaths, shouldRepair, backupPath);
 
         return allSrtPaths;
     }
