@@ -419,11 +419,10 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         try
         {
             Logger.LogInformation("Starting conversion: {Input} -> {Output}", resolvedInputPath, resolvedOutputPath);
-            UpdateFileProgress(
-                $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)",
-                outputFileName,
-                percentComplete: 60);
+            var encodeStatus = $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)";
+            UpdateFileProgress(encodeStatus, outputFileName, percentComplete: 0);
 
+            var encodeProgress = new LatestFfmpegProgress();
             var spinner = new[] { "|", "/", "-", "\\" };
             var spinnerIndex = 0;
             var lastBatchUpdateTime = DateTime.UtcNow;
@@ -432,7 +431,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 resolvedOutputPath,
                 videoSettings,
                 audioMappings,
-                additionalArguments));
+                additionalArguments,
+                encodeProgress));
 
             TimeSpan? initialBatchEta = null;
             if (_currentFileIndex < _batchTotalFiles)
@@ -443,9 +443,21 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
             while (!conversionTask.Wait(TimeSpan.FromSeconds(0.05)))
             {
-                var indicator = spinner[spinnerIndex];
-                spinnerIndex = (spinnerIndex + 1) % spinner.Length;
-                UpdateFileProgress($"{outputFileName} {indicator}", outputFileName, percentComplete: 60);
+                var latest = encodeProgress.Latest;
+                if (latest is not null)
+                {
+                    UpdateFileProgress(
+                        encodeStatus,
+                        outputFileName,
+                        percentComplete: latest.PercentComplete,
+                        eta: latest.EstimatedTimeRemaining);
+                }
+                else
+                {
+                    var indicator = spinner[spinnerIndex];
+                    spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                    UpdateFileProgress($"{encodeStatus} {indicator}", outputFileName, percentComplete: 0);
+                }
 
                 var now = DateTime.UtcNow;
                 if ((now - lastBatchUpdateTime).TotalSeconds >= 1.0 && initialBatchEta.HasValue && _batchStopwatch != null)

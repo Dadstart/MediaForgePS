@@ -6,6 +6,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
 using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,7 +75,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -170,7 +171,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             resolvedOutputPath,
             It.IsAny<VideoEncodingSettings>(),
             It.Is<AudioTrackMapping[]>(mappings => mappings.Length == 1 && ReferenceEquals(mappings[0], providedMappings[0])),
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
     }
 
     [Fact]
@@ -209,7 +210,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             resolvedOutputPath,
             It.IsAny<VideoEncodingSettings>(),
             It.Is<AudioTrackMapping[]>(mappings => mappings.Length == 1 && mappings[0].Title == "Auto AAC"),
-            It.IsAny<string[]?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
     }
 
     [Fact]
@@ -243,7 +244,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     [Fact]
@@ -279,7 +280,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
     }
 
     private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertMediaFilesCommand>("Convert-MediaFiles");

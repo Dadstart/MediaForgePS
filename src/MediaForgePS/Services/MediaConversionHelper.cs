@@ -361,8 +361,7 @@ public static class MediaConversionHelper
             status,
             percentComplete,
             recordType: recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"ETA: {FormatTimespan(eta.Value)}";
+        ApplyEta(progressRecord, eta);
         cmdlet.WriteProgress(progressRecord);
     }
 
@@ -386,9 +385,17 @@ public static class MediaConversionHelper
             currentOperation,
             percentComplete,
             recordType);
-        if (eta.HasValue)
-            progressRecord.StatusDescription = $"File ETA: {FormatTimespan(eta.Value)}";
+        ApplyEta(progressRecord, eta);
         cmdlet.WriteProgress(progressRecord);
+    }
+
+    private static void ApplyEta(ProgressRecord progressRecord, TimeSpan? eta)
+    {
+        if (!eta.HasValue)
+            return;
+
+        var clampedSeconds = (int)Math.Clamp(Math.Ceiling(eta.Value.TotalSeconds), 0, int.MaxValue);
+        progressRecord.SecondsRemaining = clampedSeconds;
     }
 
     /// <summary>
