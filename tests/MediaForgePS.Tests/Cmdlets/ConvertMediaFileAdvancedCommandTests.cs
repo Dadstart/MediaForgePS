@@ -74,7 +74,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Empty(results);
         Assert.NotEmpty(errors);
         _mediaConversionServiceMock.Verify(
-            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()),
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -104,7 +104,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Empty(results);
         Assert.NotEmpty(errors);
         _mediaConversionServiceMock.Verify(
-            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()),
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -141,7 +141,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.Is<string[]?>(args => args != null && args.SequenceEqual(new[] { "-x265-params", "aq-mode=3" })),
-                It.IsAny<IProgress<FfmpegProgress>?>()),
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -165,7 +165,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
                 resolvedOutputPath,
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
-                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()))
+                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()))
             .Callback(() =>
             {
                 var currentCmdlet = CmdletContext.Current as PSCmdlet;

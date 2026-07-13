@@ -75,7 +75,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             resolvedOutputPath,
             It.IsAny<VideoEncodingSettings>(),
             It.Is<AudioTrackMapping[]>(mappings => mappings.Length == 1 && ReferenceEquals(mappings[0], providedMappings[0])),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             resolvedOutputPath,
             It.IsAny<VideoEncodingSettings>(),
             It.Is<AudioTrackMapping[]>(mappings => mappings.Length == 1 && mappings[0].Title == "Auto AAC"),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -280,7 +280,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -311,14 +311,14 @@ public class ConvertMediaFilesCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(42),

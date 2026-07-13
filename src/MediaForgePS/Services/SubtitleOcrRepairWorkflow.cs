@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -31,7 +32,8 @@ public static class SubtitleOcrRepairWorkflow
         bool performOcr,
         int throttleLimit,
         bool shouldRepair,
-        string? backupPath)
+        string? backupPath,
+        CancellationToken cancellationToken = default)
     {
         IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (performOcr && imagePaths.Count > 0)
@@ -54,7 +56,8 @@ public static class SubtitleOcrRepairWorkflow
                 subtitleEditPath,
                 imagePaths,
                 Math.Max(1, throttleLimit),
-                cmdlet.WriteError);
+                cmdlet.WriteError,
+                cancellationToken);
         }
 
         var allSrtPaths = srtPaths.Concat(convertedSrtPaths)

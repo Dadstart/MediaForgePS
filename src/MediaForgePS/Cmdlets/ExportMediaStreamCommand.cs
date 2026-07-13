@@ -141,7 +141,7 @@ public class ExportMediaStreamCommand : CmdletBase
             Logger.LogInformation("Executing FFmpeg to extract stream...");
             try
             {
-                var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArguments, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+                var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArguments, StoppingToken).ConfigureAwait(false).GetAwaiter().GetResult();
 
                 if (result.ExitCode == 0)
                 {

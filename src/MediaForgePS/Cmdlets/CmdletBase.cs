@@ -49,6 +49,7 @@ public abstract class CmdletBase : PSCmdlet
     private ILogger? _logger;
     private IDisposable? _commandTitleScope;
     private string? _powerShellCommandName;
+    private CancellationTokenSource? _cancellationTokenSource;
 
     /// <summary>
     /// Logger instance for the derived cmdlet type.
@@ -61,6 +62,12 @@ public abstract class CmdletBase : PSCmdlet
     public string CmdletName => GetType().Name;
     protected string PowerShellCommandName => _powerShellCommandName ??= ResolvePowerShellCommandName();
     protected virtual bool ShouldSetCommandTerminalTitle => false;
+
+    /// <summary>
+    /// Token canceled when PowerShell stops the cmdlet (Ctrl+C / <c>StopProcessing</c>).
+    /// </summary>
+    protected CancellationToken StoppingToken =>
+        _cancellationTokenSource?.Token ?? CancellationToken.None;
 
     protected CmdletBase()
     {
@@ -75,6 +82,8 @@ public abstract class CmdletBase : PSCmdlet
     protected sealed override void BeginProcessing()
     {
         CmdletContext.Current = this;
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = new CancellationTokenSource();
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
         if (ShouldSetCommandTerminalTitle)
@@ -84,6 +93,12 @@ public abstract class CmdletBase : PSCmdlet
         {
             Logger.LogDebug("Begin processing {CmdletName} command", CmdletName);
             Begin();
+        }
+        catch (OperationCanceledException)
+        {
+            _commandTitleScope?.Dispose();
+            _commandTitleScope = null;
+            throw new PipelineStoppedException();
         }
         catch
         {
@@ -99,10 +114,17 @@ public abstract class CmdletBase : PSCmdlet
     /// </summary>
     protected sealed override void ProcessRecord()
     {
-        Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnProcessRecord);
+        try
+        {
+            Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnProcessRecord);
 
-        Logger.LogDebug("Processing {CmdletName} command", CmdletName);
-        Process();
+            Logger.LogDebug("Processing {CmdletName} command", CmdletName);
+            Process();
+        }
+        catch (OperationCanceledException)
+        {
+            throw new PipelineStoppedException();
+        }
     }
 
     /// <summary>
@@ -112,18 +134,43 @@ public abstract class CmdletBase : PSCmdlet
     {
         try
         {
-            Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
+            try
+            {
+                Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnEndProcessing);
 
-            Logger.LogDebug("End processing {CmdletName} command", CmdletName);
-            End();
+                Logger.LogDebug("End processing {CmdletName} command", CmdletName);
+                End();
+            }
+            catch (OperationCanceledException)
+            {
+                throw new PipelineStoppedException();
+            }
         }
         finally
         {
             TryAlertOnCompletion();
             _commandTitleScope?.Dispose();
             _commandTitleScope = null;
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
             CmdletContext.Current = null;
         }
+    }
+
+    /// <summary>
+    /// Cancels in-flight work when the host stops the cmdlet (e.g. Ctrl+C).
+    /// </summary>
+    protected sealed override void StopProcessing()
+    {
+        try
+        {
+            _cancellationTokenSource?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        base.StopProcessing();
     }
 
     /// <summary>
@@ -265,7 +312,7 @@ public abstract class CmdletBase : PSCmdlet
     {
         try
         {
-            var result = mediaReaderService.GetMediaFileAsync(resolvedPath, CancellationToken.None)
+            var result = mediaReaderService.GetMediaFileAsync(resolvedPath, StoppingToken)
                 .ConfigureAwait(false)
                 .GetAwaiter()
                 .GetResult();
@@ -284,6 +331,10 @@ public abstract class CmdletBase : PSCmdlet
 
             mediaFile = result;
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

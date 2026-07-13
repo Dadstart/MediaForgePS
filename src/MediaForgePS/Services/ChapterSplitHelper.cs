@@ -28,7 +28,8 @@ public static class ChapterSplitHelper
         IReadOnlyList<(int Start, int End, string? OutputName)> ranges,
         Func<int, (int Start, int End, string? OutputName), string> buildOutputFileName,
         Action<string, ConsoleColor?> writeHostMessage,
-        IReadOnlyList<MediaChapter>? preloadedChapters = null)
+        IReadOnlyList<MediaChapter>? preloadedChapters = null,
+        CancellationToken cancellationToken = default)
     {
         var outputDirectory = ResolveOutputDirectory(
             pathResolver,
@@ -49,7 +50,7 @@ public static class ChapterSplitHelper
         if (preloadedChapters == null)
         {
             writeHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
-            var mediaFile = ReadMediaFile(mediaReaderService, resolvedInputPath);
+            var mediaFile = ReadMediaFile(mediaReaderService, resolvedInputPath, cancellationToken);
             if (!TryGetChapters(cmdlet, resolvedInputPath, mediaFile, out chapters))
                 return null;
 
@@ -67,7 +68,8 @@ public static class ChapterSplitHelper
             ranges,
             chapters,
             buildOutputFileName,
-            writeHostMessage);
+            writeHostMessage,
+            cancellationToken);
     }
 
     /// <summary>
@@ -93,9 +95,12 @@ public static class ChapterSplitHelper
     /// <summary>
     /// Reads media metadata for chapter splitting.
     /// </summary>
-    public static MediaFile? ReadMediaFile(IMediaReaderService mediaReaderService, string resolvedInputPath)
+    public static MediaFile? ReadMediaFile(
+        IMediaReaderService mediaReaderService,
+        string resolvedInputPath,
+        CancellationToken cancellationToken = default)
     {
-        return mediaReaderService.GetMediaFileAsync(resolvedInputPath, CancellationToken.None)
+        return mediaReaderService.GetMediaFileAsync(resolvedInputPath, cancellationToken)
             .ConfigureAwait(false).GetAwaiter().GetResult();
     }
 
@@ -131,12 +136,15 @@ public static class ChapterSplitHelper
         IReadOnlyList<(int Start, int End, string? OutputName)> ranges,
         IReadOnlyList<MediaChapter> chapters,
         Func<int, (int Start, int End, string? OutputName), string> buildOutputFileName,
-        Action<string, ConsoleColor?>? writeHostMessage = null)
+        Action<string, ConsoleColor?>? writeHostMessage = null,
+        CancellationToken cancellationToken = default)
     {
         var outputFiles = new List<string>();
 
         for (var i = 0; i < ranges.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var range = ranges[i];
             var chapterStart = range.Start - 1;
             var chapterEnd = range.End - 1;
@@ -195,7 +203,7 @@ public static class ChapterSplitHelper
 
             logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
 
-            var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, CancellationToken.None)
+            var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
 
             if (result.ExitCode != 0)

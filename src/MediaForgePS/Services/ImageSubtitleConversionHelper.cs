@@ -48,10 +48,11 @@ public static class ImageSubtitleConversionHelper
         string subtitleEditPath,
         string inputPath,
         string outputSrtPath,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        CancellationToken cancellationToken = default)
     {
         var args = new[] { "/convert", inputPath, "srt", "/ocrengine:tesseract" };
-        var result = executableService.ExecuteAsync(subtitleEditPath, args, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        var result = executableService.ExecuteAsync(subtitleEditPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"Subtitle Edit failed with exit code {result.ExitCode}. {result.ErrorOutput}");
         var defaultSrt = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
@@ -96,7 +97,8 @@ public static class ImageSubtitleConversionHelper
         string subtitleEditPath,
         IReadOnlyList<string> imagePaths,
         int throttleLimit,
-        Action<ErrorRecord> writeError)
+        Action<ErrorRecord> writeError,
+        CancellationToken cancellationToken = default)
     {
         var convertedSrtPaths = new ConcurrentBag<string>();
         var errors = new ConcurrentBag<(string InputPath, Exception Exception)>();
@@ -118,15 +120,20 @@ public static class ImageSubtitleConversionHelper
             var inputPath = imagePaths[i];
             tasks[i] = Task.Run(() =>
             {
-                throttle.Wait();
+                throttle.Wait(cancellationToken);
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
                     try
                     {
-                        ConvertToSrt(executableService, subtitleEditPath, inputPath, srtPath, logger);
+                        ConvertToSrt(executableService, subtitleEditPath, inputPath, srtPath, logger, cancellationToken);
                         logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
                         convertedSrtPaths.Add(srtPath);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -142,11 +149,13 @@ public static class ImageSubtitleConversionHelper
                 {
                     throttle.Release();
                 }
-            });
+            }, cancellationToken);
         }
 
         while (Volatile.Read(ref completedCount) < totalConvert)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var current = Volatile.Read(ref completedCount);
             var percent = totalConvert > 0 ? (int)((current * 100.0) / totalConvert) : 0;
             MediaConversionHelper.WriteMainProgress(
@@ -158,7 +167,18 @@ public static class ImageSubtitleConversionHelper
             Thread.Sleep(200);
         }
 
-        Task.WaitAll(tasks);
+        try
+        {
+            Task.WaitAll(tasks, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(inner => inner is OperationCanceledException))
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
 
         MediaConversionHelper.WriteMainProgress(
             cmdlet,

@@ -33,7 +33,15 @@ public abstract class ProgressCmdletBase : CmdletBase
     {
         try
         {
-            Console.Beep();
+            if (OperatingSystem.IsWindows())
+            {
+                Console.Beep(500, 500);
+                Console.Beep(750, 500);
+            }
+            else
+            {
+                Console.Beep();
+            }
         }
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {

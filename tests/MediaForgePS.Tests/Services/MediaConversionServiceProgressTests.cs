@@ -53,7 +53,8 @@ public class MediaConversionServiceProgressTests
             "output.mp4",
             settings,
             [],
-            progress: new SynchronousProgressReporter(reports.Add));
+            progress: new SynchronousProgressReporter(reports.Add),
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, callIndex);
         Assert.Equal(2, reports.Count);
@@ -102,7 +103,8 @@ public class MediaConversionServiceProgressTests
             "output.mp4",
             settings,
             [],
-            progress: reporter);
+            progress: reporter,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Same(reporter, capturedProgress);
         var report = Assert.Single(reports);

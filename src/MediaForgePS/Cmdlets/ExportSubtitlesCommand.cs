@@ -90,7 +90,7 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             return;
         }
 
-        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, this, MediaReaderService, Logger, e => WriteError(e)).ToList();
+        var mediaFiles = SubtitleExportHelper.ResolveMediaFiles(_pathOrMediaFiles, this, MediaReaderService, Logger, e => WriteError(e), StoppingToken).ToList();
         if (mediaFiles.Count == 0)
         {
             WriteWarning("No media files to process.");
@@ -155,7 +155,8 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             performOcr: imagePaths.Count > 0,
             ThrottleLimit,
             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-            BackupPath);
+            BackupPath,
+            StoppingToken);
 
         if (allSrtPaths == null)
             return;
@@ -194,7 +195,8 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
             onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
             onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
-            Logger);
+            Logger,
+            StoppingToken);
 
         foreach (var path in extracted)
         {

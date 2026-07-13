@@ -19,7 +19,8 @@ internal sealed class SeriesCaptionExtractionPhase(
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         string captionDirectory,
-        Func<string, string, string> createDirectory)
+        Func<string, string, string> createDirectory,
+        CancellationToken cancellationToken = default)
     {
         var captionDir = createDirectory(Path.Combine(seasonDir, captionDirectory), "caption");
         var processed = 0;
@@ -29,6 +30,8 @@ internal sealed class SeriesCaptionExtractionPhase(
 
         for (var i = 0; i < copiedFiles.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var file = copiedFiles[i];
             var current = i + 1;
             var fileName = Path.GetFileName(file);
@@ -36,7 +39,7 @@ internal sealed class SeriesCaptionExtractionPhase(
             MediaConversionHelper.WriteMainProgress(cmdlet, "Caption extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
             MediaConversionHelper.WriteCurrentItemProgress(cmdlet, "Current file", "Extracting captions...", fileName, recordType: ProgressRecordType.Processing);
 
-            var extractedFromFile = TryExtractCaptions(file, captionDir);
+            var extractedFromFile = TryExtractCaptions(file, captionDir, cancellationToken);
             if (extractedFromFile.Count > 0)
             {
                 processed++;
@@ -54,11 +57,11 @@ internal sealed class SeriesCaptionExtractionPhase(
         return new CaptionExtractionPhaseResult(processed, failed, copiedFiles.Count, extractedCaptionPaths);
     }
 
-    private IReadOnlyList<string> TryExtractCaptions(string filePath, string captionDir)
+    private IReadOnlyList<string> TryExtractCaptions(string filePath, string captionDir, CancellationToken cancellationToken)
     {
         try
         {
-            var media = mediaReaderService.GetMediaFileAsync(filePath, CancellationToken.None)
+            var media = mediaReaderService.GetMediaFileAsync(filePath, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (media == null)
                 return Array.Empty<string>();
@@ -75,7 +78,12 @@ internal sealed class SeriesCaptionExtractionPhase(
                         filePath, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount);
                     return Path.Combine(captionDir, Path.GetFileName(sameNamingPath));
                 },
-                logger: logger);
+                logger: logger,
+                cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

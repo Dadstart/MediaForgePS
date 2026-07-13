@@ -21,6 +21,7 @@
     Linting mode. Defaults to 'None'.
     - 'None': Skip linting.
     - 'View': Check for formatting issues without fixing them (runs 'dotnet format --verify-no-changes').
+      Fails the build when issues are found (same as CI).
     - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded. Use -Lint View afterward to check for non-fixable diagnostics.
 
 .PARAMETER Test
@@ -380,13 +381,14 @@ if ($Lint -eq 'View') {
     dotnet format $slnPath --verify-no-changes --verbosity $Verbosity
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Yellow
+        Write-Information "Build:Lint:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
+        Write-Host "Linting issues found. Use -Lint Fix to auto-fix them." -ForegroundColor Red
         Write-Host ""
+        throw "Lint View failed with exit code $LASTEXITCODE"
     }
-    else {
-        Write-Host "No linting issues found." -ForegroundColor Green
-        Write-Host ""
-    }
+
+    Write-Host "No linting issues found." -ForegroundColor Green
+    Write-Host ""
 }
 elseif ($Lint -eq 'Fix') {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Lint fix") {

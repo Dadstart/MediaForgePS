@@ -41,26 +41,29 @@ public class ExecutableService : IExecutableService
             : "Executing command: {Command} with arguments: {Arguments}";
         _logger.LogDebug(logMessage, command, argumentsString);
 
+        Process? process = null;
         try
         {
-            var process = CreateAndStartProcess(command, argumentsString);
+            process = CreateAndStartProcess(command, argumentsString);
+            _logger.LogTrace("Process started successfully. Process ID: {ProcessId}", process.Id);
 
-            try
-            {
-                _logger.LogTrace("Process started successfully. Process ID: {ProcessId}", process.Id);
-                cancellationToken.ThrowIfCancellationRequested();
+            using var registration = cancellationToken.Register(
+                static state => TryKillProcessTree((Process)state!),
+                process);
 
-                var (stdout, stderr) = await ReadProcessOutputAsync(process, stdoutCallback, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-                return CreateResult(process, stdout, stderr, command);
-            }
-            finally
-            {
-                process.Dispose();
-            }
+            var (stdout, stderr) = await ReadProcessOutputAsync(process, stdoutCallback, cancellationToken).ConfigureAwait(false);
+
+            // Killing the process on cancel can make WaitForExit complete normally;
+            // always surface cancellation instead of treating it as a failed exit.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return CreateResult(process, stdout, stderr, command);
         }
         catch (OperationCanceledException)
         {
+            TryKillProcessTree(process);
             _logger.LogWarning("Command execution was cancelled: {Command}", command);
             throw;
         }
@@ -68,6 +71,10 @@ public class ExecutableService : IExecutableService
         {
             _logger.LogError(ex, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
             return new ExecutableResult(null, null, null, ex);
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 
@@ -94,6 +101,27 @@ public class ExecutableService : IExecutableService
         }
 
         return process;
+    }
+
+    private static void TryKillProcessTree(Process? process)
+    {
+        if (process is null)
+            return;
+
+        try
+        {
+            if (process.HasExited)
+                return;
+
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException
+                or NotSupportedException
+                or global::System.ComponentModel.Win32Exception)
+        {
+            // Best effort: process may already be exiting or unsupported on the host.
+        }
     }
 
     private async Task<(string? stdout, string? stderr)> ReadProcessOutputAsync(Process process, Action<string>? stdoutCallback, CancellationToken cancellationToken)
