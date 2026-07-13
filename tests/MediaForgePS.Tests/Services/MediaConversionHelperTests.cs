@@ -64,6 +64,74 @@ public class MediaConversionHelperTests
         Assert.Equal("Encoding — 00:05", result);
     }
 
+    [Theory]
+    [InlineData(1.0, true)]
+    [InlineData(0.0, true)]
+    [InlineData(0.4, true)]
+    [InlineData(1.1, false)]
+    public void IsEncodeFinishing_ReturnsExpectedValue(double etaSeconds, bool expected)
+    {
+        var progress = new FfmpegProgress(
+            TimeSpan.FromSeconds(99),
+            TimeSpan.FromSeconds(100),
+            99,
+            TimeSpan.FromSeconds(etaSeconds));
+
+        Assert.Equal(expected, MediaConversionHelper.IsEncodeFinishing(progress));
+    }
+
+    [Fact]
+    public void IsEncodeFinishing_WithNullEta_ReturnsFalse()
+    {
+        var progress = new FfmpegProgress(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 10, null);
+
+        Assert.False(MediaConversionHelper.IsEncodeFinishing(progress));
+    }
+
+    [Fact]
+    public void BuildEncodeProgressDisplay_WhenFinishing_ReturnsSpinnerStatusWithoutEta()
+    {
+        var progress = new FfmpegProgress(
+            TimeSpan.FromSeconds(99),
+            TimeSpan.FromSeconds(100),
+            99,
+            TimeSpan.FromSeconds(1));
+        var spinner = new[] { "|", "/", "-", "\\" };
+        var spinnerIndex = 0;
+
+        var (status, eta) = MediaConversionHelper.BuildEncodeProgressDisplay(
+            "Encoding to libx265 (medium preset)",
+            progress,
+            spinner,
+            ref spinnerIndex);
+
+        Assert.Equal("finishing |", status);
+        Assert.Null(eta);
+        Assert.Equal(1, spinnerIndex);
+    }
+
+    [Fact]
+    public void BuildEncodeProgressDisplay_WhenNotFinishing_ReturnsMmSsStatusAndEta()
+    {
+        var progress = new FfmpegProgress(
+            TimeSpan.FromSeconds(25),
+            TimeSpan.FromSeconds(100),
+            25,
+            TimeSpan.FromSeconds(12));
+        var spinner = new[] { "|", "/", "-", "\\" };
+        var spinnerIndex = 0;
+
+        var (status, eta) = MediaConversionHelper.BuildEncodeProgressDisplay(
+            "Encoding",
+            progress,
+            spinner,
+            ref spinnerIndex);
+
+        Assert.Equal("Encoding — 00:25 / 01:40", status);
+        Assert.Equal(TimeSpan.FromSeconds(12), eta);
+        Assert.Equal(0, spinnerIndex);
+    }
+
     [Fact]
     public void BuildBatchProgressStatus_WithTotalBytes_UsesByteBasedPercentAndStatus()
     {

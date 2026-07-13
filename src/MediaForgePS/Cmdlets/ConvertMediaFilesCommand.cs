@@ -539,11 +539,16 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 var latest = encodeProgress.Latest;
                 if (latest is not null)
                 {
+                    var (status, eta) = MediaConversionHelper.BuildEncodeProgressDisplay(
+                        encodeStatus,
+                        latest,
+                        spinner,
+                        ref spinnerIndex);
                     UpdateFileProgress(
-                        MediaConversionHelper.BuildEncodeProgressStatus(encodeStatus, latest),
+                        status,
                         outputFileName,
                         percentComplete: latest.PercentComplete,
-                        eta: latest.EstimatedTimeRemaining);
+                        eta: eta);
                 }
                 else
                 {

@@ -62,6 +62,37 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Whether encode ETA is one second or less and the finishing spinner should be shown.
+    /// </summary>
+    public static bool IsEncodeFinishing(FfmpegProgress progress) =>
+        progress.EstimatedTimeRemaining is { TotalSeconds: <= 1 };
+
+    /// <summary>
+    /// Builds the next <c>finishing</c> status frame and advances the spinner index.
+    /// </summary>
+    public static string BuildEncodeFinishingStatus(string[] spinner, ref int spinnerIndex)
+    {
+        var frame = spinner[spinnerIndex];
+        spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+        return $"finishing {frame}";
+    }
+
+    /// <summary>
+    /// Builds encode progress display text and ETA, switching to a finishing spinner near completion.
+    /// </summary>
+    public static (string Status, TimeSpan? Eta) BuildEncodeProgressDisplay(
+        string baseStatus,
+        FfmpegProgress progress,
+        string[] spinner,
+        ref int spinnerIndex)
+    {
+        if (IsEncodeFinishing(progress))
+            return (BuildEncodeFinishingStatus(spinner, ref spinnerIndex), null);
+
+        return (BuildEncodeProgressStatus(baseStatus, progress), progress.EstimatedTimeRemaining);
+    }
+
+    /// <summary>
     /// Formats seconds as an Ffmpeg-compatible timecode string (hh:mm:ss.fff).
     /// </summary>
     /// <param name="seconds">Time in seconds.</param>
