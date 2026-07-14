@@ -22,7 +22,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Existing destination files are skipped.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
+[Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true)]
 [OutputType(typeof(void))]
 public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {

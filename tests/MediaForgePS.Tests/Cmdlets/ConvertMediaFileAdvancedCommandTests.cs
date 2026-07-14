@@ -246,7 +246,6 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
             .Single();
 
         Assert.True(attribute.SupportsShouldProcess);
-        Assert.Equal(ConfirmImpact.Medium, attribute.ConfirmImpact);
     }
 
     private static ConstantRateVideoEncodingSettings CreateVideoSettings(string codec = "libx264")

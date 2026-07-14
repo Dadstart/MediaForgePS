@@ -45,7 +45,7 @@ internal class FileProcessingStats
 /// Failed files are reported via <see cref="ConversionResult"/> and WriteError; the batch continues.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true)]
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : ProgressCmdletBase
 {

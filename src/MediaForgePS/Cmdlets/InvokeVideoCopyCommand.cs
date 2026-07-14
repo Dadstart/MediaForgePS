@@ -17,7 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Pipeline -Path values are collected during Process and executed in End.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsLifecycle.Invoke, "VideoCopy", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsLifecycle.Invoke, "VideoCopy", SupportsShouldProcess = true)]
 [OutputType(typeof(string))]
 public class InvokeVideoCopyCommand : ProgressCmdletBase
 {

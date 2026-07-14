@@ -17,7 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// or the absolute stream index when Type is All. Use <see cref="GetMediaFileCommand"/> to inspect stream indices.
 /// Supports -WhatIf and -Confirm. Use -Force to overwrite an existing output file.
 /// </remarks>
-[Cmdlet(VerbsData.Export, "MediaStream", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Export, "MediaStream", SupportsShouldProcess = true)]
 [OutputType(typeof(void))]
 public class ExportMediaStreamCommand : CmdletBase
 {

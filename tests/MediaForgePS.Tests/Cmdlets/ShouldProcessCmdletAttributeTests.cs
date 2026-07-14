@@ -9,14 +9,14 @@ namespace Dadstart.Labs.MediaForge.Tests.Cmdlets;
 public class ShouldProcessCmdletAttributeTests
 {
     [Theory]
-    [InlineData(typeof(ConvertMediaFilesCommand), ConfirmImpact.Medium)]
-    [InlineData(typeof(ConvertVideoFileCommand), ConfirmImpact.Medium)]
-    [InlineData(typeof(ConvertImageSubtitlesToSrtCommand), ConfirmImpact.Medium)]
-    [InlineData(typeof(ConvertMediaFileAdvancedCommand), ConfirmImpact.Medium)]
-    [InlineData(typeof(InvokeVideoCopyCommand), ConfirmImpact.Medium)]
-    [InlineData(typeof(InvokeBonusFileProcessingCommand), ConfirmImpact.High)]
-    [InlineData(typeof(ExportMediaStreamCommand), ConfirmImpact.Medium)]
-    public void DestructiveCmdlets_DeclareSupportsShouldProcess(Type cmdletType, ConfirmImpact expectedImpact)
+    [InlineData(typeof(ConvertMediaFilesCommand))]
+    [InlineData(typeof(ConvertVideoFileCommand))]
+    [InlineData(typeof(ConvertImageSubtitlesToSrtCommand))]
+    [InlineData(typeof(ConvertMediaFileAdvancedCommand))]
+    [InlineData(typeof(InvokeVideoCopyCommand))]
+    [InlineData(typeof(InvokeBonusFileProcessingCommand))]
+    [InlineData(typeof(ExportMediaStreamCommand))]
+    public void DestructiveCmdlets_DeclareSupportsShouldProcess(Type cmdletType)
     {
         var attribute = cmdletType
             .GetCustomAttributes(typeof(CmdletAttribute), inherit: false)
@@ -24,6 +24,5 @@ public class ShouldProcessCmdletAttributeTests
             .Single();
 
         Assert.True(attribute.SupportsShouldProcess);
-        Assert.Equal(expectedImpact, attribute.ConfirmImpact);
     }
 }

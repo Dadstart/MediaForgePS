@@ -19,7 +19,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Does not write to the pipeline; errors are reported via WriteError.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true)]
 public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
