@@ -31,7 +31,7 @@ Convert-MediaFiles processes multiple video files: it resolves paths, detects or
 
 Default video encoding is chosen by `-DefaultVideoEncoder`: **x264** (libx264, CRF 18, preset medium), **x265** (libx265, CRF 18, preset medium), or **nvenc** (hevc_nvenc, CQ 18, preset p5). When `-DefaultVideoEncoder` is omitted, **x265** is used. Override with `-VideoEncodingSettings` for full control.
 
-If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA. Supports -WhatIf and -Confirm.
+If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `MediaConversionResult` objects (`InputPath`/`FilePath`, `OutputPath`, `Success`, `Status`, `InputSizeBytes`, `OutputSizeBytes`, `SizeReductionPercent`, `ProcessingTime`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -209,8 +209,8 @@ Paths to media files (strings or FileSystemInfo). Duplicates are ignored.
 
 ## OUTPUTS
 
-### ConversionResult
-For each input file: FilePath (original path), Success (boolean), Status (message).
+### MediaConversionResult
+For each input file: InputPath (also exposed as FilePath), OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime.
 
 ## NOTES
 Requires FFmpeg. Output extension is .mp4. Failed files are reported in the output and via WriteError.

@@ -42,11 +42,11 @@ internal class FileProcessingStats
 /// Batch conversion cmdlet for explicit file lists. Output files use the original base name with a <c>.mp4</c> extension.
 /// When -DefaultVideoEncoder is omitted, libx265 (x265) is used. Encoder presets: x264 (libx264, CRF 18), x265 (libx265, CRF 18), nvenc (hevc_nvenc, CQ 18).
 /// Audio mappings are auto-detected per file when -AudioTrackMappings is not supplied (English audio preferred).
-/// Failed files are reported via <see cref="ConversionResult"/> and WriteError; the batch continues.
+/// Failed files are reported via <see cref="MediaConversionResult"/> and WriteError; the batch continues.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true)]
-[OutputType(typeof(ConversionResult))]
+[OutputType(typeof(MediaConversionResult))]
 public class ConvertMediaFilesCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -147,7 +147,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     private IMediaConversionService? _mediaConversionService;
     private IMediaReaderService? _mediaReaderService;
     private IAudioTrackMappingService? _audioTrackMappingService;
-    private readonly List<ConversionResult> _conversionResults = new();
+    private readonly List<MediaConversionResult> _conversionResults = new();
     private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<FileProcessingStats> _fileProcessingStats = new();
     private int _currentFileIndex = 0;
@@ -371,10 +371,21 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     /// <summary>
     /// Handles file processing errors with consistent logging, result recording, and progress updates.
     /// </summary>
-    private void HandleFileError(string inputPath, string fileName, string errorMessage, Exception? exception = null, ErrorCategory errorCategory = ErrorCategory.NotSpecified)
+    private void HandleFileError(
+        string inputPath,
+        string fileName,
+        string errorMessage,
+        Exception? exception = null,
+        ErrorCategory errorCategory = ErrorCategory.NotSpecified,
+        string? outputPath = null)
     {
         _fileProcessingStopwatch?.Stop();
-        var result = new ConversionResult(inputPath, false, errorMessage);
+        var result = MediaConversionHelper.CreateConversionResult(
+            inputPath,
+            outputPath ?? inputPath,
+            false,
+            errorMessage,
+            _fileProcessingStopwatch?.Elapsed ?? TimeSpan.Zero);
         _conversionResults.Add(result);
         UpdateFileProgress(errorMessage, fileName, recordType: ProgressRecordType.Completed);
 
@@ -576,7 +587,12 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 reportBatchProgress);
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            var result = new ConversionResult(originalInputPath, true, "Success");
+            var result = MediaConversionHelper.CreateConversionResult(
+                originalInputPath,
+                resolvedOutputPath,
+                true,
+                "Success",
+                _fileProcessingStopwatch?.Elapsed ?? TimeSpan.Zero);
             _conversionResults.Add(result);
             return true;
         }
@@ -584,7 +600,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         {
             Logger.LogError(ex, "FFmpeg conversion failed: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
-            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped);
+            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), statusMessage, ex, ErrorCategory.OperationStopped, resolvedOutputPath);
         }
         catch (OperationCanceledException)
         {
@@ -593,7 +609,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred while converting media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
-            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), $"Conversion failed: {ex.Message}", ex, ErrorCategory.OperationStopped);
+            HandleFileError(originalInputPath, GetFileName(resolvedInputPath), $"Conversion failed: {ex.Message}", ex, ErrorCategory.OperationStopped, resolvedOutputPath);
         }
 
         return false;
@@ -612,33 +628,5 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     {
         var fileName = GetFileName(path);
         return Path.GetFileNameWithoutExtension(fileName);
-    }
-
-    /// <summary>
-    /// Represents the result of a conversion operation.
-    /// </summary>
-    public class ConversionResult
-    {
-        public ConversionResult(string filePath, bool success, string status)
-        {
-            FilePath = filePath;
-            Success = success;
-            Status = status;
-        }
-
-        /// <summary>
-        /// Path to the input file that was processed.
-        /// </summary>
-        public string FilePath { get; }
-
-        /// <summary>
-        /// Indicates whether the conversion was successful.
-        /// </summary>
-        public bool Success { get; }
-
-        /// <summary>
-        /// Status message describing the result.
-        /// </summary>
-        public string Status { get; }
     }
 }

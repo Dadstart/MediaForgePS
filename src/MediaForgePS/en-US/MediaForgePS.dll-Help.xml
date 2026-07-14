@@ -469,10 +469,10 @@
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>System.Boolean</maml:name>
+          <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Not written to pipeline; conversion runs synchronously. Errors are reported via WriteError.</maml:para>
+          <maml:para>Written on successful conversion: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Errors are reported via WriteError.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -532,7 +532,7 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
     <maml:description>
       <maml:para>Convert-MediaFiles processes multiple video files: it resolves paths, detects or uses provided audio track mappings, and converts each file using FFmpeg. Output files keep the original base name with `.mp4` extension in the specified `OutputDirectory`.</maml:para>
       <maml:para>Default video encoding is chosen by `-DefaultVideoEncoder`: x264 (libx264, CRF 18, preset medium), x265 (libx265, CRF 18, preset medium), or nvenc (hevc_nvenc, CQ 18, preset p5). When `-DefaultVideoEncoder` is omitted, x265 is used. Override with `-VideoEncodingSettings` for full control.</maml:para>
-      <maml:para>If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA. Supports -WhatIf and -Confirm.</maml:para>
+      <maml:para>If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `MediaConversionResult` objects (`InputPath`/`FilePath`, `OutputPath`, `Success`, `Status`, `InputSizeBytes`, `OutputSizeBytes`, `SizeReductionPercent`, `ProcessingTime`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA. Supports -WhatIf and -Confirm.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -858,10 +858,10 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>ConversionResult</maml:name>
+          <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>For each input file: FilePath (original path), Success (boolean), Status (message).</maml:para>
+          <maml:para>For each input file: InputPath (also exposed as FilePath), OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -932,7 +932,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.</maml:para>
+      <maml:para>Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes MediaConversionResult objects to the pipeline.</maml:para>
       <maml:para>Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.</maml:para>
       <maml:para>Unless -SkipSubtitles is specified, after successful conversions the cmdlet extracts English subtitle streams next to the output MP4. For Matroska sources, VobSub (dvd_subtitle) tracks are extracted with `mkvextract`; all other codecs and all non-Matroska containers use `ffmpeg`. When falling back to `ffmpeg` for VobSub, both `.idx` and `.sub` companion files are produced.</maml:para>
       <maml:para>Use `-Ocr` to control post-extraction OCR and repair of image-based captions (SUP, SUB). Accepted values are Auto (default), Skip , and Force :</maml:para>
@@ -1226,10 +1226,10 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>VideoFileConversionResult</maml:name>
+          <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>For each processed file: InputPath, OutputPath, Success, Status.</maml:para>
+          <maml:para>For each processed file: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -2085,7 +2085,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:details>
     <maml:description>
       <maml:para>Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default nvenc ). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` ( Auto , Skip , or Force ; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.</maml:para>
-      <maml:para>Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Supports -WhatIf and -Confirm.</maml:para>
+      <maml:para>Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Writes a MediaConversionResult per converted file (output path, size reduction, and processing time). Supports -WhatIf and -Confirm.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -2372,10 +2372,10 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     <command:returnValues>
       <command:returnValue>
         <dev:type>
-          <maml:name>None</maml:name>
+          <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>This cmdlet does not write to the pipeline.</maml:para>
+          <maml:para>One object per converted bonus file: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -2563,26 +2563,26 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </maml:alertSet>
     <command:examples>
       <command:example>
-        <maml:title>--------------- Example 1: Scan by series slug ---------------</maml:title>
+        <maml:title>---------------- Example 1: Scan by series slug ----------------</maml:title>
         <dev:code>$env:TVDB_API_KEY = 'your-key-here'   # once per session if not already set
 
 Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/breaking-bad"</dev:code>
         <dev:remarks>
-          <maml:para>Returns TvDbEpisodeInfo objects for season 1 using the series slug. Set TVDB_API_KEY (and TVDB_PIN when required) before calling.</maml:para>
+          <maml:para>Returns `TvDbEpisodeInfo` objects for season 1 using the series slug. Set `TVDB_API_KEY` (and `TVDB_PIN` when required) before calling.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>----------- Example 2: Scan by numeric series ID -----------</maml:title>
+        <maml:title>------------- Example 2: Scan by numeric series ID -------------</maml:title>
         <dev:code>Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/81189"</dev:code>
         <dev:remarks>
           <maml:para>Same result using TheTVDB numeric series ID in the URL.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>------- Example 3: Scan with an explicit season URL -------</maml:title>
+        <maml:title>--------- Example 3: Scan with an explicit season URL ---------</maml:title>
         <dev:code>Invoke-SeasonScan -Season 1 -TvDbSeasonUrl "https://thetvdb.com/series/breaking-bad/seasons/official/1"</dev:code>
         <dev:remarks>
-          <maml:para>Uses the season-order path (official, dvd, and so on) and season number from the URL.</maml:para>
+          <maml:para>Uses the season-order path (`official`, `dvd`, and so on) and season number from the URL.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>

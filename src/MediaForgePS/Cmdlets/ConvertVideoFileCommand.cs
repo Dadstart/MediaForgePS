@@ -20,11 +20,11 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Primary batch conversion cmdlet for video libraries. Supports common container extensions (.mkv, .mp4, .mov, .avi, .webm, and more).
 /// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
 /// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
-/// Writes a <see cref="VideoFileConversionResult"/> per processed file to the pipeline.
+/// Writes a <see cref="MediaConversionResult"/> per processed file to the pipeline.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true)]
-[OutputType(typeof(VideoFileConversionResult))]
+[OutputType(typeof(MediaConversionResult))]
 public class ConvertVideoFileCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -33,7 +33,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     private IMediaReaderService? _mediaReaderService;
     private IAudioTrackMappingService? _audioTrackMappingService;
     private IMediaConversionService? _mediaConversionService;
-    private readonly List<VideoFileConversionResult> _results = new();
+    private readonly List<MediaConversionResult> _results = new();
     private readonly List<(long FileSizeBytes, TimeSpan ProcessingTime)> _completedFileStats = new();
     private List<(string Path, string InputRoot, string OutputRoot, long Size)>? _sizedVideoFiles;
     private Stopwatch? _batchStopwatch;
@@ -341,7 +341,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             WriteHostMessage($"Directory conversion finished: {ok} succeeded, {failed} failed.", ConsoleColor.Yellow);
     }
 
-    private VideoFileConversionResult ConvertSingleFile(
+    private MediaConversionResult ConvertSingleFile(
         string resolvedInputDirectory,
         string resolvedOutputDirectory,
         string inputPath,
@@ -359,7 +359,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             {
                 _fileStopwatch.Stop();
                 UpdateFileProgress("Failed to read media metadata", fileName, recordType: ProgressRecordType.Completed);
-                return new VideoFileConversionResult(inputPath, inputPath, false, "Failed to read media metadata.");
+                return MediaConversionHelper.CreateConversionResult(
+                    inputPath, inputPath, false, "Failed to read media metadata.", _fileStopwatch.Elapsed);
             }
 
             UpdateFileProgress("Building audio track mappings", fileName);
@@ -375,11 +376,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             {
                 _fileStopwatch.Stop();
                 UpdateFileProgress("Failed to resolve output path", fileName, recordType: ProgressRecordType.Completed);
-                return new VideoFileConversionResult(
-                    inputPath,
-                    outputPath,
-                    false,
-                    "Failed to resolve output path.");
+                return MediaConversionHelper.CreateConversionResult(
+                    inputPath, outputPath, false, "Failed to resolve output path.", _fileStopwatch.Elapsed);
             }
 
             _currentFileEstimatedTime = CalculateFileEta(inputPath);
@@ -401,20 +399,23 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             _fileStopwatch.Stop();
             RecordFileProcessingStats(inputPath);
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
-            return new VideoFileConversionResult(inputPath, resolvedOutputPath, true, "Success");
+            return MediaConversionHelper.CreateConversionResult(
+                inputPath, resolvedOutputPath, true, "Success", _fileStopwatch.Elapsed);
         }
         catch (FfmpegConversionException ex)
         {
             _fileStopwatch?.Stop();
             var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
             UpdateFileProgress("Conversion failed", fileName, recordType: ProgressRecordType.Completed);
-            return new VideoFileConversionResult(inputPath, inputPath, false, statusMessage);
+            return MediaConversionHelper.CreateConversionResult(
+                inputPath, inputPath, false, statusMessage, _fileStopwatch?.Elapsed ?? TimeSpan.Zero);
         }
         catch (Exception ex)
         {
             _fileStopwatch?.Stop();
             UpdateFileProgress("Error", fileName, recordType: ProgressRecordType.Completed);
-            return new VideoFileConversionResult(inputPath, inputPath, false, ex.Message);
+            return MediaConversionHelper.CreateConversionResult(
+                inputPath, inputPath, false, ex.Message, _fileStopwatch?.Elapsed ?? TimeSpan.Zero);
         }
     }
 
@@ -674,12 +675,3 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         return false;
     }
 }
-
-/// <summary>
-/// Result of converting a single video file in a <see cref="ConvertVideoFileCommand"/> batch.
-/// </summary>
-/// <param name="InputPath">Original source file path.</param>
-/// <param name="OutputPath">Path to the converted MP4 file.</param>
-/// <param name="Success">Whether conversion completed successfully.</param>
-/// <param name="Status">Human-readable status or error message.</param>
-public record VideoFileConversionResult(string InputPath, string OutputPath, bool Success, string Status);

@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Providers;
+using Xunit;
 using Xunit.Sdk;
 
 namespace Dadstart.Labs.MediaForge.ComponentTests;
@@ -34,6 +36,17 @@ public abstract class ComponentTestBase : IDisposable
         _tempDirectories.Add(directory);
 
         return directory;
+    }
+
+    /// <summary>
+    /// Copies the sample MKV into a temp directory under a new file name and returns the destination path.
+    /// </summary>
+    protected string CopySampleVideoAs(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+        File.Copy(SampleVideoPath, destination);
+        return destination;
     }
 
     protected static PowerShell CreatePowerShellFor<TCmdlet>(string commandName)
@@ -71,6 +84,36 @@ public abstract class ComponentTestBase : IDisposable
             return;
 
         FailOrSkip("ffmpeg and/or ffprobe not found on PATH. Install them to run component tests.");
+    }
+
+    /// <summary>
+    /// Asserts a successful <see cref="MediaConversionResult"/> with path, size, and timing details populated.
+    /// </summary>
+    /// <param name="requireOutputFileExists">
+    /// When false, skips the on-disk output check (e.g. after bonus files are moved into Plex folders).
+    /// </param>
+    protected static void AssertSuccessfulConversionResult(
+        MediaConversionResult result,
+        string expectedInputPath,
+        string expectedOutputPath,
+        bool requireOutputFileExists = true)
+    {
+        Assert.True(result.Success, $"Expected Success; Status={result.Status}");
+        Assert.Equal("Success", result.Status);
+        Assert.True(
+            string.Equals(result.InputPath, expectedInputPath, StringComparison.OrdinalIgnoreCase),
+            $"InputPath mismatch: expected {expectedInputPath}, got {result.InputPath}");
+        Assert.True(
+            string.Equals(result.OutputPath, expectedOutputPath, StringComparison.OrdinalIgnoreCase),
+            $"OutputPath mismatch: expected {expectedOutputPath}, got {result.OutputPath}");
+        Assert.Equal(result.InputPath, result.FilePath);
+        Assert.True(result.InputSizeBytes > 0, "InputSizeBytes should be > 0");
+        Assert.True(result.OutputSizeBytes > 0, "OutputSizeBytes should be > 0");
+        Assert.NotNull(result.SizeReductionPercent);
+        Assert.True(result.ProcessingTime > TimeSpan.Zero, "ProcessingTime should be > 0");
+
+        if (requireOutputFileExists)
+            Assert.True(File.Exists(result.OutputPath), $"Expected output file to exist: {result.OutputPath}");
     }
 
     /// <summary>

@@ -66,6 +66,91 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Returns the size of a file in bytes, or 0 when the path is missing or unreadable.
+    /// </summary>
+    public static long TryGetFileSizeBytes(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return 0;
+
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Calculates percent of input size saved by conversion (positive means a smaller output).
+    /// </summary>
+    public static double? CalculateSizeReductionPercent(long inputBytes, long outputBytes)
+    {
+        if (inputBytes <= 0)
+            return null;
+
+        return Math.Round((1.0 - (double)outputBytes / inputBytes) * 100.0, 1);
+    }
+
+    /// <summary>
+    /// Builds a <see cref="MediaConversionResult"/> from paths, status, and elapsed processing time.
+    /// </summary>
+    public static MediaConversionResult CreateConversionResult(
+        string inputPath,
+        string outputPath,
+        bool success,
+        string status,
+        TimeSpan processingTime)
+    {
+        var inputSize = TryGetFileSizeBytes(inputPath);
+        var outputSize = success ? TryGetFileSizeBytes(outputPath) : 0L;
+        var reduction = success ? CalculateSizeReductionPercent(inputSize, outputSize) : null;
+
+        return new MediaConversionResult(
+            inputPath,
+            outputPath,
+            success,
+            status,
+            inputSize,
+            outputSize,
+            reduction,
+            processingTime);
+    }
+
+    /// <summary>
+    /// Formats a size-reduction percent as a short human-readable phrase.
+    /// </summary>
+    public static string FormatSizeReduction(double? sizeReductionPercent)
+    {
+        if (!sizeReductionPercent.HasValue)
+            return "n/a";
+
+        var percent = sizeReductionPercent.Value;
+        if (percent > 0)
+            return $"{percent:0.#}% smaller";
+        if (percent < 0)
+            return $"{Math.Abs(percent):0.#}% larger";
+
+        return "same size";
+    }
+
+    /// <summary>
+    /// Formats a conversion result for host summaries (output path, size change, and duration).
+    /// </summary>
+    public static string FormatConversionResultLine(MediaConversionResult result)
+    {
+        if (!result.Success)
+            return $"{result.InputPath} — {result.Status}";
+
+        var sizeChange = FormatSizeReduction(result.SizeReductionPercent);
+        var sizes = $"{FormatByteCount(result.InputSizeBytes)} → {FormatByteCount(result.OutputSizeBytes)}";
+        return $"{result.OutputPath} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
+    }
+
+    /// <summary>
     /// Builds encode status text including media position as <c>mm:ss / mm:ss</c>.
     /// </summary>
     public static string BuildEncodeProgressStatus(string baseStatus, FfmpegProgress progress)

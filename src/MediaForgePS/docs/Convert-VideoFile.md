@@ -19,7 +19,7 @@ Convert-VideoFile [-InputPath] <String[]> [[-OutputDirectory] <String>] [-Recurs
 ```
 
 ## DESCRIPTION
-Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes VideoFileConversionResult objects to the pipeline.
+Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes MediaConversionResult objects to the pipeline.
 
 Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.
 
@@ -262,8 +262,8 @@ Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Pat
 
 ## OUTPUTS
 
-### VideoFileConversionResult
-For each processed file: InputPath, OutputPath, Success, Status.
+### MediaConversionResult
+For each processed file: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime.
 
 ## NOTES
 Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.

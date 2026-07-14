@@ -51,7 +51,7 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
             BaseAddress = new Uri(ApiBaseAddress),
             Timeout = _defaultTimeout
         };
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MediaForgePS/0.17.0");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MediaForgePS/0.18.0");
     }
 
     public async Task<long> ResolveSeriesIdAsync(string seriesKey, CancellationToken cancellationToken = default)

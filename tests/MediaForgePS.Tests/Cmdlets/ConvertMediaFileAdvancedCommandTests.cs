@@ -132,8 +132,13 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         var results = ps.Invoke().ToList();
         var errors = ps.Streams.Error.ReadAll();
 
-        Assert.Empty(results);
         Assert.Empty(errors);
+        var result = Assert.Single(results);
+        var conversionResult = Assert.IsType<MediaConversionResult>(result.BaseObject);
+        Assert.True(conversionResult.Success);
+        Assert.Equal(resolvedOutputPath, conversionResult.OutputPath);
+        Assert.Equal("Success", conversionResult.Status);
+        Assert.True(conversionResult.ProcessingTime >= TimeSpan.Zero);
         _mediaConversionServiceMock.Verify(
             s => s.ExecuteConversion(
                 resolvedInputPath,

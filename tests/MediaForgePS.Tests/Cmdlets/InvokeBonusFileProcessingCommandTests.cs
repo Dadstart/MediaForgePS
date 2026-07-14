@@ -287,6 +287,50 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     }
 
     [Fact]
+    public void InvokeBonusFileProcessing_WritesConversionResultWithSizeReductionAndDuration()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution(output);
+
+        var expectedOutput = Path.Combine(input, "clip-trailer.mp4");
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                mkvPath,
+                expectedOutput,
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllBytes(expectedOutput, new byte[400]));
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles");
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        var result = Assert.IsType<MediaConversionResult>(Assert.Single(results).BaseObject);
+        Assert.True(result.Success);
+        Assert.Equal(mkvPath, result.InputPath);
+        Assert.Equal(expectedOutput, result.OutputPath);
+        Assert.Equal(1000, result.InputSizeBytes);
+        Assert.Equal(400, result.OutputSizeBytes);
+        Assert.Equal(60.0, result.SizeReductionPercent);
+        Assert.True(result.ProcessingTime >= TimeSpan.Zero);
+    }
+
+    [Fact]
     public void InvokeBonusFileProcessing_WithEncodeProgress_WritesPercentAndSecondsRemaining()
     {
         var input = CreateTempDirectory();
