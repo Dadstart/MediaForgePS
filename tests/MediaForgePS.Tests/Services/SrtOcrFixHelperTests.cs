@@ -24,6 +24,14 @@ public class SrtOcrFixHelperTests
     }
 
     [Fact]
+    public void FixMusicNoteOcrErrors_ReplacesDollar10And20Markers_WithThreeMusicNotes()
+    {
+        var srt = "1\n00:00:01,000 --> 00:00:02,000\n[$10] Song [$20]\n\n";
+        var result = SrtOcrFixHelper.FixMusicNoteOcrErrors(srt);
+        Assert.Contains("[♪♪♪] Song [♪♪♪]", result);
+    }
+
+    [Fact]
     public void FixMusicNoteOcrErrors_ReplacesStandalonePipe_WithI()
     {
         var srt = "1\n00:00:01,000 --> 00:00:02,000\nI think | am right.\n\n";

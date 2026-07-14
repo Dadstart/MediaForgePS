@@ -70,7 +70,7 @@ public static class SrtOcrFixHelper
     }
 
     /// <summary>
-    /// Replaces OCR misreads in a single subtitle text line: &lt;i&gt;33&lt;/i&gt; → &lt;i&gt;♪♪&lt;/i&gt;; ♪ (J, 3, S, &, trailing I) → ♪; solitary | → I.
+    /// Replaces OCR misreads in a single subtitle text line: &lt;i&gt;33&lt;/i&gt; → &lt;i&gt;♪♪&lt;/i&gt;; [$10]/[$20] → [♪♪♪]; ♪ (J, 3, S, &, trailing I) → ♪; solitary | → I.
     /// Boundaries include whitespace and &lt;i&gt; / &lt;/i&gt; tags.
     /// </summary>
     internal static string FixMusicNoteInLine(string line)
@@ -82,6 +82,10 @@ public static class SrtOcrFixHelper
 
         // Replace <i>33</i> (OCR misread of two music notes) with <i>♪♪</i>.
         s = s.Replace("<i>33</i>", $"<i>{MusicNote}{MusicNote}</i>");
+
+        // Replace [$10] / [$20] (OCR misread of three music notes) with [♪♪♪].
+        var threeNotes = $"[{MusicNote}{MusicNote}{MusicNote}]";
+        s = s.Replace("[$10]", threeNotes).Replace("[$20]", threeNotes);
 
         // Replace J, 3, S, &, ¢, d, $ or g with ♪ when they appear in "music note" positions (standalone or at boundaries).
         s = Regex.Replace(s, @"(^|\s|<i>|</i>)[J3S&¢d$g](\s|$|<i>|</i>)", $"$1{MusicNote}$2");
