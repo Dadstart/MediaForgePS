@@ -6,6 +6,7 @@ using Dadstart.Labs.MediaForge.Parsers;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services.TvDb;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -54,6 +55,8 @@ public static class ModuleServices
             services.AddSingleton<IMediaReaderService, MediaReaderService>();
             services.AddSingleton<IAudioTrackMappingService, AudioTrackMappingService>();
             services.AddSingleton<IMediaConversionService, MediaConversionService>();
+            services.AddSingleton<ITvDbCredentialProvider, EnvironmentTvDbCredentialProvider>();
+            services.AddSingleton<ITvDbClient, TvDbClient>();
             services.AddSingleton<ISeriesProcessingService, SeriesProcessingService>();
 
             _provider = services.BuildServiceProvider(validateScopes: true);

@@ -251,6 +251,6 @@ Split-SeriesChapters -Title "My Show" -Season 1 -InputFile "C:\season1.mkv" `
 Invoke-BonusFileProcessing -InputPath "C:\Extras\Movie" -OutputPath "P:\Movies\Movie"
 ```
 
-`Invoke-SeriesProcessing` runs these steps in order: create folder structure, scan TVDb, copy episodes, optionally extract chapters, optionally extract captions with OCR. It fails if TVDb returns no episodes or no files are copied.
+`Invoke-SeriesProcessing` runs these steps in order: create folder structure, scan TVDb via the official API (`TVDB_API_KEY`), copy episodes, optionally extract chapters, optionally extract captions with OCR. It fails if TVDb returns no episodes or no files are copied.
 
 See [src/MediaForgePS/docs](src/MediaForgePS/docs) for per-cmdlet help source and [docs/platyPS-help-walkthrough.md](docs/platyPS-help-walkthrough.md) for the help authoring workflow.

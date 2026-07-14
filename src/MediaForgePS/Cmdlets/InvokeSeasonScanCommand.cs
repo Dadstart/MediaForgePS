@@ -11,7 +11,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Returns <see cref="TvDbEpisodeInfo"/> objects (Id, SeasonNumber, Title, EpisodeNumber) used by
 /// <see cref="InvokeVideoCopyCommand"/>, <see cref="SplitSeriesChaptersCommand"/>, and <see cref="InvokeSeriesProcessingCommand"/>.
-/// Requires network access to thetvdb.com. When TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season.
+/// Requires TheTVDB API access via <c>TVDB_API_KEY</c> (and optional <c>TVDB_PIN</c>).
+/// When TvDbSeasonUrl is omitted, it is built from TvDbSeriesUrl and Season.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeasonScan")]
 [OutputType(typeof(TvDbEpisodeInfo))]

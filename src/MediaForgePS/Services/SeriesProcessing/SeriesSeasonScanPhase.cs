@@ -1,28 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Management.Automation;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
+using Dadstart.Labs.MediaForge.Services.TvDb;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
-internal sealed class SeriesSeasonScanPhase(ILogger logger)
+internal sealed class SeriesSeasonScanPhase(ITvDbClient tvDbClient, ILogger logger)
 {
-    private const string TvDbSeriesUrlPrefix = "https://thetvdb.com/series/";
-    private const string TvDbSeasonPathSegment = "/seasons/";
-
-    private static readonly HttpClient _httpClient = new()
-    {
-        DefaultRequestHeaders = { { "User-Agent", "MediaForgePS/1.0" } }
-    };
-
-    private static readonly Regex _episodeIdRegex = new(@"/series/[^/]+/episodes/(\d+)", RegexOptions.Compiled);
-
     public IReadOnlyList<TvDbEpisodeInfo> Run(ICmdletErrorSink errors, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
     {
         if (string.IsNullOrWhiteSpace(tvDbSeasonUrl) && string.IsNullOrWhiteSpace(tvDbSeriesUrl))
@@ -35,72 +23,110 @@ internal sealed class SeriesSeasonScanPhase(ILogger logger)
             return Array.Empty<TvDbEpisodeInfo>();
         }
 
-        if (!string.IsNullOrWhiteSpace(tvDbSeriesUrl) &&
-            !tvDbSeriesUrl.StartsWith(TvDbSeriesUrlPrefix, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(tvDbSeriesUrl) && !TvDbUrlParser.IsSeriesUrl(tvDbSeriesUrl))
         {
             errors.WriteError(new ErrorRecord(
-                new ArgumentException($"Invalid TVDb URL format. Expected: {TvDbSeriesUrlPrefix}show-name"),
+                new ArgumentException($"Invalid TVDb URL format. Expected: {TvDbUrlParser.SeriesUrlPrefix}show-name"),
                 "InvalidTvDbUrl",
                 ErrorCategory.InvalidArgument,
                 tvDbSeriesUrl));
             return Array.Empty<TvDbEpisodeInfo>();
         }
 
-        if (!string.IsNullOrWhiteSpace(tvDbSeasonUrl) &&
-            (!tvDbSeasonUrl.StartsWith(TvDbSeriesUrlPrefix, StringComparison.OrdinalIgnoreCase) ||
-             !tvDbSeasonUrl.Contains(TvDbSeasonPathSegment, StringComparison.Ordinal)))
+        if (!TryResolveScanTarget(tvDbSeriesUrl, tvDbSeasonUrl, season, out var seriesKey, out var seasonType, out var effectiveSeason, out var urlError))
         {
-            errors.WriteError(new ErrorRecord(
-                new ArgumentException($"Invalid TVDb season URL format. Expected: {TvDbSeriesUrlPrefix}show-name/seasons/..."),
-                "InvalidTvDbSeasonUrl",
-                ErrorCategory.InvalidArgument,
-                tvDbSeasonUrl));
+            errors.WriteError(urlError!);
             return Array.Empty<TvDbEpisodeInfo>();
         }
 
-        var seasonUrl = !string.IsNullOrWhiteSpace(tvDbSeasonUrl)
-            ? tvDbSeasonUrl
-            : $"{tvDbSeriesUrl!.TrimEnd('/')}/seasons/official/{season}";
-
-        logger.LogDebug("Fetching TVDb season page: {SeasonUrl}", seasonUrl);
-
-        string html;
         try
         {
-            html = _httpClient.GetStringAsync(seasonUrl).ConfigureAwait(false).GetAwaiter().GetResult();
+            logger.LogDebug(
+                "Resolving TVDb series '{SeriesKey}' for season {Season} ({SeasonType})",
+                seriesKey,
+                effectiveSeason,
+                seasonType);
+
+            var seriesId = tvDbClient.ResolveSeriesIdAsync(seriesKey).ConfigureAwait(false).GetAwaiter().GetResult();
+            var episodes = tvDbClient
+                .GetSeasonEpisodesAsync(seriesId, effectiveSeason, seasonType)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+
+            logger.LogDebug("Found {Count} episodes for season {Season}", episodes.Count, effectiveSeason);
+            return episodes;
+        }
+        catch (TvDbApiException ex)
+        {
+            errors.WriteError(new ErrorRecord(ex, ex.ErrorId, MapErrorCategory(ex.ErrorId), tvDbSeasonUrl ?? tvDbSeriesUrl));
+            return Array.Empty<TvDbEpisodeInfo>();
         }
         catch (HttpRequestException ex)
         {
-            errors.WriteError(new ErrorRecord(ex, "TvDbRequestFailed", ErrorCategory.ConnectionError, seasonUrl));
+            errors.WriteError(new ErrorRecord(
+                ex,
+                "TvDbRequestFailed",
+                ErrorCategory.ConnectionError,
+                tvDbSeasonUrl ?? tvDbSeriesUrl));
             return Array.Empty<TvDbEpisodeInfo>();
         }
-
-        var episodeIds = _episodeIdRegex.Matches(html)
-            .Select(match => match.Groups[1].Value)
-            .Distinct()
-            .OrderBy(id => int.Parse(id, CultureInfo.InvariantCulture))
-            .ToList();
-
-        if (episodeIds.Count == 0)
-        {
-            logger.LogDebug("No episode IDs found on the season page");
-            return Array.Empty<TvDbEpisodeInfo>();
-        }
-
-        var episodes = new List<TvDbEpisodeInfo>(episodeIds.Count);
-        for (var index = 0; index < episodeIds.Count; index++)
-        {
-            var episodeId = episodeIds[index];
-            var titlePattern = $"episodes/{Regex.Escape(episodeId)}[^>]*>([^<]+)</a>";
-            var titleMatch = Regex.Match(html, titlePattern);
-            var title = titleMatch.Success
-                ? titleMatch.Groups[1].Value.Trim()
-                : $"Episode {index + 1}";
-
-            episodes.Add(new TvDbEpisodeInfo(episodeId, season, title, index + 1));
-        }
-
-        logger.LogDebug("Found {Count} episodes for season {Season}", episodes.Count, season);
-        return episodes;
     }
+
+    private static bool TryResolveScanTarget(
+        string? tvDbSeriesUrl,
+        string? tvDbSeasonUrl,
+        int season,
+        out string seriesKey,
+        out string seasonType,
+        out int effectiveSeason,
+        out ErrorRecord? error)
+    {
+        seriesKey = string.Empty;
+        seasonType = TvDbUrlParser.DefaultSeasonType;
+        effectiveSeason = season;
+        error = null;
+
+        if (!string.IsNullOrWhiteSpace(tvDbSeasonUrl))
+        {
+            if (!TvDbUrlParser.TryParseSeasonUrl(tvDbSeasonUrl, out var parsedSeason))
+            {
+                error = new ErrorRecord(
+                    new ArgumentException(
+                        $"Invalid TVDb season URL format. Expected: {TvDbUrlParser.SeriesUrlPrefix}show-name/seasons/official/1"),
+                    "InvalidTvDbSeasonUrl",
+                    ErrorCategory.InvalidArgument,
+                    tvDbSeasonUrl);
+                return false;
+            }
+
+            seriesKey = parsedSeason.SeriesKey;
+            seasonType = parsedSeason.SeasonType;
+            if (parsedSeason.SeasonNumber is int seasonFromUrl)
+                effectiveSeason = seasonFromUrl;
+
+            return true;
+        }
+
+        if (!TvDbUrlParser.TryParseSeriesUrl(tvDbSeriesUrl, out seriesKey))
+        {
+            error = new ErrorRecord(
+                new ArgumentException($"Invalid TVDb URL format. Expected: {TvDbUrlParser.SeriesUrlPrefix}show-name"),
+                "InvalidTvDbUrl",
+                ErrorCategory.InvalidArgument,
+                tvDbSeriesUrl);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static ErrorCategory MapErrorCategory(string errorId) => errorId switch
+    {
+        "TvDbApiKeyMissing" => ErrorCategory.InvalidOperation,
+        "TvDbAuthFailed" => ErrorCategory.AuthenticationError,
+        "TvDbSeriesNotFound" => ErrorCategory.ObjectNotFound,
+        "TvDbInvalidResponse" => ErrorCategory.InvalidData,
+        _ => ErrorCategory.ConnectionError
+    };
 }
