@@ -20,15 +20,16 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// (2) extract English subtitles and optionally OCR image-based tracks (-Ocr Auto/Skip/Force),
 /// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
 /// Existing destination files are skipped.
+/// Writes a <see cref="MediaConversionResult"/> per converted bonus file to the pipeline.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true)]
-[OutputType(typeof(void))]
+[OutputType(typeof(MediaConversionResult))]
 public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
 
-    private readonly List<ConversionSummary> _conversionResults = new();
+    private readonly List<MediaConversionResult> _conversionResults = new();
     private readonly List<(long FileSizeBytes, TimeSpan ProcessingTime)> _fileProcessingStats = new();
 
     private IMediaReaderService? _mediaReaderService;
@@ -180,7 +181,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 ErrorCategory.OperationStopped,
                 inputFullPath));
             WriteWarning("Continuing with file organization for Plex despite conversion error.");
-            bonusFileCount = _conversionResults.Count(summary => summary.Success);
+            bonusFileCount = _conversionResults.Count(MediaConversionHelper.IsCompletedConversion);
         }
 
         if (!SkipSubtitles.IsPresent)
@@ -331,7 +332,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             var summary = ConvertSingleBonusFile(filePath, inputDirectory);
 
             _conversionResults.Add(summary);
-            if (summary.Success)
+            WriteObject(summary);
+            if (MediaConversionHelper.IsCompletedConversion(summary))
             {
                 _conversionBatchCompletedBytes += fileSize;
                 _fileProcessingStats.Add((fileSize, summary.ProcessingTime));
@@ -376,7 +378,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         return remainingBytes;
     }
 
-    private ConversionSummary ConvertSingleBonusFile(string inputFilePath, string inputDirectory)
+    private MediaConversionResult ConvertSingleBonusFile(string inputFilePath, string inputDirectory)
     {
         var fileName = Path.GetFileName(inputFilePath);
         var stopwatch = Stopwatch.StartNew();
@@ -395,7 +397,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 WriteWarning($"{StatusMessage}: {inputFilePath}");
                 stopwatch.Stop();
                 UpdateFileProgress(StatusMessage, fileName, recordType: ProgressRecordType.Completed);
-                return new ConversionSummary(inputFilePath, false, StatusMessage, stopwatch.Elapsed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputFilePath, inputFilePath, false, StatusMessage, stopwatch.Elapsed);
             }
 
             UpdateFileProgress("Building audio track mappings", fileName);
@@ -422,7 +425,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     WriteWarning(message);
                     stopwatch.Stop();
                     UpdateFileProgress("Failed to build audio mappings", fileName, recordType: ProgressRecordType.Completed);
-                    return new ConversionSummary(inputFilePath, false, message, stopwatch.Elapsed);
+                    return MediaConversionHelper.CreateConversionResult(
+                        inputFilePath, inputFilePath, false, message, stopwatch.Elapsed);
                 }
             }
 
@@ -444,14 +448,16 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
                 stopwatch.Stop();
                 UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
-                return new ConversionSummary(inputFilePath, true, "Success", stopwatch.Elapsed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputFilePath, outputFilePath, true, MediaConversionResult.CompletedStatus, stopwatch.Elapsed);
             }
             catch (FfmpegConversionException ex)
             {
                 stopwatch.Stop();
                 var statusMessage = MediaConversionHelper.BuildConversionFailureStatusMessage(ex);
                 UpdateFileProgress("Conversion failed", fileName, recordType: ProgressRecordType.Completed);
-                return new ConversionSummary(inputFilePath, false, statusMessage, stopwatch.Elapsed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputFilePath, outputFilePath, false, statusMessage, stopwatch.Elapsed);
             }
             catch (OperationCanceledException)
             {
@@ -461,7 +467,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             {
                 stopwatch.Stop();
                 UpdateFileProgress("Error", fileName, recordType: ProgressRecordType.Completed);
-                return new ConversionSummary(inputFilePath, false, $"Conversion failed: {ex.Message}", stopwatch.Elapsed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputFilePath, outputFilePath, false, $"Conversion failed: {ex.Message}", stopwatch.Elapsed);
             }
         }
         catch (OperationCanceledException)
@@ -475,7 +482,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             var message = $"Failed to read media file: {ex.Message}";
             WriteWarning($"{message} ({inputFilePath})");
             UpdateFileProgress("Error", fileName, recordType: ProgressRecordType.Completed);
-            return new ConversionSummary(inputFilePath, false, message, stopwatch.Elapsed);
+            return MediaConversionHelper.CreateConversionResult(
+                inputFilePath, inputFilePath, false, message, stopwatch.Elapsed);
         }
     }
 
@@ -676,15 +684,15 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
     private void WriteConversionSummary()
     {
-        var succeeded = _conversionResults.Where(r => r.Success).ToList();
-        var failed = _conversionResults.Where(r => !r.Success).ToList();
+        var succeeded = _conversionResults.Where(MediaConversionHelper.IsCompletedConversion).ToList();
+        var failed = _conversionResults.Where(r => !MediaConversionHelper.IsCompletedConversion(r)).ToList();
 
         if (succeeded.Count > 0)
         {
             WriteHostMessage(string.Empty);
             WriteHostMessage($"  ✅ Succeeded ({succeeded.Count}):", ConsoleColor.Green);
             foreach (var result in succeeded)
-                WriteHostMessage($"    {result.FilePath}", ConsoleColor.Gray);
+                WriteHostMessage($"    {MediaConversionHelper.FormatConversionResultLine(result)}", ConsoleColor.Gray);
         }
 
         if (failed.Count > 0)
@@ -692,7 +700,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             WriteHostMessage(string.Empty);
             WriteHostMessage($"  ❌ Failed ({failed.Count}):", ConsoleColor.Red);
             foreach (var result in failed)
-                WriteHostMessage($"    {result.FilePath}", ConsoleColor.Gray);
+                WriteHostMessage($"    {MediaConversionHelper.FormatConversionResultLine(result)}", ConsoleColor.Gray);
         }
     }
 
@@ -885,24 +893,5 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             WriteWarning($"No empty Plex folders found to remove in '{destinationDirectory}'");
         else
             WriteVerbose($"{foldersDeleted} empty Plex folders deleted");
-    }
-
-    private readonly struct ConversionSummary
-    {
-        public ConversionSummary(string filePath, bool success, string status, TimeSpan processingTime)
-        {
-            FilePath = filePath;
-            Success = success;
-            Status = status;
-            ProcessingTime = processingTime;
-        }
-
-        public string FilePath { get; }
-
-        public bool Success { get; }
-
-        public string Status { get; }
-
-        public TimeSpan ProcessingTime { get; }
     }
 }

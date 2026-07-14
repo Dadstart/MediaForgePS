@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Dadstart.Labs.MediaForge.Cmdlets;
+using Dadstart.Labs.MediaForge.Models;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.ComponentTests.Cmdlets;
@@ -14,6 +16,7 @@ public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
         SkipIfTestAssetsMissing();
 
         var outputDir = CreateTempDirectory();
+        var expectedOutput = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(SampleVideoPath) + ".mp4");
 
         using var ps = CreatePowerShellFor<ConvertMediaFilesCommand>("Convert-MediaFiles");
         ps.AddCommand("Convert-MediaFiles")
@@ -21,14 +24,16 @@ public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
             .AddParameter("OutputDirectory", outputDir)
             .AddParameter("DefaultVideoEncoder", "x264");
 
-        _ = ps.Invoke();
+        var results = ps.Invoke().ToList();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
+        Assert.True(File.Exists(expectedOutput));
+        Assert.True(new FileInfo(expectedOutput).Length > 0);
 
-        var outputFiles = Directory.GetFiles(outputDir);
-        Assert.Single(outputFiles);
-        var outputFile = outputFiles[0];
-        Assert.True(new FileInfo(outputFile).Length > 0);
+        var conversionResults = Assert.IsAssignableFrom<IEnumerable<MediaConversionResult>>(
+            Assert.Single(results).BaseObject);
+        var result = Assert.Single(conversionResults);
+        AssertSuccessfulConversionResult(result, SampleVideoPath, expectedOutput);
     }
 }

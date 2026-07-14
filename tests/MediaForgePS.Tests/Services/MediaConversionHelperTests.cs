@@ -39,6 +39,98 @@ public class MediaConversionHelperTests
         Assert.Equal(expected, result);
     }
 
+    [Theory]
+    [InlineData(1000, 400, 60.0)]
+    [InlineData(1000, 1000, 0.0)]
+    [InlineData(1000, 1200, -20.0)]
+    [InlineData(0, 100, null)]
+    public void CalculateSizeReductionPercent_ReturnsExpectedValue(long inputBytes, long outputBytes, double? expected)
+    {
+        var result = MediaConversionHelper.CalculateSizeReductionPercent(inputBytes, outputBytes);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(60.0, "60% smaller")]
+    [InlineData(-20.0, "20% larger")]
+    [InlineData(0.0, "same size")]
+    [InlineData(null, "n/a")]
+    public void FormatSizeReduction_ReturnsExpectedValue(double? percent, string expected)
+    {
+        var result = MediaConversionHelper.FormatSizeReduction(percent);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FormatConversionResultLine_WithSuccess_IncludesOutputPathSizeAndDuration()
+    {
+        var result = new MediaConversionResult(
+            @"C:\in.mkv",
+            @"C:\out.mp4",
+            MediaConversionResult.CompletedStatus,
+            1 << 20,
+            512 * 1024,
+            50.0,
+            TimeSpan.FromSeconds(95));
+
+        var line = MediaConversionHelper.FormatConversionResultLine(result);
+
+        Assert.Contains(@"C:\out.mp4", line, StringComparison.Ordinal);
+        Assert.Contains("50% smaller", line, StringComparison.Ordinal);
+        Assert.Contains("1.0 MB → 512.0 KB", line, StringComparison.Ordinal);
+        Assert.Contains("01:35", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FormatConversionResultLine_WithFailure_IncludesInputPathAndStatus()
+    {
+        var result = new MediaConversionResult(
+            @"C:\in.mkv",
+            @"C:\in.mkv",
+            "Failed to read media metadata.",
+            100,
+            0,
+            null,
+            TimeSpan.FromSeconds(1));
+
+        var line = MediaConversionHelper.FormatConversionResultLine(result);
+
+        Assert.Equal(@"C:\in.mkv — Failed to read media metadata.", line);
+    }
+
+    [Fact]
+    public void CreateConversionResult_WithExistingFiles_ComputesSizeReduction()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS-Tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var inputPath = Path.Combine(tempDir, "in.bin");
+            var outputPath = Path.Combine(tempDir, "out.bin");
+            File.WriteAllBytes(inputPath, new byte[1000]);
+            File.WriteAllBytes(outputPath, new byte[400]);
+
+            var result = MediaConversionHelper.CreateConversionResult(
+                inputPath,
+                outputPath,
+                true,
+                "Success",
+                TimeSpan.FromSeconds(12));
+
+            Assert.Equal(1000, result.InputSizeBytes);
+            Assert.Equal(400, result.OutputSizeBytes);
+            Assert.Equal(60.0, result.SizeReductionPercent);
+            Assert.Equal(TimeSpan.FromSeconds(12), result.ProcessingTime);
+            Assert.Equal(inputPath, result.FilePath);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
     [Fact]
     public void BuildEncodeProgressStatus_WithTotalDuration_IncludesMmSsRange()
     {

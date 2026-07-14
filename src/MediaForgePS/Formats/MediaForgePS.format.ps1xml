@@ -358,5 +358,89 @@
         </TableRowEntries>
       </TableControl>
     </View>
+
+    <View>
+      <Name>Dadstart.Labs.MediaForge.Models.MediaConversionResult</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.MediaConversionResult</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>OutputPath</Label>
+            <Width>36</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>SizeReduction</Label>
+            <Width>14</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>InputSize</Label>
+            <Width>10</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>OutputSize</Label>
+            <Width>10</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Duration</Label>
+            <Width>10</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Status</Label>
+            <Width>16</Width>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>OutputPath</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  if ($_.Status -ne 'Success' -or $null -eq $_.SizeReductionPercent) { 'n/a' }
+                  elseif ($_.SizeReductionPercent -gt 0) { '{0:0.#}% smaller' -f $_.SizeReductionPercent }
+                  elseif ($_.SizeReductionPercent -lt 0) { '{0:0.#}% larger' -f [math]::Abs($_.SizeReductionPercent) }
+                  else { 'same size' }
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  function Format-ByteCount([long]$Bytes) {
+                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
+                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
+                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
+                    else { "$Bytes B" }
+                  }
+                  Format-ByteCount $_.InputSizeBytes
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  function Format-ByteCount([long]$Bytes) {
+                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
+                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
+                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
+                    else { "$Bytes B" }
+                  }
+                  Format-ByteCount $_.OutputSizeBytes
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  $t = $_.ProcessingTime
+                  if ($t.TotalHours -ge 1) { '{0}:{1:D2}:{2:D2}' -f [int]$t.TotalHours, $t.Minutes, $t.Seconds }
+                  else { '{0:D2}:{1:D2}' -f [int]$t.TotalMinutes, $t.Seconds }
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Status</PropertyName>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
   </ViewDefinitions>
 </Configuration>
