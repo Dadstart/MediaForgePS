@@ -69,8 +69,7 @@ public class MediaConversionHelperTests
         var result = new MediaConversionResult(
             @"C:\in.mkv",
             @"C:\out.mp4",
-            true,
-            "Success",
+            MediaConversionResult.CompletedStatus,
             1 << 20,
             512 * 1024,
             50.0,
@@ -90,7 +89,6 @@ public class MediaConversionHelperTests
         var result = new MediaConversionResult(
             @"C:\in.mkv",
             @"C:\in.mkv",
-            false,
             "Failed to read media metadata.",
             100,
             0,

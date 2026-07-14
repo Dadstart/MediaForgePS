@@ -112,13 +112,18 @@ public static class MediaConversionHelper
         return new MediaConversionResult(
             inputPath,
             outputPath,
-            success,
             status,
             inputSize,
             outputSize,
             reduction,
             processingTime);
     }
+
+    /// <summary>
+    /// Whether the result status indicates a completed conversion.
+    /// </summary>
+    public static bool IsCompletedConversion(MediaConversionResult result) =>
+        string.Equals(result.Status, MediaConversionResult.CompletedStatus, StringComparison.Ordinal);
 
     /// <summary>
     /// Formats a size-reduction percent as a short human-readable phrase.
@@ -142,7 +147,7 @@ public static class MediaConversionHelper
     /// </summary>
     public static string FormatConversionResultLine(MediaConversionResult result)
     {
-        if (!result.Success)
+        if (!IsCompletedConversion(result))
             return $"{result.InputPath} — {result.Status}";
 
         var sizeChange = FormatSizeReduction(result.SizeReductionPercent);

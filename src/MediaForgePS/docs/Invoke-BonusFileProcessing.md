@@ -226,7 +226,7 @@ Parameters are specified directly.
 ## OUTPUTS
 
 ### MediaConversionResult
-One object per converted bonus file: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime.
+One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.
 
 ## NOTES
 Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.

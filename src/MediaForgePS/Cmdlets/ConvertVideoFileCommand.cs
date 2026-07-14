@@ -265,7 +265,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             _results.Add(result);
             WriteObject(result);
 
-            if (result.Success)
+            if (MediaConversionHelper.IsCompletedConversion(result))
                 _batchCompletedBytes += fileSize;
         }
 
@@ -274,7 +274,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
         if (!SkipSubtitles.IsPresent)
         {
-            var successes = _results.Where(r => r.Success).ToList();
+            var successes = _results.Where(MediaConversionHelper.IsCompletedConversion).ToList();
             var extractedCaptionPaths = new List<string>();
             if (successes.Count > 0)
             {
@@ -333,7 +333,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             }
         }
 
-        var ok = _results.Count(r => r.Success);
+        var ok = _results.Count(MediaConversionHelper.IsCompletedConversion);
         var failed = _results.Count - ok;
         if (failed == 0)
             WriteHostMessage($"Directory conversion finished: {ok} file(s) OK.", ConsoleColor.Green);
@@ -400,7 +400,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             RecordFileProcessingStats(inputPath);
             UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
             return MediaConversionHelper.CreateConversionResult(
-                inputPath, resolvedOutputPath, true, "Success", _fileStopwatch.Elapsed);
+                inputPath, resolvedOutputPath, true, MediaConversionResult.CompletedStatus, _fileStopwatch.Elapsed);
         }
         catch (FfmpegConversionException ex)
         {

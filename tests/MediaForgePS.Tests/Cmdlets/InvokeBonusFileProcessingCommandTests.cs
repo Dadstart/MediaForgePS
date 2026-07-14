@@ -321,7 +321,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
         Assert.Empty(errors);
         var result = Assert.IsType<MediaConversionResult>(Assert.Single(results).BaseObject);
-        Assert.True(result.Success);
+        Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
         Assert.Equal(mkvPath, result.InputPath);
         Assert.Equal(expectedOutput, result.OutputPath);
         Assert.Equal(1000, result.InputSizeBytes);

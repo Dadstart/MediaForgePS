@@ -98,7 +98,7 @@ public abstract class ComponentTestBase : IDisposable
         string expectedOutputPath,
         bool requireOutputFileExists = true)
     {
-        Assert.True(result.Success, $"Expected Success; Status={result.Status}");
+        Assert.True(result.Status == MediaConversionResult.CompletedStatus, $"Expected completed Status; got {result.Status}");
         Assert.Equal("Success", result.Status);
         Assert.True(
             string.Equals(result.InputPath, expectedInputPath, StringComparison.OrdinalIgnoreCase),

@@ -181,7 +181,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 ErrorCategory.OperationStopped,
                 inputFullPath));
             WriteWarning("Continuing with file organization for Plex despite conversion error.");
-            bonusFileCount = _conversionResults.Count(summary => summary.Success);
+            bonusFileCount = _conversionResults.Count(MediaConversionHelper.IsCompletedConversion);
         }
 
         if (!SkipSubtitles.IsPresent)
@@ -333,7 +333,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
             _conversionResults.Add(summary);
             WriteObject(summary);
-            if (summary.Success)
+            if (MediaConversionHelper.IsCompletedConversion(summary))
             {
                 _conversionBatchCompletedBytes += fileSize;
                 _fileProcessingStats.Add((fileSize, summary.ProcessingTime));
@@ -449,7 +449,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 stopwatch.Stop();
                 UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
                 return MediaConversionHelper.CreateConversionResult(
-                    inputFilePath, outputFilePath, true, "Success", stopwatch.Elapsed);
+                    inputFilePath, outputFilePath, true, MediaConversionResult.CompletedStatus, stopwatch.Elapsed);
             }
             catch (FfmpegConversionException ex)
             {
@@ -684,8 +684,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
     private void WriteConversionSummary()
     {
-        var succeeded = _conversionResults.Where(r => r.Success).ToList();
-        var failed = _conversionResults.Where(r => !r.Success).ToList();
+        var succeeded = _conversionResults.Where(MediaConversionHelper.IsCompletedConversion).ToList();
+        var failed = _conversionResults.Where(r => !MediaConversionHelper.IsCompletedConversion(r)).ToList();
 
         if (succeeded.Count > 0)
         {

@@ -371,10 +371,6 @@
             <Width>36</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>Success</Label>
-            <Width>8</Width>
-          </TableColumnHeader>
-          <TableColumnHeader>
             <Label>SizeReduction</Label>
             <Width>14</Width>
           </TableColumnHeader>
@@ -402,11 +398,8 @@
                 <PropertyName>OutputPath</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
-                <PropertyName>Success</PropertyName>
-              </TableColumnItem>
-              <TableColumnItem>
                 <ScriptBlock>
-                  if (-not $_.Success -or $null -eq $_.SizeReductionPercent) { 'n/a' }
+                  if ($_.Status -ne 'Success' -or $null -eq $_.SizeReductionPercent) { 'n/a' }
                   elseif ($_.SizeReductionPercent -gt 0) { '{0:0.#}% smaller' -f $_.SizeReductionPercent }
                   elseif ($_.SizeReductionPercent -lt 0) { '{0:0.#}% larger' -f [math]::Abs($_.SizeReductionPercent) }
                   else { 'same size' }

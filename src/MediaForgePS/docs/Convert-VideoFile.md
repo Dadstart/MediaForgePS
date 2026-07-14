@@ -263,7 +263,7 @@ Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Pat
 ## OUTPUTS
 
 ### MediaConversionResult
-For each processed file: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime.
+For each processed file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is `Success` when conversion completed.
 
 ## NOTES
 Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.

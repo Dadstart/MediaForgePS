@@ -7,8 +7,9 @@ namespace Dadstart.Labs.MediaForge.Models;
 /// </summary>
 /// <param name="InputPath">Original source file path.</param>
 /// <param name="OutputPath">Path to the converted output file when known.</param>
-/// <param name="Success">Whether conversion completed successfully.</param>
-/// <param name="Status">Human-readable status or error message.</param>
+/// <param name="Status">
+/// Human-readable status or error message. Equals <see cref="CompletedStatus"/> when conversion succeeded.
+/// </param>
 /// <param name="InputSizeBytes">Size of the input file in bytes.</param>
 /// <param name="OutputSizeBytes">Size of the output file in bytes when conversion succeeded.</param>
 /// <param name="SizeReductionPercent">
@@ -18,13 +19,17 @@ namespace Dadstart.Labs.MediaForge.Models;
 public sealed record MediaConversionResult(
     string InputPath,
     string OutputPath,
-    bool Success,
     string Status,
     long InputSizeBytes,
     long OutputSizeBytes,
     double? SizeReductionPercent,
     TimeSpan ProcessingTime)
 {
+    /// <summary>
+    /// Status value used when conversion completed successfully.
+    /// </summary>
+    public const string CompletedStatus = "Success";
+
     /// <summary>
     /// Alias for <see cref="InputPath"/> for callers that used the legacy <c>ConversionResult.FilePath</c> name.
     /// </summary>

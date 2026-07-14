@@ -191,7 +191,7 @@ Input and output paths (by value or property name).
 ## OUTPUTS
 
 ### MediaConversionResult
-Written on successful conversion: InputPath, OutputPath, Success, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Errors are reported via WriteError.
+Written on successful conversion: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Errors are reported via WriteError.
 
 ## NOTES
 Requires FFmpeg. For batch conversion with automatic audio detection, use Convert-MediaFiles.

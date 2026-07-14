@@ -244,7 +244,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 var batchEta = CalculateRemainingTime(inputPath, totalFiles - _currentFileIndex);
                 MediaConversionHelper.WriteMainProgress(CmdletIO, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
                 ProcessFile(inputPath);
-                if (_conversionResults.Count > 0 && _conversionResults[^1].Success)
+                if (_conversionResults.Count > 0 && MediaConversionHelper.IsCompletedConversion(_conversionResults[^1]))
                     _batchCompletedBytes += fileSize;
             }
 
@@ -259,7 +259,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             return;
 
         // Output summary table
-        var failedFiles = _conversionResults.Where(r => !r.Success).ToList();
+        var failedFiles = _conversionResults.Where(r => !MediaConversionHelper.IsCompletedConversion(r)).ToList();
         if (failedFiles.Count > 0)
         {
             WriteWarning($"{failedFiles.Count} file(s) could not be converted or had issues:");
@@ -591,7 +591,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 originalInputPath,
                 resolvedOutputPath,
                 true,
-                "Success",
+                MediaConversionResult.CompletedStatus,
                 _fileProcessingStopwatch?.Elapsed ?? TimeSpan.Zero);
             _conversionResults.Add(result);
             return true;

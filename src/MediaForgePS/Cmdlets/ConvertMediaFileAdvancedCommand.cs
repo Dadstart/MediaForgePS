@@ -141,7 +141,7 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 resolvedInputPath,
                 resolvedOutputPath,
                 true,
-                "Success",
+                MediaConversionResult.CompletedStatus,
                 stopwatch.Elapsed));
         }
         catch (FfmpegConversionException ex)
