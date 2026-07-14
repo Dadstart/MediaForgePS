@@ -16,14 +16,14 @@ Converts multiple media files with automatic audio stream selection and configur
 ```
 Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String> [-DefaultVideoEncoder <String>]
  [-AudioTrackMappings <AudioTrackMapping[]>] [-X265Params <String>] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### ExplicitSettings
 ```
 Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String>
  -VideoEncodingSettings <VideoEncodingSettings> [-AudioTrackMappings <AudioTrackMapping[]>]
- [-X265Params <String>] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-X265Params <String>] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -31,7 +31,7 @@ Convert-MediaFiles processes multiple video files: it resolves paths, detects or
 
 Default video encoding is chosen by `-DefaultVideoEncoder`: **x264** (libx264, CRF 18, preset medium), **x265** (libx265, CRF 18, preset medium), or **nvenc** (hevc_nvenc, CQ 18, preset p5). When `-DefaultVideoEncoder` is omitted, **x265** is used. Override with `-VideoEncodingSettings` for full control.
 
-If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA.
+If `-AudioTrackMappings` is not provided, mappings are auto-detected per file (preferring English audio, then by codec and channel count). The cmdlet outputs `ConversionResult` objects (`FilePath`, `Success`, `Status`) for each input. Failed files are reported but the batch continues. Duplicate pipeline paths are ignored. Progress reporting includes per-file and batch ETA. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -145,6 +145,37 @@ Additional x265 params (passed to ffmpeg via -x265-params)
 Type: String
 Parameter Sets: (All)
 Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
 
 Required: False
 Position: Named

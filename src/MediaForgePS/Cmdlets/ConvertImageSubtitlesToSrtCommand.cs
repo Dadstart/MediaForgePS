@@ -14,8 +14,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Alias: Convert-SupToSrt. Writes created SRT file paths to the pipeline.
 /// Requires Subtitle Edit under %ProgramFiles%\Subtitle Edit and Tesseract OCR.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt")]
+[Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [Alias("Convert-SupToSrt")]
 [OutputType(typeof(string))]
 public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
@@ -153,6 +154,14 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 
     private bool ConvertFile(string subtitleEditPath, string inputSubtitlePath, string outputSrtPath)
     {
+        var inputFileName = Path.GetFileName(inputSubtitlePath);
+        var outputFileName = Path.GetFileName(outputSrtPath);
+        if (!ShouldProcess($"Convert '{inputFileName}' to '{outputFileName}'", "Convert image subtitles to SRT"))
+        {
+            Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", inputFileName, outputFileName);
+            return false;
+        }
+
         try
         {
             ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath, Logger, StoppingToken);

@@ -206,6 +206,49 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Equal(originalTitle, finalTitle);
     }
 
+    [Fact]
+    public void ConvertMediaFileAdvanced_WithWhatIf_DoesNotInvokeConversionService()
+    {
+        var inputPath = "C:\\in.mkv";
+        var outputPath = "C:\\out.mp4";
+        var resolvedInputPath = "C:\\in.mkv";
+        var resolvedOutputPath = "C:\\out.mp4";
+
+        _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedInputPath))
+            .Returns(true);
+        _pathResolverMock.Setup(p => p.TryResolveOutputPath(outputPath, out resolvedOutputPath))
+            .Returns(true);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MediaFileAdvanced")
+            .AddParameter("InputPath", inputPath)
+            .AddParameter("OutputPath", outputPath)
+            .AddParameter("VideoEncodingSettings", CreateVideoSettings())
+            .AddParameter("AudioTrackMappings", CreateAudioTrackMappings())
+            .AddParameter("WhatIf");
+
+        var results = ps.Invoke().ToList();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(results);
+        Assert.Empty(errors);
+        _mediaConversionServiceMock.Verify(
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void ConvertMediaFileAdvanced_SupportsShouldProcess()
+    {
+        var attribute = typeof(ConvertMediaFileAdvancedCommand)
+            .GetCustomAttributes(typeof(CmdletAttribute), inherit: false)
+            .Cast<CmdletAttribute>()
+            .Single();
+
+        Assert.True(attribute.SupportsShouldProcess);
+        Assert.Equal(ConfirmImpact.Medium, attribute.ConfirmImpact);
+    }
+
     private static ConstantRateVideoEncodingSettings CreateVideoSettings(string codec = "libx264")
     {
         return new ConstantRateVideoEncodingSettings(

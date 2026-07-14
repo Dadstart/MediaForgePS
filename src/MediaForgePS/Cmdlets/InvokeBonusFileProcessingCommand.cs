@@ -20,8 +20,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// (2) extract English subtitles and optionally OCR image-based tracks (-Ocr Auto/Skip/Force),
 /// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
 /// Existing destination files are skipped.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing")]
+[Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 [OutputType(typeof(void))]
 public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {
@@ -143,6 +144,9 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         }
 
         if (!TryResolveOutputPath(PathResolverService, OutputPath, out var outputFullPath))
+            return;
+
+        if (!ShouldProcess(outputFullPath, $"Process bonus files from '{inputFullPath}'"))
             return;
 
         WriteHostMessage("Starting Bonus File Processing", ConsoleColor.Cyan);

@@ -14,11 +14,11 @@ Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with T
 
 ```
 Convert-ImageSubtitlesToSrt [-InputPath] <String[]> [[-OutputPath] <String>] [-Recurse]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Output SRT paths are written to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit.
+Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Output SRT paths are written to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -83,6 +83,37 @@ When input is a directory, recurse into subdirectories.
 Type: SwitchParameter
 Parameter Sets: (All)
 Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
 
 Required: False
 Position: Named

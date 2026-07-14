@@ -15,13 +15,13 @@ Copies episode video files into a destination folder using TVDb episode metadata
 ```
 Invoke-VideoCopy -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -Path <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] -Destination <String> -Episodes <TvDbEpisodeInfo[]>
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Invoke-VideoCopy is the lower-level copy step used by `Invoke-SeriesProcessing`. It searches one or more `-Path` roots (top directory only, not recursive) for files matching `-FilePatterns`, filters by `-MinimumFileSize`, associates them in discovery order with `-Episodes` (`TvDbEpisodeInfo` from `Invoke-SeasonScan`), and copies them to `-Destination` with series title and TVDb-based naming.
 
-`-EpisodeStart` is the episode number for the first matched file. The Nth matched file maps to episode `(EpisodeStart - 1) + N` in the sorted TVDb episode list. Pipeline input for `-Path` is collected during `Process` and executed in `End` (batch mode). Outputs the paths of copied files.
+`-EpisodeStart` is the episode number for the first matched file. The Nth matched file maps to episode `(EpisodeStart - 1) + N` in the sorted TVDb episode list. Pipeline input for `-Path` is collected during `Process` and executed in `End` (batch mode). Outputs the paths of copied files. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -157,6 +157,37 @@ Parameter Sets: (All)
 Aliases:
 
 Required: True
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
+
+Required: False
 Position: Named
 Default value: None
 Accept pipeline input: False

@@ -43,8 +43,9 @@ internal class FileProcessingStats
 /// When -DefaultVideoEncoder is omitted, libx265 (x265) is used. Encoder presets: x264 (libx264, CRF 18), x265 (libx265, CRF 18), nvenc (hevc_nvenc, CQ 18).
 /// Audio mappings are auto-detected per file when -AudioTrackMappings is not supplied (English audio preferred).
 /// Failed files are reported via <see cref="ConversionResult"/> and WriteError; the batch continues.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet)]
+[Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(ConversionResult))]
 public class ConvertMediaFilesCommand : ProgressCmdletBase
 {
@@ -415,6 +416,12 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             HandleFileError(inputPath, fileName, "Failed to resolve output path",
                 new InvalidOperationException($"Failed to resolve output path: {outputPath}"),
                 ErrorCategory.InvalidArgument);
+            return;
+        }
+
+        if (!ShouldProcess($"Convert '{fileName}' to '{outputFileName}'", "Convert media file"))
+        {
+            Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", fileName, outputFileName);
             return;
         }
 
