@@ -37,7 +37,7 @@ public class PathResolver : IPathResolver
             var paths = new PsCmdletIO(cmdlet).Paths;
             if (!TryResolveProviderPath(paths, path, out var providerResolvedPath))
             {
-                _logger.LogWarning("Input path resolution returned no results for: {InputPath}", path);
+                _logger.LogDebug("Input path resolution returned no results for: {InputPath}", path);
                 return false;
             }
 
@@ -48,14 +48,14 @@ public class PathResolver : IPathResolver
             // it means the path couldn't be resolved (file not found)
             if (resolvedPath.Equals(path, StringComparison.OrdinalIgnoreCase) && !File.Exists(resolvedPath))
             {
-                _logger.LogWarning("Input path could not be resolved and file does not exist: {InputPath}", path);
+                _logger.LogDebug("Input path could not be resolved and file does not exist: {InputPath}", path);
                 return false;
             }
 
             // Final validation that the file exists
             if (!File.Exists(resolvedPath))
             {
-                _logger.LogWarning("Input file does not exist: {ResolvedInputPath}", resolvedPath);
+                _logger.LogDebug("Input file does not exist: {ResolvedInputPath}", resolvedPath);
                 return false;
             }
 
