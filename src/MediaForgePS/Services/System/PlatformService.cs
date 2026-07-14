@@ -6,14 +6,5 @@ namespace Dadstart.Labs.MediaForge.Services.System;
 public class PlatformService : IPlatformService
 {
     /// <inheritdoc />
-    public bool IsWindows()
-    {
-        return OperatingSystem.IsWindows();
-    }
-
-    /// <inheritdoc />
-    public string QuoteArgument(string argument)
-    {
-        return ProcessArgumentExtensions.QuoteArgument(argument, this);
-    }
+    public bool IsWindows() => OperatingSystem.IsWindows();
 }

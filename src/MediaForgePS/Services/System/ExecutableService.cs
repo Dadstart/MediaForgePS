@@ -1,17 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.System;
 
 public class ExecutableService : IExecutableService
 {
-    private readonly IPlatformService _platformService;
     private readonly ILogger<ExecutableService> _logger;
 
-    public ExecutableService(IPlatformService platformService, ILogger<ExecutableService> logger)
+    public ExecutableService(ILogger<ExecutableService> logger)
     {
-        _platformService = platformService;
         _logger = logger;
     }
 
@@ -35,16 +35,18 @@ public class ExecutableService : IExecutableService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var argumentsString = arguments.ToQuotedArgumentString(_platformService);
+        // Materialize once so ArgumentList and logs share the same argv values (no shell quoting).
+        var argumentList = arguments as IReadOnlyList<string> ?? arguments.ToList();
+        var argumentsForLog = string.Join(' ', argumentList);
         var logMessage = stdoutCallback != null
             ? "Executing command with streaming stdout: {Command} with arguments: {Arguments}"
             : "Executing command: {Command} with arguments: {Arguments}";
-        _logger.LogDebug(logMessage, command, argumentsString);
+        _logger.LogDebug(logMessage, command, argumentsForLog);
 
         Process? process = null;
         try
         {
-            process = CreateAndStartProcess(command, argumentsString);
+            process = CreateAndStartProcess(command, argumentList);
             _logger.LogTrace("Process started successfully. Process ID: {ProcessId}", process.Id);
 
             using var registration = cancellationToken.Register(
@@ -69,7 +71,7 @@ public class ExecutableService : IExecutableService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsString);
+            _logger.LogError(ex, "Exception occurred while executing command: {Command} with arguments: {Arguments}", command, argumentsForLog);
             return new ExecutableResult(null, null, null, ex);
         }
         finally
@@ -78,23 +80,39 @@ public class ExecutableService : IExecutableService
         }
     }
 
-    private Process CreateAndStartProcess(string command, string argumentsString)
+    /// <summary>
+    /// Builds process start info using <see cref="ProcessStartInfo.ArgumentList"/> so the runtime
+    /// applies platform-correct quoting instead of a hand-joined Arguments string.
+    /// </summary>
+    internal static ProcessStartInfo CreateProcessStartInfo(string command, IReadOnlyList<string> arguments)
     {
-        var processStartInfo = new ProcessStartInfo()
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        ArgumentNullException.ThrowIfNull(arguments);
+
+        var processStartInfo = new ProcessStartInfo
         {
             FileName = command,
-            Arguments = argumentsString,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
-        var process = new Process() { StartInfo = processStartInfo };
+        foreach (var argument in arguments)
+            processStartInfo.ArgumentList.Add(argument);
+
+        return processStartInfo;
+    }
+
+    private Process CreateAndStartProcess(string command, IReadOnlyList<string> arguments)
+    {
+        var processStartInfo = CreateProcessStartInfo(command, arguments);
+        var process = new Process { StartInfo = processStartInfo };
 
         if (!process.Start())
         {
-            var errorMessage = $"Failed to start process '{command}' with arguments: {argumentsString}";
+            var argumentsForError = string.Join(' ', arguments);
+            var errorMessage = $"Failed to start process '{command}' with arguments: {argumentsForError}";
             _logger.LogError(errorMessage);
             process.Dispose();
             throw new InvalidOperationException(errorMessage);
