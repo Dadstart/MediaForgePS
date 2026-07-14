@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -43,33 +42,5 @@ public class ConvertMediaFileAdvancedCommandComponentTests : ComponentTestBase
         Assert.Empty(errors);
         var result = Assert.IsType<MediaConversionResult>(Assert.Single(results).BaseObject);
         AssertSuccessfulConversionResult(result, inputPath, expectedOutput);
-    }
-
-    private string CreateSampleVideoWithSilentAudio(string fileName)
-    {
-        var directory = CreateTempDirectory();
-        var destination = Path.Combine(directory, fileName);
-
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "ffmpeg",
-                Arguments =
-                    $"-y -i \"{SampleVideoPath}\" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 " +
-                    $"-c:v copy -c:a aac -b:a 128k -shortest \"{destination}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        Assert.True(process.Start(), "Failed to start ffmpeg to create sample with audio.");
-        Assert.True(process.WaitForExit(30_000), "ffmpeg timed out creating sample with audio.");
-        Assert.Equal(0, process.ExitCode);
-        Assert.True(File.Exists(destination));
-
-        return destination;
     }
 }

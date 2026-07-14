@@ -4,4 +4,11 @@
     <ProjectReference Include="..\..\src\MediaForgePS\MediaForgePS.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\MediaForgePS.ComponentTests\TestAssets\**\*.*">
+      <Link>TestAssets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -88,24 +88,19 @@ See [tests/MediaForgePS.ComponentTests/TestAssets/README.md](tests/MediaForgePS.
 
 ### Run PowerShell unit tests (Pester)
 
-**Note:** The module is built automatically when needed.
-
-Recommended — use the provided script:
+`./scripts/Build.ps1 -Build -Test` runs `dotnet test` then Pester. Standalone:
 
 ```powershell
 .\tests\MediaForgePS.Tests\Run-PesterTests.ps1
+.\tests\MediaForgePS.Tests\Run-PesterTests.ps1 -ModuleConfiguration Release
 ```
 
-Or run manually from the repository root:
+### Run E2E smoke
+
+Packs the Gallery module layout and imports it for a short cmdlet smoke:
 
 ```powershell
-Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -OutputFile TestResults/PesterResults.xml -OutputFormat NUnitXml -Verbosity Detailed
-```
-
-To build manually first:
-
-```powershell
-dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug
+dotnet test tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj
 ```
 
 See [tests/README.md](tests/README.md) for more detail on each test project.
@@ -132,7 +127,7 @@ MediaForgePS/
 ├── tests/
 │   ├── MediaForgePS.Tests/           # Unit tests (xUnit + Pester)
 │   ├── MediaForgePS.ComponentTests/  # Cmdlet tests with real ffmpeg/ffprobe
-│   └── MediaForgePS.E2ETests/        # End-to-end test infrastructure
+│   └── MediaForgePS.E2ETests/        # Pack/import module smoke (E2E)
 ├── scripts/                   # Build, help, and dev-session scripts
 └── .github/workflows/         # CI/CD workflows
 ```

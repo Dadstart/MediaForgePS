@@ -21,11 +21,18 @@
     By default, tests run in an isolated process to ensure DLL locks are released,
     which is recommended to avoid file lock issues during builds.
 
+.PARAMETER ModuleConfiguration
+    Build configuration folder to load the module from (Debug or Release). Defaults to Debug.
+    Propagated to tests via MEDIAFORGE_CONFIGURATION so CI Release builds can import the Release output.
+
 .EXAMPLE
     .\Run-PesterTests.ps1
 
 .EXAMPLE
     .\Run-PesterTests.ps1 -Path ".\PowerShell" -Configuration ".\PesterConfig.psd1"
+
+.EXAMPLE
+    .\Run-PesterTests.ps1 -ModuleConfiguration Release
 
 .EXAMPLE
     .\Run-PesterTests.ps1 -NoIsolatedProcess
@@ -40,36 +47,47 @@ param(
     [string]$Configuration = (Join-Path $PSScriptRoot "PesterConfig.psd1"),
 
     [Parameter()]
+    [ValidateSet('Debug', 'Release')]
+    [string]$ModuleConfiguration = 'Debug',
+
+    [Parameter()]
     [switch]$NoIsolatedProcess
 )
 
 $ErrorActionPreference = 'Stop'
+$env:MEDIAFORGE_CONFIGURATION = $ModuleConfiguration
 
 # If running in isolated process, spawn a new PowerShell process
 if (-not $NoIsolatedProcess) {
     Write-Host "Running tests in isolated PowerShell process to ensure DLL cleanup..." -ForegroundColor Cyan
     Write-Host ""
-    
+
     $scriptPath = $PSCommandPath
     $arguments = @(
         '-NoProfile',
         '-File',
-        "`"$scriptPath`"",
-        '-Path', "`"$Path`"",
-        '-Configuration', "`"$Configuration`"",
+        $scriptPath,
+        '-Path', $Path,
+        '-Configuration', $Configuration,
+        '-ModuleConfiguration', $ModuleConfiguration,
         '-NoIsolatedProcess'
     )
-    
+
     $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Wait -PassThru -NoNewWindow
-    
+
     exit $process.ExitCode
 }
 
 try {
-    # Ensure Pester is available
-    if (-not (Get-Module -ListAvailable -Name Pester)) {
-        Write-Host "Installing Pester module..." -ForegroundColor Yellow
-        Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+    # Ensure Pester v5+ is available (required for New-PesterConfiguration).
+    $pesterModule = Get-Module -ListAvailable -Name Pester |
+        Where-Object { $_.Version -ge [version]'5.0.0' } |
+        Sort-Object Version -Descending |
+        Select-Object -First 1
+
+    if (-not $pesterModule) {
+        Write-Host "Installing Pester 5.x module..." -ForegroundColor Yellow
+        Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck -Scope CurrentUser -AllowClobber -ErrorAction Stop
     }
 
     Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
