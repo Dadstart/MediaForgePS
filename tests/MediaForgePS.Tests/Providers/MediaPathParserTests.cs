@@ -24,6 +24,50 @@ public class MediaPathParserTests
         Assert.Equal(expected, MediaPathParser.NormalizeProviderPath(path));
 
     [Fact]
+    public void ToProviderRelativePath_CollapsesParentDotSegments_ForFileRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mediaforge-provider-" + Guid.NewGuid().ToString("N") + ".mkv");
+        File.WriteAllBytes(root, [0]);
+        try
+        {
+            var fileName = Path.GetFileName(root);
+            var withParentDots = Path.Combine("..", fileName, "streams", "audio", "0");
+            var driveQualified = "mf:" + Path.DirectorySeparatorChar + withParentDots;
+            var absoluteWithDots = Path.Combine(root, "..", fileName, "streams", "audio", "0");
+
+            Assert.Equal("streams/audio/0", MediaPathParser.ToProviderRelativePath(root, withParentDots));
+            Assert.Equal("streams/audio/0", MediaPathParser.ToProviderRelativePath(root, driveQualified, "mf"));
+            Assert.Equal("streams/audio/0", MediaPathParser.ToProviderRelativePath(root, absoluteWithDots));
+            Assert.Equal(
+                "streams/audio/0",
+                MediaPathParser.ToProviderRelativePath(root, "mf:" + Path.DirectorySeparatorChar + fileName + "/streams/audio/0", "mf"));
+            Assert.Equal(string.Empty, MediaPathParser.ToProviderRelativePath(root, root));
+            Assert.Equal("streams", MediaPathParser.ToProviderRelativePath(root, "streams"));
+        }
+        finally
+        {
+            File.Delete(root);
+        }
+    }
+
+    [Fact]
+    public void ToProviderRelativePath_CollapsesParentDotSegments_ForDirectoryRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mediaforge-provider-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var absoluteWithDots = Path.Combine(root, "..", Path.GetFileName(root));
+            Assert.Equal(string.Empty, MediaPathParser.ToProviderRelativePath(root, absoluteWithDots));
+            Assert.Equal(string.Empty, MediaPathParser.ToProviderRelativePath(root, root));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TryParse_WhenRootIsDirectory_ReturnsDirectory()
     {
         var root = Path.Combine(Path.GetTempPath(), "mediaforge-provider-root-" + Guid.NewGuid().ToString("N"));

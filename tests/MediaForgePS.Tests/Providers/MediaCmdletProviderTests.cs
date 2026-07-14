@@ -140,6 +140,31 @@ public class MediaCmdletProviderTests : IDisposable
         Assert.Equal("Main", results[1].Title);
     }
 
+    [Fact]
+    public void Provider_GetItem_StreamPathWithParentDots_Resolves()
+    {
+        using var ps = CreatePowerShell();
+        ps.AddCommand("New-PSDrive")
+            .AddParameter("Name", "mf")
+            .AddParameter("PSProvider", "Media")
+            .AddParameter("Root", _mediaPath);
+        ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+        ps.Commands.Clear();
+
+        // Unix PowerShell often rewrites file-rooted drive paths as mf:/../file.mkv/streams/...
+        var dottedPath = "mf:" + Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar
+            + Path.GetFileName(_mediaPath) + Path.DirectorySeparatorChar
+            + "streams" + Path.DirectorySeparatorChar + "audio" + Path.DirectorySeparatorChar + "0";
+        ps.AddCommand("Get-Item").AddParameter("Path", dottedPath);
+        var results = ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+
+        var stream = Assert.IsType<MediaStream>(Assert.Single(results).BaseObject);
+        Assert.Equal("audio", stream.Type);
+        Assert.Equal(1, stream.Index);
+    }
+
     private static PowerShell CreatePowerShell()
     {
         var asm = typeof(MediaCmdletProvider).Assembly;

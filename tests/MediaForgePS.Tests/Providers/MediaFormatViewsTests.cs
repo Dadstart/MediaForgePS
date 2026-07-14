@@ -36,8 +36,10 @@ public class MediaFormatViewsTests
     {
         var formatPath = FindFormatFile();
         var initialSessionState = InitialSessionState.CreateDefault();
-        // Format ps1xml ScriptBlocks are subject to execution policy; bypass so CI/local Restricted hosts can load views.
-        initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+        // Format ps1xml ScriptBlocks are subject to execution policy on Windows; bypass so Restricted hosts can load views.
+        // ExecutionPolicy is not supported on Unix/macOS and throws PlatformNotSupportedException if set.
+        if (OperatingSystem.IsWindows())
+            initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
 
         using var ps = PowerShell.Create(initialSessionState);
         ps.AddCommand("Update-FormatData").AddParameter("AppendPath", formatPath);

@@ -78,6 +78,96 @@ public static class MediaPathParser
     }
 
     /// <summary>
+    /// Converts a PSProvider path (drive-qualified, absolute, or relative) into a path relative to the drive root.
+    /// Collapses PowerShell forms such as <c>mf:/../file.mkv/streams/0</c> that appear on Unix file-rooted drives.
+    /// </summary>
+    public static string ToProviderRelativePath(string driveRoot, string? path, string? driveName = null)
+    {
+        ArgumentNullException.ThrowIfNull(driveRoot);
+
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(driveRoot));
+        var candidate = path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+
+        if (!string.IsNullOrEmpty(driveName))
+        {
+            var drivePrefix = driveName + ":";
+            if (candidate.StartsWith(drivePrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                candidate = candidate[drivePrefix.Length..]
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+        }
+
+        string relative;
+        if (NeedsRootResolution(candidate))
+        {
+            try
+            {
+                var fullCandidate = Path.GetFullPath(
+                    Path.IsPathRooted(candidate)
+                        ? candidate
+                        : Path.Combine(normalizedRoot, candidate));
+
+                if (string.Equals(fullCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                    return string.Empty;
+
+                var rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
+                if (fullCandidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                    relative = NormalizeProviderPath(fullCandidate[rootPrefix.Length..]);
+                else
+                    relative = NormalizeProviderPath(candidate);
+            }
+            catch (Exception)
+            {
+                relative = NormalizeProviderPath(candidate);
+            }
+        }
+        else
+        {
+            relative = NormalizeProviderPath(candidate);
+        }
+
+        // File-rooted drives: PowerShell may emit "sample.mkv/streams/0" (with or without
+        // a leading "../sample.mkv/") even though the drive root is already that file.
+        return StripRedundantMediaFilePrefix(normalizedRoot, relative);
+    }
+
+    private static string StripRedundantMediaFilePrefix(string normalizedRoot, string relative)
+    {
+        if (relative.Length == 0 || !IsMediaFilePath(normalizedRoot))
+            return relative;
+
+        var fileName = Path.GetFileName(normalizedRoot);
+        if (relative.Equals(fileName, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        var prefix = fileName + "/";
+        if (relative.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return relative[prefix.Length..];
+
+        return relative;
+    }
+
+    private static bool NeedsRootResolution(string candidate)
+    {
+        if (string.IsNullOrEmpty(candidate))
+            return false;
+
+        if (Path.IsPathRooted(candidate))
+            return true;
+
+        return candidate.Contains(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || candidate.Contains(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
+            || candidate.EndsWith("..", StringComparison.Ordinal)
+            || candidate.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || candidate.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
+            || candidate.Equals("..", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Parses a provider path relative to a drive root into a <see cref="MediaPathInfo"/>.
     /// </summary>
     /// <param name="driveRoot">Absolute filesystem root of the PSDrive (file or directory).</param>
@@ -100,7 +190,18 @@ public static class MediaPathParser
         var segments = SplitSegments(normalized);
 
         if (fileExists(root) && IsMediaFilePath(root))
-            return TryParseUnderMediaFile(root, normalized, segments, startIndex: 0);
+        {
+            // PowerShell may pass the root file name as a redundant first segment.
+            var startIndex = 0;
+            var fileName = Path.GetFileName(root);
+            if (segments.Length > 0 && segments[0].Equals(fileName, StringComparison.OrdinalIgnoreCase))
+                startIndex = 1;
+
+            var virtualProviderPath = startIndex == 0
+                ? normalized
+                : JoinSegments(segments.AsSpan(startIndex).ToArray());
+            return TryParseUnderMediaFile(root, virtualProviderPath, segments, startIndex);
+        }
 
         if (!directoryExists(root))
             return null;

@@ -161,6 +161,14 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
     /// <inheritdoc />
     protected override string GetChildName(string path)
     {
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
+
+        // Absolute filesystem paths must use OS APIs so Unix leading '/' is preserved.
+        var osPath = ToOsPath(path);
+        if (Path.IsPathRooted(osPath))
+            return Path.GetFileName(Path.TrimEndingDirectorySeparator(osPath));
+
         var normalized = MediaPathParser.NormalizeProviderPath(path);
         if (normalized.Length == 0)
             return string.Empty;
@@ -172,6 +180,19 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
     /// <inheritdoc />
     protected override string GetParentPath(string path, string root)
     {
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
+
+        var osPath = ToOsPath(path);
+        if (IsDriveRootPath(osPath, root) || IsDriveRootPath(osPath, PSDriveInfo?.Root))
+            return string.Empty;
+
+        // Absolute filesystem paths must use OS APIs so Unix leading '/' is preserved.
+        // NormalizeProviderPath Trim('/') otherwise turns "/tmp/a" into "tmp/a" and breaks
+        // subsequent MakePath / .. resolution on non-Windows hosts.
+        if (Path.IsPathRooted(osPath))
+            return Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(osPath)) ?? string.Empty;
+
         var normalized = MediaPathParser.NormalizeProviderPath(path);
         if (normalized.Length == 0)
             return string.Empty;
@@ -186,6 +207,23 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
     /// <inheritdoc />
     protected override string MakePath(string parent, string child)
     {
+        if (string.IsNullOrEmpty(child))
+            return parent ?? string.Empty;
+
+        if (string.IsNullOrEmpty(parent))
+        {
+            var rootedChild = ToOsPath(child);
+            if (Path.IsPathRooted(rootedChild))
+                return rootedChild;
+
+            return MediaPathParser.NormalizeProviderPath(child);
+        }
+
+        var osParent = ToOsPath(parent);
+        var osChild = ToOsPath(child);
+        if (Path.IsPathRooted(osParent) || Path.IsPathRooted(osChild))
+            return Path.Combine(osParent, osChild.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
         var parentNormalized = MediaPathParser.NormalizeProviderPath(parent);
         var childNormalized = MediaPathParser.NormalizeProviderPath(child);
         if (parentNormalized.Length == 0)
@@ -199,6 +237,33 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
     /// <inheritdoc />
     protected override string NormalizeRelativePath(string path, string basePath)
     {
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
+
+        var osPath = ToOsPath(path);
+        var osBase = ToOsPath(basePath);
+        if (Path.IsPathRooted(osPath) && !string.IsNullOrEmpty(osBase) && Path.IsPathRooted(osBase))
+        {
+            string fullPath;
+            string fullBase;
+            try
+            {
+                fullPath = Path.GetFullPath(osPath);
+                fullBase = Path.TrimEndingDirectorySeparator(Path.GetFullPath(osBase));
+            }
+            catch (Exception)
+            {
+                return MediaPathParser.NormalizeProviderPath(path);
+            }
+
+            if (string.Equals(fullPath, fullBase, StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+
+            var prefix = fullBase + Path.DirectorySeparatorChar;
+            if (fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return MediaPathParser.NormalizeProviderPath(fullPath[prefix.Length..]);
+        }
+
         var normalized = MediaPathParser.NormalizeProviderPath(path);
         var baseNormalized = MediaPathParser.NormalizeProviderPath(basePath);
         if (baseNormalized.Length == 0)
@@ -207,9 +272,9 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
         if (normalized.Equals(baseNormalized, StringComparison.OrdinalIgnoreCase))
             return string.Empty;
 
-        var prefix = baseNormalized + "/";
-        if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            return normalized[prefix.Length..];
+        var relativePrefix = baseNormalized + "/";
+        if (normalized.StartsWith(relativePrefix, StringComparison.OrdinalIgnoreCase))
+            return normalized[relativePrefix.Length..];
 
         return normalized;
     }
@@ -444,52 +509,35 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
 
     private string GetProviderRelativePath(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            return string.Empty;
-
         var root = PSDriveInfo?.Root;
         if (string.IsNullOrWhiteSpace(root))
             return MediaPathParser.NormalizeProviderPath(path);
 
-        var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        var candidate = path.Replace('/', Path.DirectorySeparatorChar);
-
-        // PowerShell often concatenates Root + segments, including forms like
-        // "file.mkv\..\file.mkv\streams\0". Collapse those before stripping Root.
-        if (Path.IsPathRooted(candidate))
-        {
-            string fullCandidate;
-            try
-            {
-                fullCandidate = Path.GetFullPath(candidate);
-            }
-            catch (Exception)
-            {
-                fullCandidate = candidate;
-            }
-
-            if (string.Equals(fullCandidate, normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                return string.Empty;
-
-            var rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
-            if (fullCandidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
-                return MediaPathParser.NormalizeProviderPath(fullCandidate[rootPrefix.Length..]);
-        }
-
-        var driveName = PSDriveInfo?.Name;
-        if (!string.IsNullOrEmpty(driveName))
-        {
-            var drivePrefix = driveName + ":";
-            if (candidate.StartsWith(drivePrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                var remainder = candidate[drivePrefix.Length..]
-                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                return MediaPathParser.NormalizeProviderPath(remainder);
-            }
-        }
-
-        return MediaPathParser.NormalizeProviderPath(path);
+        return MediaPathParser.ToProviderRelativePath(root, path, PSDriveInfo?.Name);
     }
+
+    private static bool IsDriveRootPath(string path, string? root)
+    {
+        if (string.IsNullOrWhiteSpace(root) || string.IsNullOrEmpty(path))
+            return false;
+
+        try
+        {
+            var fullPath = Path.GetFullPath(ToOsPath(path));
+            var fullRoot = Path.GetFullPath(ToOsPath(root));
+            return string.Equals(fullPath, fullRoot, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(ToOsPath(path)),
+                Path.TrimEndingDirectorySeparator(ToOsPath(root)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private static string ToOsPath(string path) =>
+        path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
 
     private static string MakeChildProviderPath(string parentProviderPath, string childName)
     {
