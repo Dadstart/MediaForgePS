@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using Xunit;
 using Xunit.Sdk;
 
@@ -58,7 +59,13 @@ public abstract class E2ETestBase : IDisposable
         var moduleManifest = Path.Combine(repoRoot, "artifacts", "MediaForgePS", "MediaForgePS.psd1");
         Assert.True(File.Exists(moduleManifest), $"Packed module manifest not found: {moduleManifest}");
 
-        _powerShell = PowerShell.Create();
+        var initialSessionState = InitialSessionState.CreateDefault();
+        // Format .ps1xml load is gated by execution policy (Restricted on Windows CI runners).
+        // ExecutionPolicy is not supported on Unix/macOS and throws PlatformNotSupportedException if set.
+        if (OperatingSystem.IsWindows())
+            initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+
+        _powerShell = PowerShell.Create(initialSessionState);
         _powerShell.AddCommand("Import-Module")
             .AddParameter("Name", moduleManifest)
             .AddParameter("Force", true);
