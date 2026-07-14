@@ -1,21 +1,25 @@
 BeforeAll {
     $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $configuration = $env:MEDIAFORGE_CONFIGURATION
+    if ([string]::IsNullOrWhiteSpace($configuration)) {
+        $configuration = 'Debug'
+    }
+
     $devToolsPath = Join-Path $repoRoot 'scripts\MediaForge.DevTools.psm1'
     if (Test-Path $devToolsPath) {
         Import-Module $devToolsPath -Force
-        $moduleDir = Get-MediaForgeBuildOutput -RepoRoot $repoRoot -Configuration 'Debug'
+        $moduleDir = Get-MediaForgeBuildOutput -RepoRoot $repoRoot -Configuration $configuration
         $modulePath = Join-Path $moduleDir 'MediaForgePS.dll'
     } else {
-        # Fallback to previous hardcoded path if helpers are not available
-        $modulePath = Join-Path $PSScriptRoot '..\..\..\src\MediaForgePS\bin\Debug\net10.0\MediaForgePS.dll'
+        $modulePath = Join-Path $PSScriptRoot "..\..\..\src\MediaForgePS\bin\$configuration\net10.0\MediaForgePS.dll"
     }
 
     if (-not (Test-Path $modulePath)) {
         Push-Location $repoRoot
         try {
-            dotnet build src/MediaForgePS/MediaForgePS.csproj -c Debug | Out-Null
+            dotnet build src/MediaForgePS/MediaForgePS.csproj -c $configuration | Out-Null
             if ($LASTEXITCODE -ne 0) {
-                throw "Failed to build MediaForgePS module"
+                throw "Failed to build MediaForgePS module ($configuration)"
             }
         }
         finally {

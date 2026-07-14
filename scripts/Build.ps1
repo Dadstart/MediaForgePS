@@ -25,7 +25,8 @@
     - 'Fix': Auto-fix formatting issues (runs 'dotnet format'). Only runs if build succeeded. Use -Lint View afterward to check for non-fixable diagnostics.
 
 .PARAMETER Test
-    Enable test step. Runs all tests in the solution.
+    Enable test step. Runs all solution tests via `dotnet test`, then Pester
+    (`tests/MediaForgePS.Tests/Run-PesterTests.ps1`) against the same -Configuration output.
     Only runs if build succeeded. Uses --no-build flag if build output exists.
 
 .PARAMETER Publish
@@ -236,7 +237,11 @@ class ProgressTracker {
 
     [void] UpdateProgress([string]$status) {
         $this.CurrentStep++
-        $percentComplete = [math]::Round(($this.CurrentStep / $this.TotalSteps) * 100)
+        $percentComplete = if ($this.TotalSteps -le 0) {
+            100
+        } else {
+            [math]::Min(100, [math]::Round(($this.CurrentStep / $this.TotalSteps) * 100))
+        }
         $currentStepName = if ($this.CurrentStep -le $this.StepNames.Count) {
             $this.StepNames[$this.CurrentStep - 1]
         } else {
@@ -267,7 +272,10 @@ function Initialize-ProgressTracker {
     if ($Build) { $steps += 'Build' }
     if ($Lint -eq 'View') { $steps += 'Lint View' }
     if ($Lint -eq 'Fix') { $steps += 'Lint Fix' }
-    if ($Test) { $steps += 'Test' }
+    if ($Test) {
+        $steps += 'Test'
+        $steps += 'Pester'
+    }
     if ($Publish) { $steps += 'Publish' }
 
     return [ProgressTracker]::new($steps.Count, $steps)
@@ -419,6 +427,9 @@ if ($Test) {
 
         $progressTracker.UpdateProgress("Running tests ($Configuration)")
 
+        # Prefer this configuration for Pester module import and E2E pack/smoke.
+        $env:MEDIAFORGE_CONFIGURATION = $Configuration
+
         $testArgs = @(
             'test',
             $slnPath,
@@ -434,7 +445,24 @@ if ($Test) {
             throw "Tests failed with exit code $LASTEXITCODE"
         }
 
-        Write-Host "Tests completed successfully." -ForegroundColor Green
+        Write-Host "dotnet tests completed successfully." -ForegroundColor Green
+        Write-Host ""
+
+        $pesterScript = Join-Path $repoRoot 'tests\MediaForgePS.Tests\Run-PesterTests.ps1'
+        if (-not (Test-Path -LiteralPath $pesterScript)) {
+            throw "Pester runner not found: $pesterScript"
+        }
+
+        Write-Host "Running Pester tests (module configuration: $Configuration)..." -ForegroundColor Cyan
+        $progressTracker.UpdateProgress("Running Pester tests ($Configuration)")
+
+        & $pesterScript -ModuleConfiguration $Configuration
+        if ($LASTEXITCODE -ne 0) {
+            Write-Information "Build:Pester:Failed:ExitCode=$LASTEXITCODE" -InformationAction Continue
+            throw "Pester tests failed with exit code $LASTEXITCODE"
+        }
+
+        Write-Host "Pester tests completed successfully." -ForegroundColor Green
         Write-Host ""
     }
 }

@@ -49,6 +49,86 @@ public abstract class ComponentTestBase : IDisposable
         return destination;
     }
 
+    /// <summary>
+    /// Creates a short sample with a silent stereo AAC track tagged as English.
+    /// </summary>
+    protected string CreateSampleVideoWithEnglishAudio(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+
+        RunFfmpeg(
+            $"-y -i \"{SampleVideoPath}\" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 " +
+            $"-c:v copy -c:a aac -b:a 128k -shortest -metadata:s:a:0 language=eng \"{destination}\"",
+            "create sample with English audio");
+        Assert.True(File.Exists(destination));
+
+        return destination;
+    }
+
+    /// <summary>
+    /// Alias for <see cref="CreateSampleVideoWithEnglishAudio"/> used by convert tests that need any audio track.
+    /// </summary>
+    protected string CreateSampleVideoWithSilentAudio(string fileName) =>
+        CreateSampleVideoWithEnglishAudio(fileName);
+
+    /// <summary>
+    /// Creates a remux of the sample with two chapter markers for split tests.
+    /// </summary>
+    protected string CreateSampleVideoWithChapters(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+        var metadataPath = Path.Combine(directory, "chapters.ffmeta");
+
+        File.WriteAllText(
+            metadataPath,
+            """
+            ;FFMETADATA1
+            [CHAPTER]
+            TIMEBASE=1/1000
+            START=0
+            END=400
+            title=Intro
+            [CHAPTER]
+            TIMEBASE=1/1000
+            START=400
+            END=1000
+            title=Main
+            """);
+
+        RunFfmpeg(
+            $"-y -i \"{SampleVideoPath}\" -i \"{metadataPath}\" -map_metadata 1 -c copy \"{destination}\"",
+            "create sample with chapters");
+        Assert.True(File.Exists(destination));
+
+        return destination;
+    }
+
+    private static void RunFfmpeg(string arguments, string purpose)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        Assert.True(process.Start(), $"Failed to start ffmpeg to {purpose}.");
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        Assert.True(process.WaitForExit(30_000), $"ffmpeg timed out while trying to {purpose}.");
+        var stderr = stderrTask.GetAwaiter().GetResult();
+        Assert.True(
+            process.ExitCode == 0,
+            $"ffmpeg failed to {purpose}. Exit code: {process.ExitCode}. stderr: {stderr}");
+    }
+
     protected static PowerShell CreatePowerShellFor<TCmdlet>(string commandName)
     {
         var assembly = typeof(TCmdlet).Assembly;
