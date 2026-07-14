@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -126,6 +127,28 @@ public class ExecutableServiceArgumentListTests
             if (Directory.Exists(tempRoot))
                 Directory.Delete(tempRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithStdoutCallback_InvokesCallbackForEachLine()
+    {
+        await using var script = await TempPwshScript.CreateAsync(
+            "Write-Output 'line-one'\nWrite-Output 'line-two'",
+            TestContext.Current.CancellationToken);
+
+        var lines = new List<string>();
+        var service = new ExecutableService(NullLogger<ExecutableService>.Instance);
+        var result = await service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            line => lines.Add(line),
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(result.Exception);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(["line-one", "line-two"], lines);
+        Assert.Contains("line-one", result.Output, StringComparison.Ordinal);
+        Assert.Contains("line-two", result.Output, StringComparison.Ordinal);
     }
 
     private sealed class TempPwshScript : IAsyncDisposable
