@@ -190,8 +190,8 @@ Input and output paths (by value or property name).
 
 ## OUTPUTS
 
-### System.Boolean
-Not written to pipeline; conversion runs synchronously. Errors are reported via WriteError.
+### MediaConversionResult
+Written on successful conversion: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Errors are reported via WriteError.
 
 ## NOTES
 Requires FFmpeg. For batch conversion with automatic audio detection, use Convert-MediaFiles.

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
@@ -16,10 +17,11 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Use when full control over encoding is required. Supply <see cref="VideoEncodingSettings"/> from
 /// <see cref="NewVideoEncodingSettingsCommand"/> and <see cref="AudioTrackMapping"/> objects from
 /// <see cref="GetAudioTrackMappingsCommand"/> or <see cref="NewAudioTrackMappingCommand"/>.
-/// Does not write to the pipeline; errors are reported via WriteError.
+/// Does not write to the pipeline on failure (errors via WriteError); on success writes a <see cref="MediaConversionResult"/>.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true)]
+[OutputType(typeof(MediaConversionResult))]
 public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -124,6 +126,7 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             var x265Arguments = MediaConversionHelper.BuildX265Arguments(X265Params, VideoEncodingSettings.Codec);
             var additionalArguments = MergeAdditionalArguments(AdditionalArguments, x265Arguments);
 
+            var stopwatch = Stopwatch.StartNew();
             MediaConversionService.ExecuteConversion(
                 resolvedInputPath,
                 resolvedOutputPath,
@@ -131,8 +134,15 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 AudioTrackMappings,
                 additionalArguments,
                 cancellationToken: StoppingToken);
+            stopwatch.Stop();
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);
+            WriteObject(MediaConversionHelper.CreateConversionResult(
+                resolvedInputPath,
+                resolvedOutputPath,
+                true,
+                MediaConversionResult.CompletedStatus,
+                stopwatch.Elapsed));
         }
         catch (FfmpegConversionException ex)
         {

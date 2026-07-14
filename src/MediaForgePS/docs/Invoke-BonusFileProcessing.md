@@ -21,7 +21,7 @@ Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-Defaul
 ## DESCRIPTION
 Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default **nvenc**). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` (**Auto**, **Skip**, or **Force**; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.
 
-Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Supports -WhatIf and -Confirm.
+Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Writes a MediaConversionResult per converted file (output path, size reduction, and processing time). Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -225,8 +225,8 @@ Parameters are specified directly.
 
 ## OUTPUTS
 
-### None
-This cmdlet does not write to the pipeline.
+### MediaConversionResult
+One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.
 
 ## NOTES
 Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.
