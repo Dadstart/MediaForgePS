@@ -861,7 +861,7 @@ Convert-MediaFileAdvanced -InputPath "input.mkv" -OutputPath "output.mp4" -Video
           <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>For each input file: InputPath (also exposed as FilePath), OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is Success when conversion completed.</maml:para>
+          <maml:para>For each input file: InputPath (also exposed as FilePath), OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -1229,7 +1229,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
           <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>For each processed file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is Success when conversion completed.</maml:para>
+          <maml:para>For each processed file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is `Success` when conversion completed.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -2375,7 +2375,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
           <maml:name>MediaConversionResult</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is Success when conversion completed.</maml:para>
+          <maml:para>One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
