@@ -15,7 +15,7 @@ Converts video files in a directory (or specified paths) to MP4 with automatic a
 ```
 Convert-VideoFile [-InputPath] <String[]> [[-OutputDirectory] <String>] [-Recurse]
  [-DefaultVideoEncoder <String>] [-X265Params <String>] [-SkipSubtitles] [-Ocr <String>] [-SkipRepair]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -37,7 +37,7 @@ Default video encoding follows -DefaultVideoEncoder: x264 (libx264, CRF 18, pres
 
 InputPath accepts a directory, a single video file, or multiple video file paths. Aliases: InputDirectory, Path. When -OutputDirectory is omitted, output is written alongside each input (same directory as the source file or input root). Use -Recurse to include video files in subdirectories when InputPath is a directory.
 
-Progress reporting includes per-file and batch ETA based on completed file sizes.
+Progress reporting includes per-file and batch ETA based on completed file sizes. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -183,6 +183,37 @@ Additional x265 params passed to ffmpeg via -x265-params. Applies when -DefaultV
 Type: String
 Parameter Sets: (All)
 Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
 
 Required: False
 Position: Named

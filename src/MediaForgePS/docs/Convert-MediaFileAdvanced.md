@@ -16,11 +16,11 @@ Converts a single media file using explicit video encoding settings and audio tr
 Convert-MediaFileAdvanced [-InputPath] <String> [-OutputPath] <String>
  -VideoEncodingSettings <VideoEncodingSettings> -AudioTrackMappings <AudioTrackMapping[]>
  [-AdditionalArguments <String[]>] [-X265Params <String>] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options; -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles.
+Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options; -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -126,6 +126,37 @@ Additional x265 params (passed to ffmpeg via -x265-params)
 Type: String
 Parameter Sets: (All)
 Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
 
 Required: False
 Position: Named

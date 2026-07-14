@@ -15,13 +15,13 @@ Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style
 ```
 Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-DefaultVideoEncoder <String>]
  [-SkipSubtitles] [-Ocr <String>] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default **nvenc**). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` (**Auto**, **Skip**, or **Force**; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.
 
-Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped.
+Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -149,6 +149,37 @@ Aliases:
 
 Required: True
 Position: 1
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs.
+The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
+
+Required: False
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

@@ -21,8 +21,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
 /// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
 /// Writes a <see cref="VideoFileConversionResult"/> per processed file to the pipeline.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "VideoFile")]
+[Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(VideoFileConversionResult))]
 public class ConvertVideoFileCommand : ProgressCmdletBase
 {
@@ -155,9 +156,6 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(configuredOutputDirectory))
-            Directory.CreateDirectory(configuredOutputDirectory);
-
         var videoFileInputs = new List<(string Path, string InputRoot, string OutputRoot)>();
         var seenVideoPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (resolvedInputPath, isDirectory) in resolvedEntries)
@@ -232,11 +230,24 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
         var videoSettings = MediaConversionHelper.CreateDefaultVideoEncodingSettings(DefaultVideoEncoder);
         var additionalArguments = MediaConversionHelper.BuildX265Arguments(X265Params, videoSettings.Codec);
+        var outputDirectoryEnsured = false;
 
         foreach (var (inputPath, inputRoot, outputRoot, fileSize) in _sizedVideoFiles)
         {
             _currentFileIndex++;
             var fileName = GetFileName(inputPath);
+            if (!ShouldProcess($"Convert '{fileName}'", "Convert video file"))
+            {
+                Logger.LogInformation("WhatIf: Would convert '{InputFileName}'", fileName);
+                continue;
+            }
+
+            if (!outputDirectoryEnsured && !string.IsNullOrWhiteSpace(configuredOutputDirectory))
+            {
+                Directory.CreateDirectory(configuredOutputDirectory);
+                outputDirectoryEnsured = true;
+            }
+
             var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
                 _currentFileIndex, _batchTotalFiles, fileName, _batchCompletedBytes, _batchTotalBytes);
             var batchEta = CalculateBatchRemainingTime(inputPath, _batchTotalFiles - _currentFileIndex);

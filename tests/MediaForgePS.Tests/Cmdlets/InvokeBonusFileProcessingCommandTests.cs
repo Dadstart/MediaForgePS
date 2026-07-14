@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Reflection;
 using System.Threading;
@@ -239,6 +240,54 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     }
 
     [Fact]
+    public void InvokeBonusFileProcessing_SupportsShouldProcess()
+    {
+        var attribute = typeof(InvokeBonusFileProcessingCommand)
+            .GetCustomAttributes(typeof(CmdletAttribute), inherit: false)
+            .Cast<CmdletAttribute>()
+            .Single();
+
+        Assert.True(attribute.SupportsShouldProcess);
+        Assert.Equal(ConfirmImpact.High, attribute.ConfirmImpact);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WithWhatIf_DoesNotConvertFiles()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        SetupOutputPathResolution(output);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("WhatIf");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        _mediaConversionServiceMock.Verify(
+            service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mediaReaderServiceMock.Verify(
+            service => service.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public void InvokeBonusFileProcessing_WithEncodeProgress_WritesPercentAndSecondsRemaining()
     {
         var input = CreateTempDirectory();
@@ -278,7 +327,8 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         ps.AddCommand("Invoke-BonusFileProcessing")
             .AddParameter("InputPath", input)
             .AddParameter("OutputPath", output)
-            .AddParameter("SkipSubtitles");
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
@@ -336,7 +386,8 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         ps.AddCommand("Invoke-BonusFileProcessing")
             .AddParameter("InputPath", input)
             .AddParameter("OutputPath", output)
-            .AddParameter("SkipSubtitles");
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();

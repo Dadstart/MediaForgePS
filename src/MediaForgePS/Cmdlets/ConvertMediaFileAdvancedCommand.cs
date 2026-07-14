@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -16,8 +17,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <see cref="NewVideoEncodingSettingsCommand"/> and <see cref="AudioTrackMapping"/> objects from
 /// <see cref="GetAudioTrackMappingsCommand"/> or <see cref="NewAudioTrackMappingCommand"/>.
 /// Does not write to the pipeline; errors are reported via WriteError.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "MediaFileAdvanced")]
+[Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 public class ConvertMediaFileAdvancedCommand : CmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -104,6 +106,14 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
 
         if (!TryResolveOutputPath(PathResolver, OutputPath, out var resolvedOutputPath))
             return;
+
+        var inputFileName = Path.GetFileName(resolvedInputPath);
+        var outputFileName = Path.GetFileName(resolvedOutputPath);
+        if (!ShouldProcess($"Convert '{inputFileName}' to '{outputFileName}'", "Convert media file"))
+        {
+            Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", inputFileName, outputFileName);
+            return;
+        }
 
         try
         {
