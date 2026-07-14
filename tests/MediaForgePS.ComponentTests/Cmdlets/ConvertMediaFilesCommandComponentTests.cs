@@ -7,7 +7,7 @@ namespace Dadstart.Labs.MediaForge.ComponentTests.Cmdlets;
 
 public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
 {
-    [Fact]
+    [Fact(Timeout = 60_000)]
     public void ConvertMediaFiles_WithValidSampleVideo_ProducesOutputFileInOutputDirectory()
     {
         SkipIfMediaToolsMissing();
@@ -18,7 +18,8 @@ public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
         using var ps = CreatePowerShellFor<ConvertMediaFilesCommand>("Convert-MediaFiles");
         ps.AddCommand("Convert-MediaFiles")
             .AddParameter("InputPath", new object[] { SampleVideoPath })
-            .AddParameter("OutputDirectory", outputDir);
+            .AddParameter("OutputDirectory", outputDir)
+            .AddParameter("DefaultVideoEncoder", "x264");
 
         _ = ps.Invoke();
         var errors = ps.Streams.Error.ReadAll();
