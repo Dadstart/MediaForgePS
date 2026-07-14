@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -112,6 +113,31 @@ public class TvDbClientTests
         Assert.NotNull(loginBody);
         Assert.Contains("\"apikey\":\"test-key\"", loginBody, StringComparison.Ordinal);
         Assert.Contains("\"pin\":\"1234\"", loginBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Requests_IncludeUserAgentWithAssemblyVersion()
+    {
+        var expectedVersion = typeof(TvDbClient).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?.Split('+')[0]
+            ?? typeof(TvDbClient).Assembly.GetName().Version!.ToString(3);
+
+        string? userAgent = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            userAgent = request.Headers.UserAgent.ToString();
+            return JsonResponse("""{"status":"success","data":{"id":1,"name":"Show","slug":"show"}}""");
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key");
+        await client.ResolveSeriesIdAsync("show", TestContext.Current.CancellationToken);
+
+        Assert.Equal($"MediaForgePS/{expectedVersion}", userAgent);
     }
 
     private static TvDbClient CreateClient(HttpMessageHandler handler, string? apiKey, string? pin = null) =>

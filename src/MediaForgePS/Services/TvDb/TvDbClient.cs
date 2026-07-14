@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -51,7 +52,20 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
             BaseAddress = new Uri(ApiBaseAddress),
             Timeout = _defaultTimeout
         };
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MediaForgePS/0.18.0");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"MediaForgePS/{GetAssemblyVersion()}");
+    }
+
+    private static string GetAssemblyVersion()
+    {
+        var assembly = typeof(TvDbClient).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            var plusIndex = informational.IndexOf('+', StringComparison.Ordinal);
+            return plusIndex >= 0 ? informational[..plusIndex] : informational;
+        }
+
+        return assembly.GetName().Version?.ToString(3) ?? "0.0.0";
     }
 
     public async Task<long> ResolveSeriesIdAsync(string seriesKey, CancellationToken cancellationToken = default)
