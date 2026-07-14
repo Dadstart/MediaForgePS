@@ -23,7 +23,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Writes a <see cref="VideoFileConversionResult"/> per processed file to the pipeline.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true)]
 [OutputType(typeof(VideoFileConversionResult))]
 public class ConvertVideoFileCommand : ProgressCmdletBase
 {

@@ -16,7 +16,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Requires Subtitle Edit under %ProgramFiles%\Subtitle Edit and Tesseract OCR.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt", SupportsShouldProcess = true)]
 [Alias("Convert-SupToSrt")]
 [OutputType(typeof(string))]
 public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase

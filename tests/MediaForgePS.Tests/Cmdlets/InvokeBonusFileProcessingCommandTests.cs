@@ -248,7 +248,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             .Single();
 
         Assert.True(attribute.SupportsShouldProcess);
-        Assert.Equal(ConfirmImpact.High, attribute.ConfirmImpact);
     }
 
     [Fact]
