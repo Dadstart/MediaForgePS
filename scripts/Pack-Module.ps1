@@ -91,6 +91,14 @@ Get-ChildItem -LiteralPath $buildOutput -Filter '*.dll' -File |
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $moduleRoot $_.Name) -Force
     }
 
+$formatsSource = Join-Path $buildOutput 'Formats'
+if (Test-Path -LiteralPath $formatsSource) {
+    Copy-Item -LiteralPath $formatsSource -Destination (Join-Path $moduleRoot 'Formats') -Recurse -Force
+}
+else {
+    throw "Formats directory not found at $formatsSource (required for FormatsToProcess)."
+}
+
 $helpSource = Join-Path $buildOutput 'en-US'
 if (Test-Path -LiteralPath $helpSource) {
     Copy-Item -LiteralPath $helpSource -Destination (Join-Path $moduleRoot 'en-US') -Recurse -Force

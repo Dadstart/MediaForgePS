@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Dadstart.Labs.MediaForge.Providers;
 using Xunit.Sdk;
 
 namespace Dadstart.Labs.MediaForge.ComponentTests;
@@ -41,6 +42,17 @@ public abstract class ComponentTestBase : IDisposable
         var initialSessionState = InitialSessionState.CreateDefault();
         initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(assembly.GetName().FullName!, assembly.Location));
         initialSessionState.Commands.Add(new SessionStateCmdletEntry(commandName, typeof(TCmdlet), null));
+
+        return PowerShell.Create(initialSessionState);
+    }
+
+    protected static PowerShell CreatePowerShellWithMediaProvider()
+    {
+        var assembly = typeof(MediaCmdletProvider).Assembly;
+        var initialSessionState = InitialSessionState.CreateDefault();
+        initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(assembly.GetName().FullName!, assembly.Location));
+        initialSessionState.Providers.Add(
+            new SessionStateProviderEntry("Media", typeof(MediaCmdletProvider), null));
 
         return PowerShell.Create(initialSessionState);
     }

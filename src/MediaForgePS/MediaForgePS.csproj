@@ -25,6 +25,7 @@
   <ItemGroup>
     <None Include="MediaForgePS.psd1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Formats\*.format.ps1xml" CopyToOutputDirectory="PreserveNewest" Link="Formats\%(Filename)%(Extension)" />
     <None Include="en-US\*.xml" CopyToOutputDirectory="PreserveNewest" Link="en-US\%(Filename)%(Extension)" />
   </ItemGroup>
 
