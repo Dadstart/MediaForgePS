@@ -9,6 +9,7 @@ using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services.TvDb;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
@@ -26,10 +27,11 @@ public class SeriesProcessingService : ISeriesProcessingService
     public SeriesProcessingService(
         ILogger<SeriesProcessingService> logger,
         IMediaReaderService mediaReaderService,
-        IExecutableService executableService)
+        IExecutableService executableService,
+        ITvDbClient tvDbClient)
     {
         _logger = logger;
-        _seasonScanPhase = new SeriesSeasonScanPhase(logger);
+        _seasonScanPhase = new SeriesSeasonScanPhase(tvDbClient, logger);
         _videoCopyPhase = new SeriesVideoCopyPhase();
         _chapterExtractionPhase = new SeriesChapterExtractionPhase(mediaReaderService, executableService);
         _captionExtractionPhase = new SeriesCaptionExtractionPhase(mediaReaderService, executableService, logger);

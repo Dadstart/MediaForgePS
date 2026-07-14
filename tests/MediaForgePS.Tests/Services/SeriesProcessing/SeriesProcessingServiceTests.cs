@@ -1,3 +1,4 @@
+using System;
 using System.Management.Automation;
 using System.Reflection;
 using Dadstart.Labs.MediaForge.Cmdlets;
@@ -5,6 +6,7 @@ using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services.TvDb;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -20,7 +22,11 @@ public class SeriesProcessingServiceTests
         var logger = new Mock<ILogger<SeriesProcessingService>>();
         var mediaReaderService = new Mock<IMediaReaderService>();
         var executableService = new Mock<IExecutableService>();
-        _service = new SeriesProcessingService(logger.Object, mediaReaderService.Object, executableService.Object);
+        _service = new SeriesProcessingService(
+            logger.Object,
+            mediaReaderService.Object,
+            executableService.Object,
+            Mock.Of<ITvDbClient>());
     }
 
     [Fact]

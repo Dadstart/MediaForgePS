@@ -2431,7 +2431,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
       <maml:para>Invoke-SeasonScan fetches TVDb episode metadata for the given `-Season`. Provide `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`; when `TvDbSeasonUrl` is omitted, it is constructed from the series URL and season number.</maml:para>
       <maml:para>Output is an array of `TvDbEpisodeInfo` objects with these properties:</maml:para>
       <maml:para>| Property | Description | |----------|-------------| | `Id` | TVDb episode ID (used in output file names) | | `SeasonNumber` | Season number | | `Title` | Episode title | | `EpisodeNumber` | Episode number within the season |</maml:para>
-      <maml:para>Use the output with `Invoke-VideoCopy`, `Split-SeriesChapters`, or `Invoke-SeriesProcessing`. Requires network access to thetvdb.com.</maml:para>
+      <maml:para>Use the output with `Invoke-VideoCopy`, `Split-SeriesChapters`, or `Invoke-SeriesProcessing`. Requires network access to TheTVDB API and a configured `TVDB_API_KEY` environment variable.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -2558,20 +2558,36 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires network access to thetvdb.com. If no episode information is returned, the cmdlet writes a warning and produces no output. At least one of `-TvDbSeriesUrl` or `-TvDbSeasonUrl` should be provided.</maml:para>
+        <maml:para>Requires network access to TheTVDB API (`api4.thetvdb.com`). Set the `TVDB_API_KEY` environment variable (and `TVDB_PIN` when using a user-supported key). If no episode information is returned, the cmdlet writes a warning and produces no output. At least one of `-TvDbSeriesUrl` or `-TvDbSeasonUrl` should be provided.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>
-        <maml:title>----------- Example 1: Get episode list for a season -----------</maml:title>
-        <dev:code>Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/12345"</dev:code>
+        <maml:title>--------------- Example 1: Scan by series slug ---------------</maml:title>
+        <dev:code>$env:TVDB_API_KEY = 'your-key-here'   # once per session if not already set
+
+Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/breaking-bad"</dev:code>
         <dev:remarks>
-          <maml:para>Returns TvDbEpisodeInfo objects for season 1.</maml:para>
+          <maml:para>Returns TvDbEpisodeInfo objects for season 1 using the series slug. Set TVDB_API_KEY (and TVDB_PIN when required) before calling.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>
-        <maml:title>------------- Example 2: Pass to Invoke-VideoCopy -------------</maml:title>
-        <dev:code>$episodes = Invoke-SeasonScan -Season 2 -TvDbSeriesUrl "https://thetvdb.com/series/12345"
+        <maml:title>----------- Example 2: Scan by numeric series ID -----------</maml:title>
+        <dev:code>Invoke-SeasonScan -Season 1 -TvDbSeriesUrl "https://thetvdb.com/series/81189"</dev:code>
+        <dev:remarks>
+          <maml:para>Same result using TheTVDB numeric series ID in the URL.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>------- Example 3: Scan with an explicit season URL -------</maml:title>
+        <dev:code>Invoke-SeasonScan -Season 1 -TvDbSeasonUrl "https://thetvdb.com/series/breaking-bad/seasons/official/1"</dev:code>
+        <dev:remarks>
+          <maml:para>Uses the season-order path (official, dvd, and so on) and season number from the URL.</maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>------------- Example 4: Pass to Invoke-VideoCopy -------------</maml:title>
+        <dev:code>$episodes = Invoke-SeasonScan -Season 2 -TvDbSeriesUrl "https://thetvdb.com/series/81189"
 Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv" -Destination "P:\Season2" -Episodes $episodes</dev:code>
         <dev:remarks>
           <maml:para>Scans season 2 and uses the result for video copy.</maml:para>

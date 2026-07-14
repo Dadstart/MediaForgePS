@@ -138,6 +138,8 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Build, lint, and test via Build.ps1
+        env:
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
         run: |
           ./scripts/Build.ps1 `
             -Configuration Release `
