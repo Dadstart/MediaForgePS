@@ -7,6 +7,8 @@ namespace Dadstart.Labs.MediaForge.Module;
 /// <summary>
 /// ILogger implementation that forwards log messages into the current PSCmdlet streams.
 /// If no cmdlet is present in CmdletContext.Current, messages are ignored.
+/// Error and Critical map to WriteWarning so routine service logging does not produce
+/// pipeline error records; cmdlets should call WriteError for intentional failures.
 /// </summary>
 public class PowerShellLogger : ILogger
 {
@@ -28,12 +30,12 @@ public class PowerShellLogger : ILogger
         return true;
     }
 
-    public void Log<TState>(LogLevel level, EventId id,
+    public void Log<TState>(LogLevel level, EventId _,
         TState state, Exception? exc, Func<TState, Exception?, string> formatter)
     {
         try
         {
-            LogCore(level, id, state, exc, formatter);
+            LogCore(level, state, exc, formatter);
         }
         catch
         {
@@ -41,7 +43,7 @@ public class PowerShellLogger : ILogger
         }
     }
 
-    private void LogCore<TState>(LogLevel level, EventId id,
+    private void LogCore<TState>(LogLevel level,
         TState state, Exception? exc, Func<TState, Exception?, string> formatter)
     {
         if (formatter is null)
@@ -73,15 +75,11 @@ public class PowerShellLogger : ILogger
                 cmdlet.WriteInformation(infoRecord);
                 break;
             case LogLevel.Warning:
-                cmdlet.WriteWarning(output);
-                break;
-
             case LogLevel.Error:
             case LogLevel.Critical:
-                // Create an ErrorRecord for WriteError
-                var ex = exc ?? new Exception(output);
-                var record = new ErrorRecord(ex, id.Id.ToString(), ErrorCategory.NotSpecified, null);
-                cmdlet.WriteError(record);
+                if (exc is not null)
+                    output = string.IsNullOrEmpty(msg) ? FormatCategory(exc.ToString()) : $"{output}{Environment.NewLine}{exc}";
+                cmdlet.WriteWarning(output);
                 break;
 
             default:
@@ -89,6 +87,9 @@ public class PowerShellLogger : ILogger
                 break;
         }
     }
+
+    private string FormatCategory(string message) =>
+        string.IsNullOrEmpty(_category) ? message : $"[{_category}] {message}";
 
     private class NullDisposable : IDisposable
     {
