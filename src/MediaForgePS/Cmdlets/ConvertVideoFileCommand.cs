@@ -417,6 +417,10 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             return MediaConversionHelper.CreateConversionResult(
                 inputPath, inputPath, false, statusMessage, _fileStopwatch?.Elapsed ?? TimeSpan.Zero);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _fileStopwatch?.Stop();
