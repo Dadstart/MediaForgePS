@@ -194,7 +194,7 @@ public class SubtitleExportHelperTests
                 @"C:\out\movie.eng.sdh.srt",
                 MkvextractPath,
             cancellationToken: TestContext.Current.CancellationToken));
-        Assert.Contains("FFmpeg failed", ex.Message);
+        Assert.Contains("FFmpeg subtitle extract failed", ex.Message);
         Assert.Contains("boom", ex.Message);
     }
 

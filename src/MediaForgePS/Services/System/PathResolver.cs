@@ -3,6 +3,7 @@ using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Module;
 using Microsoft.Extensions.Logging;
+using PathSafetyHelper = Dadstart.Labs.MediaForge.Services.PathSafetyHelper;
 
 namespace Dadstart.Labs.MediaForge.Services.System;
 
@@ -242,7 +243,7 @@ public class PathResolver : IPathResolver
     /// </summary>
     public static void CopyFileToBackup(string backupRoot, string sourceFilePath, string relativePath)
     {
-        var backupDest = Path.Combine(backupRoot, relativePath);
+        var backupDest = PathSafetyHelper.GetContainedRelativePath(backupRoot, relativePath);
         var backupDir = Path.GetDirectoryName(backupDest);
         if (!string.IsNullOrEmpty(backupDir))
             Directory.CreateDirectory(backupDir);

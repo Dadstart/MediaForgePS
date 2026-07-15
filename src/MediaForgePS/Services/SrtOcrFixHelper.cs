@@ -13,7 +13,7 @@ public static class SrtOcrFixHelper
     private const char MusicNote = '♪';
 
     /// <summary>
-    /// Reads an SRT file, applies OCR fixes, and writes the result to outputPath. Uses UTF-8 encoding.
+    /// Reads an SRT file, applies OCR fixes, and writes the result to outputPath atomically. Uses UTF-8 encoding.
     /// </summary>
     /// <param name="inputPath">Path to the source SRT file.</param>
     /// <param name="outputPath">Path to write the repaired SRT file.</param>
@@ -21,7 +21,7 @@ public static class SrtOcrFixHelper
     {
         var content = File.ReadAllText(inputPath).Replace("\r\n", "\n").Replace("\r", "\n");
         var fixedContent = FixMusicNoteOcrErrors(content);
-        File.WriteAllText(outputPath, fixedContent, Encoding.UTF8);
+        AtomicFileHelper.WriteTextAtomically(outputPath, fixedContent, Encoding.UTF8);
     }
 
     /// <summary>

@@ -46,7 +46,11 @@ public class SplitSeriesChaptersCommandTests : IDisposable
 
         _executableServiceMock
             .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            {
+                File.WriteAllText(args.Last(), "encoded");
+                return new ExecutableResult(null, null, 0);
+            });
 
         var services = new ServiceCollection();
         services.AddSingleton(_pathResolverMock.Object);
@@ -72,7 +76,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
         string? resolvedPath = null;
         _pathResolverMock.Setup(p => p.TryResolveInputPath(inputPath, out resolvedPath))
             .Returns(false);
-        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(new[]
             {
                 new TvDbEpisodeInfo("101", 1, "Episode 1", 1)
@@ -97,7 +101,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
     [Fact]
     public void SplitSeriesChapters_WhenNotEnoughTvDbEpisodes_WritesError()
     {
-        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+        _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(new[]
             {
                 new TvDbEpisodeInfo("101", 1, "Episode 1", 1)
@@ -139,7 +143,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
                 .Callback(new TryResolveInputPathCallback((string p, out string r) => r = p))
                 .Returns(true);
 
-            _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>()))
+            _seriesProcessingServiceMock.Setup(s => s.InvokeSeasonScan(It.IsAny<ICmdletIO>(), 1, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                 .Returns(new[]
                 {
                     new TvDbEpisodeInfo("123456", 1, "Episode 1", 1)
@@ -172,7 +176,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
 
             Assert.Empty(errors);
             Assert.Single(results);
-            var expectedOutputPath = Path.Combine(tempDir, "My Show {tvdb 123456} S01E01.mkv");
+            var expectedOutputPath = Path.Combine(tempDir, "My Show {tvdb 123456} - s01e01.mkv");
             Assert.Equal(expectedOutputPath, results[0].BaseObject);
 
             _executableServiceMock.Verify(

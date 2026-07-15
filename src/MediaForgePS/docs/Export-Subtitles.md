@@ -100,6 +100,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -KeepSource
+Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -ThrottleLimit
 Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.
 

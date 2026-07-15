@@ -269,9 +269,7 @@ public static class SubtitleExportHelper
 
             var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{resolvedOutputPath}" };
             var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (mkvResult.ExitCode != 0)
-                throw new InvalidOperationException($"mkvextract failed with exit code {mkvResult.ExitCode}. {mkvResult.ErrorOutput}");
-
+            mkvResult.EnsureProcessSuccess("mkvextract");
             return;
         }
 
@@ -283,7 +281,6 @@ public static class SubtitleExportHelper
 
         var ffmpegArgs = new List<string> { "-i", mediaFilePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", ffmpegOutputPath };
         var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (ffmpegResult.ExitCode != 0)
-            throw new InvalidOperationException($"FFmpeg failed with exit code {ffmpegResult.ExitCode}. {ffmpegResult.ErrorOutput}");
+        ffmpegResult.EnsureProcessSuccess("FFmpeg subtitle extract");
     }
 }

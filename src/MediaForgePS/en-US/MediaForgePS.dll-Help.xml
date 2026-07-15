@@ -10,7 +10,7 @@
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Output SRT paths are written to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit. Supports -WhatIf and -Confirm.</maml:para>
+      <maml:para>Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Source image subtitle files are deleted after a successful conversion by default; use -KeepSource to preserve them. Output SRT paths are written to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit. Supports -WhatIf and -Confirm.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -43,6 +43,17 @@
           <maml:name>Recurse</maml:name>
           <maml:description>
             <maml:para>When input is a directory, recurse into subdirectories.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source image subtitle files after a successful conversion. By default, source `.sup`/`.sub`/`.idx` files are deleted.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -115,6 +126,18 @@
         <maml:name>Recurse</maml:name>
         <maml:description>
           <maml:para>When input is a directory, recurse into subdirectories.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source image subtitle files after a successful conversion. By default, source `.sup`/`.sub`/`.idx` files are deleted.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -1009,6 +1032,17 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>SkipSubtitles</maml:name>
           <maml:description>
             <maml:para>Skip caption extraction after converting video files.</maml:para>
@@ -1132,6 +1166,18 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
         <maml:name>SkipRepair</maml:name>
         <maml:description>
           <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified or -SkipSubtitles is specified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -1632,6 +1678,17 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>ThrottleLimit</maml:name>
           <maml:description>
             <maml:para>Maximum number of image-to-SRT conversions to run in parallel. Only applies when -Ocr is specified. Default is 10.</maml:para>
@@ -1698,6 +1755,18 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
         <maml:name>SkipRepair</maml:name>
         <maml:description>
           <maml:para>Skip SRT repair during OCR processing. Has no effect when -Ocr is not specified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -2154,6 +2223,17 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>BackupPath</maml:name>
           <maml:description>
             <maml:para>Directory to copy SRT files to before repairing. Path structure under the input directory is preserved. Only used when repair runs (i.e. when -SkipRepair is not specified and there are SRT files).</maml:para>
@@ -2254,6 +2334,18 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
         <maml:name>SkipRepair</maml:name>
         <maml:description>
           <maml:para>Skip the SRT repair step. By default, extracted or OCR-produced SRT files are repaired unless this switch is specified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -2782,6 +2874,17 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>Ocr</maml:name>
           <maml:description>
             <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
@@ -2953,6 +3056,18 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>Ocr</maml:name>
         <maml:description>
           <maml:para>Controls OCR of image-based captions after extraction. Default is Auto.</maml:para>
@@ -3038,7 +3153,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs only the OCR-produced SRT files unless `-SkipRepair` is specified. Pre-existing SRT files in the input are not repaired.</maml:para>
+      <maml:para>Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs only the OCR-produced SRT files unless `-SkipRepair` is specified. Source image subtitle files are deleted after a successful OCR conversion by default; use `-KeepSource` to preserve them. Pre-existing SRT files in the input are not repaired.</maml:para>
       <maml:para>Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10).</maml:para>
     </maml:description>
     <command:syntax>
@@ -3072,6 +3187,17 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <maml:name>SkipRepair</maml:name>
           <maml:description>
             <maml:para>Skip SRT repair; only convert image subtitles to SRT.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+          <maml:name>KeepSource</maml:name>
+          <maml:description>
+            <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -3145,6 +3271,18 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         <maml:name>SkipRepair</maml:name>
         <maml:description>
           <maml:para>Skip SRT repair; only convert image subtitles to SRT.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>KeepSource</maml:name>
+        <maml:description>
+          <maml:para>Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>

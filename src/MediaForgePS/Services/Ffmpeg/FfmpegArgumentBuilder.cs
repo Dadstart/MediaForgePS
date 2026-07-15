@@ -155,6 +155,32 @@ public class FfmpegArgumentBuilder
     }
 
     /// <summary>
+    /// Adds two-pass encoding arguments (<c>-pass</c> and <c>-passlogfile</c>).
+    /// </summary>
+    /// <param name="pass">Pass number (1 or 2).</param>
+    /// <param name="passLogFile">Pass logfile path without extension suffix FFmpeg may append.</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddPass(int pass, string passLogFile)
+    {
+        if (pass is not (1 or 2))
+            throw new ArgumentOutOfRangeException(nameof(pass), pass, "Pass must be 1 or 2.");
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(passLogFile);
+        _argumentBuilder.AddOption("-pass", pass.ToString());
+        _argumentBuilder.AddOption("-passlogfile", passLogFile);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a bare flag argument (e.g. <c>-an</c>).
+    /// </summary>
+    public FfmpegArgumentBuilder AddFlag(string flag)
+    {
+        _argumentBuilder.AddFlag(flag);
+        return this;
+    }
+
+    /// <summary>
     /// Adds a custom option with a key-value pair.
     /// </summary>
     /// <param name="key">The option key (e.g., "-filter:v").</param>

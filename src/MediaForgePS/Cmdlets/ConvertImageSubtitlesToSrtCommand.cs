@@ -40,6 +40,12 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
     [Parameter(HelpMessage = "When input is a directory, recurse into subdirectories.")]
     public SwitchParameter Recurse { get; set; }
 
+    /// <summary>
+    /// Keeps the source .sup/.sub/.idx files after a successful OCR conversion. By default they are deleted.
+    /// </summary>
+    [Parameter(HelpMessage = "Keep source image subtitle files after successful conversion.")]
+    public SwitchParameter KeepSource { get; set; }
+
     private readonly List<string> _inputPaths = new();
     private IExecutableService? _executableService;
     private IPathResolver? _pathResolver;
@@ -164,7 +170,14 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 
         try
         {
-            ImageSubtitleConversionHelper.ConvertToSrt(ExecutableService, subtitleEditPath, inputSubtitlePath, outputSrtPath, Logger, StoppingToken);
+            ImageSubtitleConversionHelper.ConvertToSrt(
+                ExecutableService,
+                subtitleEditPath,
+                inputSubtitlePath,
+                outputSrtPath,
+                Logger,
+                KeepSource.IsPresent,
+                StoppingToken);
             WriteVerbose($"Converted to: {outputSrtPath}");
             return true;
         }
