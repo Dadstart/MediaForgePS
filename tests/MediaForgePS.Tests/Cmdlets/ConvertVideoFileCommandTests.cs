@@ -444,6 +444,53 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertVideoFile_WhenConversionCancelled_DoesNotWriteFailedConversionResult()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(root, "one.mkv");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "one.mp4");
+        SetupOutputPathResolution(expectedOutput);
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                mkvPath,
+                expectedOutput,
+                It.IsAny<VideoEncodingSettings>(),
+                mapping,
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .Throws(new OperationCanceledException());
+
+        using var ps = CreatePowerShell("Convert-VideoFile");
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", mkvPath)
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        var results = ps.Invoke();
+        var conversionResults = results
+            .Select(r => r.BaseObject)
+            .OfType<MediaConversionResult>()
+            .ToList();
+
+        // Cancellation must stop the pipeline — not become a failed MediaConversionResult.
+        Assert.Empty(conversionResults);
+    }
+
+    [Fact]
     public void ConvertVideoFile_WithArrayOfMkvFiles_ConvertsOnlySpecifiedFiles()
     {
         var root = CreateTempDirectory();
