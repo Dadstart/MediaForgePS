@@ -31,6 +31,11 @@ public sealed record MediaConversionResult(
     public const string CompletedStatus = "Success";
 
     /// <summary>
+    /// Status value used when conversion was skipped because -WhatIf was specified (or ShouldProcess declined).
+    /// </summary>
+    public const string WhatIfStatus = "WhatIf";
+
+    /// <summary>
     /// Alias for <see cref="InputPath"/> for callers that used the legacy <c>ConversionResult.FilePath</c> name.
     /// </summary>
     public string FilePath => InputPath;

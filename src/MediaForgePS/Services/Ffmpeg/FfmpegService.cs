@@ -26,7 +26,7 @@ public class FfmpegService : IFfmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> ConvertAsync(
+    public async Task ConvertAsync(
         string inputPath,
         string outputPath,
         IEnumerable<string>? arguments = null,
@@ -57,7 +57,6 @@ public class FfmpegService : IFfmpegService
         }
 
         HandleResult(result, inputPath, outputPath);
-        return true;
     }
 
     private async Task<TimeSpan> GetDurationAsync(string inputPath, CancellationToken cancellationToken)
@@ -128,7 +127,7 @@ public class FfmpegService : IFfmpegService
         return allArguments;
     }
 
-    private bool HandleResult(ExecutableResult result, string inputPath, string outputPath)
+    private void HandleResult(ExecutableResult result, string inputPath, string outputPath)
     {
         if (result.Exception is not null)
         {
@@ -149,19 +148,17 @@ public class FfmpegService : IFfmpegService
         if (result.ExitCode == 0)
         {
             _logger.LogInformation("FFmpeg conversion successful: {InputPath} -> {OutputPath}", inputPath, outputPath);
-            return true;
+            return;
         }
-        else
-        {
-            var errorMessage = BuildErrorMessage(inputPath, outputPath, result.ExitCode, result.ErrorOutput);
-            _logger.LogError(
-                "FFmpeg conversion failed: {InputPath} -> {OutputPath}. Exit code: {ExitCode}, Error: {Error}",
-                inputPath,
-                outputPath,
-                result.ExitCode,
-                result.ErrorOutput);
-            throw new FfmpegConversionException(errorMessage, inputPath, outputPath, result.ExitCode, result.ErrorOutput);
-        }
+
+        var errorMessage = BuildErrorMessage(inputPath, outputPath, result.ExitCode, result.ErrorOutput);
+        _logger.LogError(
+            "FFmpeg conversion failed: {InputPath} -> {OutputPath}. Exit code: {ExitCode}, Error: {Error}",
+            inputPath,
+            outputPath,
+            result.ExitCode,
+            result.ErrorOutput);
+        throw new FfmpegConversionException(errorMessage, inputPath, outputPath, result.ExitCode, result.ErrorOutput);
     }
 
     private static string BuildErrorMessage(string inputPath, string outputPath, int? exitCode, string? errorOutput)

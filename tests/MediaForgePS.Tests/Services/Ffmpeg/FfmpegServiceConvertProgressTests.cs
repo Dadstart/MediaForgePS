@@ -56,13 +56,12 @@ public class FfmpegServiceConvertProgressTests
             ffprobeMock.Object,
             NullLogger<FfmpegService>.Instance);
 
-        var result = await service.ConvertAsync(
+        await service.ConvertAsync(
             "input.mkv",
             "output.mp4",
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result);
         Assert.Equal(2, reports.Count);
         Assert.Equal(50, reports[0].PercentComplete);
         Assert.Equal(100, reports[1].PercentComplete);
@@ -89,22 +88,24 @@ public class FfmpegServiceConvertProgressTests
             ffprobeMock.Object,
             NullLogger<FfmpegService>.Instance);
 
-        var result = await service.ConvertAsync(
+        await service.ConvertAsync(
             "input.mkv",
             "output.mp4",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result);
         ffprobeMock.Verify(
             service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
             Times.Never);
         executableMock.Verify(
             service => service.ExecuteAsync(
-                It.IsAny<string>(),
+                "ffmpeg",
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Action<string>>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+        executableMock.Verify(
+            service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Theory]
@@ -145,13 +146,12 @@ public class FfmpegServiceConvertProgressTests
             ffprobeMock.Object,
             NullLogger<FfmpegService>.Instance);
 
-        var result = await service.ConvertAsync(
+        await service.ConvertAsync(
             "input.mkv",
             "output.mp4",
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result);
         Assert.Equal(2, reports.Count);
         Assert.Equal(TimeSpan.Zero, reports[0].TotalDuration);
         Assert.Equal(0, reports[0].PercentComplete);
@@ -187,13 +187,12 @@ public class FfmpegServiceConvertProgressTests
             ffprobeMock.Object,
             NullLogger<FfmpegService>.Instance);
 
-        var result = await service.ConvertAsync(
+        await service.ConvertAsync(
             "input.mkv",
             "output.mp4",
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result);
         var report = Assert.Single(reports);
         Assert.Equal(TimeSpan.FromSeconds(20.5), report.TotalDuration);
         Assert.Equal(50, report.PercentComplete);

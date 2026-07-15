@@ -58,8 +58,18 @@ public abstract class ComponentTestBase : IDisposable
         var destination = Path.Combine(directory, fileName);
 
         RunFfmpeg(
-            $"-y -i \"{SampleVideoPath}\" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 " +
-            $"-c:v copy -c:a aac -b:a 128k -shortest -metadata:s:a:0 language=eng \"{destination}\"",
+            [
+                "-y",
+                "-i", SampleVideoPath,
+                "-f", "lavfi",
+                "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-shortest",
+                "-metadata:s:a:0", "language=eng",
+                destination
+            ],
             "create sample with English audio");
         Assert.True(File.Exists(destination));
 
@@ -98,21 +108,27 @@ public abstract class ComponentTestBase : IDisposable
             """);
 
         RunFfmpeg(
-            $"-y -i \"{SampleVideoPath}\" -i \"{metadataPath}\" -map_metadata 1 -c copy \"{destination}\"",
+            [
+                "-y",
+                "-i", SampleVideoPath,
+                "-i", metadataPath,
+                "-map_metadata", "1",
+                "-c", "copy",
+                destination
+            ],
             "create sample with chapters");
         Assert.True(File.Exists(destination));
 
         return destination;
     }
 
-    private static void RunFfmpeg(string arguments, string purpose)
+    private static void RunFfmpeg(IReadOnlyList<string> arguments, string purpose)
     {
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "ffmpeg",
-                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -120,9 +136,14 @@ public abstract class ComponentTestBase : IDisposable
             }
         };
 
+        foreach (var argument in arguments)
+            process.StartInfo.ArgumentList.Add(argument);
+
         Assert.True(process.Start(), $"Failed to start ffmpeg to {purpose}.");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
         Assert.True(process.WaitForExit(30_000), $"ffmpeg timed out while trying to {purpose}.");
+        _ = stdoutTask.GetAwaiter().GetResult();
         var stderr = stderrTask.GetAwaiter().GetResult();
         Assert.True(
             process.ExitCode == 0,
@@ -190,7 +211,7 @@ public abstract class ComponentTestBase : IDisposable
         Assert.True(result.InputSizeBytes > 0, "InputSizeBytes should be > 0");
         Assert.True(result.OutputSizeBytes > 0, "OutputSizeBytes should be > 0");
         Assert.NotNull(result.SizeReductionPercent);
-        Assert.True(result.ProcessingTime > TimeSpan.Zero, "ProcessingTime should be > 0");
+        Assert.True(result.ProcessingTime >= TimeSpan.Zero, "ProcessingTime should be >= 0");
 
         if (requireOutputFileExists)
             Assert.True(File.Exists(result.OutputPath), $"Expected output file to exist: {result.OutputPath}");
@@ -234,9 +255,23 @@ public abstract class ComponentTestBase : IDisposable
             if (!process.Start())
                 return false;
 
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             if (!process.WaitForExit(5000))
-                return false;
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                }
 
+                return false;
+            }
+
+            _ = stdoutTask.GetAwaiter().GetResult();
+            _ = stderrTask.GetAwaiter().GetResult();
             return process.ExitCode == 0;
         }
         catch

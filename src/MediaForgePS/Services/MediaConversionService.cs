@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Services;
 
@@ -13,19 +12,14 @@ namespace Dadstart.Labs.MediaForge.Services;
 public class MediaConversionService : IMediaConversionService
 {
     private readonly IFfmpegService _ffmpegService;
-    private readonly IPlatformService _platformService;
 
     /// <summary>
     /// Initializes a new instance of the MediaConversionService class.
     /// </summary>
     /// <param name="ffmpegService">Ffmpeg service for conversion.</param>
-    /// <param name="platformService">Platform service for argument building.</param>
-    public MediaConversionService(
-        IFfmpegService ffmpegService,
-        IPlatformService platformService)
+    public MediaConversionService(IFfmpegService ffmpegService)
     {
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
-        _platformService = platformService ?? throw new ArgumentNullException(nameof(platformService));
     }
 
     /// <inheritdoc />
@@ -38,13 +32,11 @@ public class MediaConversionService : IMediaConversionService
         var args = new List<string>();
 
         // Add video encoding arguments
-        args.AddRange(videoSettings.ToFfmpegArgs(_platformService, pass));
+        args.AddRange(videoSettings.ToFfmpegArgs(pass));
 
         // Add audio track mapping arguments
         foreach (var audioMapping in audioMappings)
-        {
-            args.AddRange(audioMapping.ToFfmpegArgs(_platformService));
-        }
+            args.AddRange(audioMapping.ToFfmpegArgs());
 
         // Enable experimental TrueHD-in-MP4 muxing when copying TrueHD/Atmos tracks.
         if (!ContainsStrictExperimental(additionalArguments))

@@ -13,29 +13,6 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Represents statistics for a processed file used for ETA calculations.
-/// </summary>
-internal class FileProcessingStats
-{
-    /// <summary>
-    /// Size of the file in bytes.
-    /// </summary>
-    public long FileSizeBytes { get; set; }
-
-    /// <summary>
-    /// Time taken to process the file.
-    /// </summary>
-    public TimeSpan ProcessingTime { get; set; }
-
-    /// <summary>
-    /// Processing speed in bytes per second.
-    /// </summary>
-    public double BytesPerSecond => FileSizeBytes > 0 && ProcessingTime.TotalSeconds > 0
-        ? FileSizeBytes / ProcessingTime.TotalSeconds
-        : 0;
-}
-
-/// <summary>
 /// Converts multiple media files with automatic audio stream selection and configurable video encoding.
 /// </summary>
 /// <remarks>
@@ -149,7 +126,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     private IAudioTrackMappingService? _audioTrackMappingService;
     private readonly List<MediaConversionResult> _conversionResults = new();
     private readonly HashSet<string> _uniqueInputPaths = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<FileProcessingStats> _fileProcessingStats = new();
+    private readonly BatchProgressEstimator _batchProgressEstimator = new();
     private int _currentFileIndex = 0;
     private Stopwatch? _fileProcessingStopwatch;
     private TimeSpan? _currentFileEstimatedTime;
@@ -186,7 +163,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     {
         _conversionResults.Clear();
         _uniqueInputPaths.Clear();
-        _fileProcessingStats.Clear();
+        _batchProgressEstimator.Reset();
         _currentFileIndex = 0;
     }
 
@@ -241,7 +218,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                 _currentFileIndex++;
                 var (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
                     _currentFileIndex, totalFiles, GetFileName(inputPath), _batchCompletedBytes, _batchTotalBytes);
-                var batchEta = CalculateRemainingTime(inputPath, totalFiles - _currentFileIndex);
+                var batchEta = CalculateRemainingTime();
                 MediaConversionHelper.WriteMainProgress(CmdletIO, "Batch Conversion", status, percent, batchEta, ProgressRecordType.Processing);
                 ProcessFile(inputPath);
                 if (_conversionResults.Count > 0 && MediaConversionHelper.IsCompletedConversion(_conversionResults[^1]))
@@ -259,7 +236,9 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             return;
 
         // Output summary table
-        var failedFiles = _conversionResults.Where(r => !MediaConversionHelper.IsCompletedConversion(r)).ToList();
+        var failedFiles = _conversionResults
+            .Where(r => !MediaConversionHelper.IsCompletedConversion(r) && !MediaConversionHelper.IsWhatIfConversion(r))
+            .ToList();
         if (failedFiles.Count > 0)
         {
             WriteWarning($"{failedFiles.Count} file(s) could not be converted or had issues:");
@@ -271,67 +250,28 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     }
 
     /// <summary>
-    /// Calculates the estimated remaining time based on file sizes and average processing speed.
+    /// Calculates the estimated remaining time based on ordered file sizes and average processing speed.
     /// </summary>
-    /// <param name="currentFilePath">Path of the current file being processed.</param>
-    /// <param name="remainingFilesCount">Number of remaining files after the current one.</param>
-    /// <returns>Estimated time remaining, or null if no estimate can be calculated.</returns>
-    private TimeSpan? CalculateRemainingTime(string currentFilePath, int remainingFilesCount)
+    private TimeSpan? CalculateRemainingTime()
     {
-        long remainingBytes = 0;
-        try
-        {
-            var currentFile = new FileInfo(currentFilePath);
-            if (currentFile.Exists)
-                remainingBytes = currentFile.Length;
-        }
-        catch
-        {
+        if (_inputPathsWithSize is null)
             return null;
-        }
 
-        var remainingPaths = _uniqueInputPaths.Skip(_currentFileIndex).Take(remainingFilesCount);
-        foreach (var path in remainingPaths)
-        {
-            try
-            {
-                var fileInfo = new FileInfo(path);
-                if (fileInfo.Exists)
-                    remainingBytes += fileInfo.Length;
-            }
-            catch
-            {
-                // Continue with what we have
-            }
-        }
-
-        return MediaConversionHelper.CalculateRemainingTime(
-            remainingBytes,
-            _fileProcessingStats.Select(s => (s.FileSizeBytes, s.ProcessingTime)));
+        return _batchProgressEstimator.EstimateRemaining(_inputPathsWithSize, _currentFileIndex);
     }
 
     /// <summary>
     /// Calculates the estimated time for processing a single file based on its size and average processing speed.
     /// </summary>
-    /// <param name="filePath">Path of the file to estimate.</param>
-    /// <returns>Estimated time for the file, or null if no estimate can be calculated.</returns>
     private TimeSpan? CalculateFileEta(string filePath)
     {
-        if (_fileProcessingStats.Count == 0)
-            return null;
-
-        double averageBytesPerSecond = _fileProcessingStats.Average(s => s.BytesPerSecond);
-        if (averageBytesPerSecond <= 0)
-            return null;
-
         try
         {
             var fileInfo = new FileInfo(filePath);
             if (!fileInfo.Exists)
                 return null;
 
-            var estimatedSeconds = fileInfo.Length / averageBytesPerSecond;
-            return TimeSpan.FromSeconds(estimatedSeconds);
+            return _batchProgressEstimator.EstimateFile(fileInfo.Length);
         }
         catch
         {
@@ -350,17 +290,14 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         try
         {
             var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Exists)
-            {
-                var stats = new FileProcessingStats
-                {
-                    FileSizeBytes = fileInfo.Length,
-                    ProcessingTime = _fileProcessingStopwatch.Elapsed
-                };
-                _fileProcessingStats.Add(stats);
-                Logger.LogDebug("Recorded processing stats - Size: {FileSizeBytes} bytes, Time: {ProcessingTime}ms, Rate: {BytesPerSecond} bytes/sec",
-                    stats.FileSizeBytes, _fileProcessingStopwatch.ElapsedMilliseconds, stats.BytesPerSecond);
-            }
+            if (!fileInfo.Exists)
+                return;
+
+            _batchProgressEstimator.RecordCompleted(fileInfo.Length, _fileProcessingStopwatch.Elapsed);
+            Logger.LogDebug(
+                "Recorded processing stats - Size: {FileSizeBytes} bytes, Time: {ProcessingTime}ms",
+                fileInfo.Length,
+                _fileProcessingStopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
@@ -433,6 +370,15 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         if (!ShouldProcess($"Convert '{fileName}' to '{outputFileName}'", "Convert media file"))
         {
             Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", fileName, outputFileName);
+            _fileProcessingStopwatch.Stop();
+            var whatIfResult = MediaConversionHelper.CreateConversionResult(
+                inputPath,
+                resolvedOutputPath,
+                success: false,
+                MediaConversionResult.WhatIfStatus,
+                TimeSpan.Zero);
+            _conversionResults.Add(whatIfResult);
+            UpdateFileProgress("Skipped (WhatIf)", fileName, recordType: ProgressRecordType.Completed);
             return;
         }
 
@@ -533,12 +479,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             var outputFileName = GetFileName(resolvedOutputPath);
             var encodeStatus = $"Encoding to {videoSettings.Codec} ({videoSettings.Preset} preset)";
 
-            TimeSpan? initialBatchEta = null;
-            if (_currentFileIndex < _batchTotalFiles)
-            {
-                var remainingFiles = _batchTotalFiles - _currentFileIndex;
-                initialBatchEta = CalculateRemainingTime(resolvedInputPath, remainingFiles);
-            }
+            var initialBatchEta = CalculateRemainingTime();
 
             Action? reportBatchProgress = null;
             if (initialBatchEta.HasValue && _batchStopwatch != null)

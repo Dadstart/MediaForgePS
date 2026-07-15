@@ -35,13 +35,12 @@ public class FfmpegServiceConvertResultTests
 
         var service = CreateService(executableMock.Object);
 
-        var result = await service.ConvertAsync(
+        await service.ConvertAsync(
             inputPath,
             outputPath,
             extraArgs,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.True(result);
         Assert.NotNull(capturedArgs);
         Assert.Equal(
             [
