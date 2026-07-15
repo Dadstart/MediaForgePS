@@ -6,6 +6,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using System.Threading.Tasks;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -39,6 +40,27 @@ public static class ImageSubtitleConversionHelper
             if (!string.IsNullOrEmpty(companionPath))
                 TryDeleteFile(companionPath, logger);
         }
+    }
+
+    /// <summary>
+    /// In Auto OCR mode, deletes image subtitle sidecars that were left unused because a text SRT
+    /// was already exported for the same media (common for DVD MKV rips with both SubRip and VobSub).
+    /// No-op when <paramref name="keepSource"/> is true or <paramref name="ocrMode"/> is not Auto.
+    /// </summary>
+    public static void DeleteUnusedImageSubtitleSources(
+        IEnumerable<string> exportedPaths,
+        string ocrMode,
+        bool keepSource,
+        ILogger? logger = null)
+    {
+        if (keepSource)
+            return;
+
+        if (!string.Equals(ocrMode, SubtitleOcrMode.Auto, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (var path in SubtitlePathHelper.SelectUnusedImageSubtitlePaths(exportedPaths))
+            DeleteImageSubtitleSourceFiles(path, logger);
     }
 
     /// <summary>

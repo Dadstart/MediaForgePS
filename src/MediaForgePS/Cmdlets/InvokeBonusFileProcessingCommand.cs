@@ -107,7 +107,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
-    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion, and keeps unused image sidecars Auto would otherwise discard when a text SRT is already present. By default they are deleted.
     /// </summary>
     [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
     public SwitchParameter KeepSource { get; set; }
@@ -217,6 +217,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                             StoppingToken,
                             KeepSource.IsPresent);
                     }
+
+                    ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+                        exportedPaths,
+                        Ocr,
+                        KeepSource.IsPresent,
+                        Logger);
                 }
                 WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
             }

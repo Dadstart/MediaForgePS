@@ -94,7 +94,7 @@ Convert-MediaFileAdvanced -InputPath "C:\movie.mkv" -OutputPath "C:\Out\movie.mp
 
 | Value | Behavior |
 |-------|----------|
-| `Auto` | OCR image subtitles when the source has one exported subtitle format and it is not SRT |
+| `Auto` | OCR image subtitles when the source has one exported subtitle format and it is not SRT; unused VobSub/SUP sidecars left beside a text SRT are deleted unless `-KeepSource` |
 | `Force` | OCR all exported image subtitle files |
 | `Skip` | Extract only; no OCR or repair |
 

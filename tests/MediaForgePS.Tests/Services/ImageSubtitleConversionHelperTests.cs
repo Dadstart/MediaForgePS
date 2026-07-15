@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Moq;
@@ -63,6 +64,65 @@ public class ImageSubtitleConversionHelperTests : IDisposable
 
         Assert.False(File.Exists(subPath));
         Assert.False(File.Exists(idxPath));
+    }
+
+    [Fact]
+    public void DeleteUnusedImageSubtitleSources_AutoWithSrtAndVobSub_DeletesSubAndIdx()
+    {
+        var srtPath = Path.Combine(_tempDir, "movie.eng.sdh.srt");
+        var subPath = Path.Combine(_tempDir, "movie.2.eng.sdh.sub");
+        var idxPath = Path.Combine(_tempDir, "movie.2.eng.sdh.idx");
+        File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\nHi\n");
+        File.WriteAllBytes(subPath, Array.Empty<byte>());
+        File.WriteAllBytes(idxPath, Array.Empty<byte>());
+
+        ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+            [srtPath, subPath],
+            SubtitleOcrMode.Auto,
+            keepSource: false);
+
+        Assert.True(File.Exists(srtPath));
+        Assert.False(File.Exists(subPath));
+        Assert.False(File.Exists(idxPath));
+    }
+
+    [Fact]
+    public void DeleteUnusedImageSubtitleSources_WhenKeepSource_PreservesVobSubPair()
+    {
+        var srtPath = Path.Combine(_tempDir, "movie.eng.sdh.srt");
+        var subPath = Path.Combine(_tempDir, "movie.2.eng.sdh.sub");
+        var idxPath = Path.Combine(_tempDir, "movie.2.eng.sdh.idx");
+        File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\nHi\n");
+        File.WriteAllBytes(subPath, Array.Empty<byte>());
+        File.WriteAllBytes(idxPath, Array.Empty<byte>());
+
+        ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+            [srtPath, subPath],
+            SubtitleOcrMode.Auto,
+            keepSource: true);
+
+        Assert.True(File.Exists(srtPath));
+        Assert.True(File.Exists(subPath));
+        Assert.True(File.Exists(idxPath));
+    }
+
+    [Fact]
+    public void DeleteUnusedImageSubtitleSources_WhenOcrSkip_PreservesVobSubPair()
+    {
+        var srtPath = Path.Combine(_tempDir, "movie.eng.sdh.srt");
+        var subPath = Path.Combine(_tempDir, "movie.2.eng.sdh.sub");
+        var idxPath = Path.Combine(_tempDir, "movie.2.eng.sdh.idx");
+        File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\nHi\n");
+        File.WriteAllBytes(subPath, Array.Empty<byte>());
+        File.WriteAllBytes(idxPath, Array.Empty<byte>());
+
+        ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+            [srtPath, subPath],
+            SubtitleOcrMode.Skip,
+            keepSource: false);
+
+        Assert.True(File.Exists(subPath));
+        Assert.True(File.Exists(idxPath));
     }
 
     [Fact]

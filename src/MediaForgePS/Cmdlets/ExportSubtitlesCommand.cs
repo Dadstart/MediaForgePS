@@ -58,7 +58,7 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
     public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
-    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion, and keeps unused image sidecars Auto would otherwise discard when a text SRT is already present. By default they are deleted.
     /// </summary>
     [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
     public SwitchParameter KeepSource { get; set; }
@@ -144,35 +144,32 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
         }
 
         var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
-        if (imagePaths.Count == 0)
+        if (imagePaths.Count > 0)
         {
-            WriteHostMessage("Export completed.", ConsoleColor.Green);
-            return;
+            var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+            var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                CmdletIO,
+                Logger,
+                ExecutableService,
+                PathResolver,
+                imagePaths,
+                srtPathsFromExport,
+                performOcr: true,
+                ThrottleLimit,
+                shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                BackupPath,
+                StoppingToken,
+                KeepSource.IsPresent);
+
+            if (allSrtPaths == null)
+                return;
         }
 
-        var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-            CmdletIO,
-            Logger,
-            ExecutableService,
-            PathResolver,
-            imagePaths,
-            srtPathsFromExport,
-            performOcr: imagePaths.Count > 0,
-            ThrottleLimit,
-            shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-            BackupPath,
-            StoppingToken,
-            KeepSource.IsPresent);
-
-        if (allSrtPaths == null)
-            return;
-
-        if (allSrtPaths.Count == 0)
-        {
-            WriteHostMessage("Export completed.", ConsoleColor.Green);
-            return;
-        }
+        ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+            exportedPaths,
+            Ocr,
+            KeepSource.IsPresent,
+            Logger);
 
         WriteHostMessage("Export completed.", ConsoleColor.Green);
     }
