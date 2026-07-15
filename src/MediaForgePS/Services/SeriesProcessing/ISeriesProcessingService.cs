@@ -10,7 +10,7 @@ public interface ISeriesProcessingService
     IReadOnlyList<string> NormalizeFilePatterns(IEnumerable<string> filePatterns);
     string NewProcessingDirectory(ICmdletIO io, string path, string description);
     ProcessingDirectoryStructure NewProcessingDirectoryStructure(ICmdletIO io, string title, int season, IReadOnlyList<string>? subDirectories = null, string? basePath = null);
-    IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(ICmdletIO io, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl);
+    IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(ICmdletIO io, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl, CancellationToken cancellationToken = default);
     IReadOnlyList<string> GetFilteredVideoFiles(ICmdletIO io, IReadOnlyList<string> paths, IReadOnlyList<string> filePatterns, long minimumFileSizeBytes);
     IReadOnlyList<string> InvokeVideoCopy(ICmdletIO io, VideoCopyRequest request);
     ProcessingPhaseStats InvokeChapterExtractionPhase(ICmdletIO io, string seasonDir, IReadOnlyList<string> copiedFiles, int chapterNumber = 3, int chapterDurationSeconds = 15, string chapterDirectory = "Chapters", CancellationToken cancellationToken = default);

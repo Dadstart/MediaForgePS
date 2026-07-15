@@ -46,6 +46,12 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
     public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// </summary>
+    [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
+    public SwitchParameter KeepSource { get; set; }
+
+    /// <summary>
     /// When input is a directory, recurse into subdirectories to find .sup, .sub, and .srt files.
     /// </summary>
     [Parameter(HelpMessage = "When input is a directory, recurse into subdirectories.")]
@@ -112,7 +118,8 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
             ThrottleLimit,
             shouldRepair: !SkipRepair.IsPresent,
             BackupPath,
-            StoppingToken);
+            StoppingToken,
+            KeepSource.IsPresent);
 
         if (allSrtPaths == null)
             return;

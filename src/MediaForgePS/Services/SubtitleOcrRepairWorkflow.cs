@@ -34,7 +34,8 @@ public static class SubtitleOcrRepairWorkflow
         int throttleLimit,
         bool shouldRepair,
         string? backupPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool keepSource = false)
     {
         IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (performOcr && imagePaths.Count > 0)
@@ -58,6 +59,7 @@ public static class SubtitleOcrRepairWorkflow
                 imagePaths,
                 Math.Max(1, throttleLimit),
                 io.WriteError,
+                keepSource,
                 cancellationToken);
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,18 +12,35 @@ using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Services.Ffmpeg;
 
-public class FfmpegServiceConvertProgressTests
+public class FfmpegServiceConvertProgressTests : IDisposable
 {
+    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_FfmpegProgress_" + Guid.NewGuid().ToString("N"));
+
+    public FfmpegServiceConvertProgressTests()
+    {
+        Directory.CreateDirectory(_tempDir);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_tempDir))
+            Directory.Delete(_tempDir, recursive: true);
+    }
+
     [Fact]
     public async Task ConvertAsync_WithProgress_ProbesDurationAddsProgressArgsAndReports()
     {
+        var inputPath = Path.Combine(_tempDir, "input.mkv");
+        var outputPath = Path.Combine(_tempDir, "output.mp4");
+        File.WriteAllText(inputPath, "input");
+
         var executableMock = new Mock<IExecutableService>();
         var ffprobeMock = new Mock<IFfprobeService>();
         var reports = new List<FfmpegProgress>();
 
         ffprobeMock
             .Setup(service => service.ExecuteAsync(
-                "input.mkv",
+                inputPath,
                 It.Is<IEnumerable<string>>(args => args.Contains("-show_entries") && args.Contains("format=duration")),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":"10.000000"}}"""));
@@ -40,8 +58,9 @@ public class FfmpegServiceConvertProgressTests
                 Assert.Contains("-progress", argumentList);
                 Assert.Contains("pipe:1", argumentList);
                 Assert.Contains("-i", argumentList);
-                Assert.Contains("input.mkv", argumentList);
-                Assert.Contains("output.mp4", argumentList);
+                Assert.Contains(inputPath, argumentList);
+                Assert.Contains(argumentList, arg => arg.Contains(".mediaforge.tmp.", StringComparison.Ordinal));
+                File.WriteAllText(argumentList[^1], "encoded");
 
                 callback("out_time=00:00:05.000000");
                 callback("progress=continue");
@@ -57,8 +76,8 @@ public class FfmpegServiceConvertProgressTests
             NullLogger<FfmpegService>.Instance);
 
         await service.ConvertAsync(
-            "input.mkv",
-            "output.mp4",
+            inputPath,
+            outputPath,
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 
@@ -66,6 +85,7 @@ public class FfmpegServiceConvertProgressTests
         Assert.Equal(50, reports[0].PercentComplete);
         Assert.Equal(100, reports[1].PercentComplete);
         Assert.Equal(TimeSpan.FromSeconds(10), reports[0].TotalDuration);
+        Assert.True(File.Exists(outputPath));
         ffprobeMock.VerifyAll();
         executableMock.VerifyAll();
     }
@@ -73,6 +93,10 @@ public class FfmpegServiceConvertProgressTests
     [Fact]
     public async Task ConvertAsync_WithoutProgress_DoesNotProbeOrStream()
     {
+        var inputPath = Path.Combine(_tempDir, "input.mkv");
+        var outputPath = Path.Combine(_tempDir, "output.mp4");
+        File.WriteAllText(inputPath, "input");
+
         var executableMock = new Mock<IExecutableService>();
         var ffprobeMock = new Mock<IFfprobeService>();
 
@@ -81,7 +105,11 @@ public class FfmpegServiceConvertProgressTests
                 "ffmpeg",
                 It.Is<IEnumerable<string>>(args => !args.Contains("-progress")),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            {
+                File.WriteAllText(args.Last(), "encoded");
+                return new ExecutableResult(string.Empty, string.Empty, 0);
+            });
 
         var service = new FfmpegService(
             executableMock.Object,
@@ -89,8 +117,8 @@ public class FfmpegServiceConvertProgressTests
             NullLogger<FfmpegService>.Instance);
 
         await service.ConvertAsync(
-            "input.mkv",
-            "output.mp4",
+            inputPath,
+            outputPath,
             cancellationToken: TestContext.Current.CancellationToken);
 
         ffprobeMock.Verify(
@@ -106,6 +134,7 @@ public class FfmpegServiceConvertProgressTests
         executableMock.Verify(
             service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
             Times.Once);
+        Assert.True(File.Exists(outputPath));
     }
 
     [Theory]
@@ -119,6 +148,10 @@ public class FfmpegServiceConvertProgressTests
     [InlineData(true, """{"format":{"duration":"abc"}}""")]
     public async Task ConvertAsync_WithUnusableDuration_ConvertsWithZeroTotalDuration(bool probeSuccess, string json)
     {
+        var inputPath = Path.Combine(_tempDir, $"input-{Guid.NewGuid():N}.mkv");
+        var outputPath = Path.Combine(_tempDir, $"output-{Guid.NewGuid():N}.mp4");
+        File.WriteAllText(inputPath, "input");
+
         var executableMock = new Mock<IExecutableService>();
         var ffprobeMock = new Mock<IFfprobeService>();
         var reports = new List<FfmpegProgress>();
@@ -133,8 +166,9 @@ public class FfmpegServiceConvertProgressTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Action<string>>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, _, callback, _) =>
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, args, callback, _) =>
             {
+                File.WriteAllText(args.Last(), "encoded");
                 callback("out_time=00:00:05.000000");
                 callback("progress=continue");
                 callback("progress=end");
@@ -147,8 +181,8 @@ public class FfmpegServiceConvertProgressTests
             NullLogger<FfmpegService>.Instance);
 
         await service.ConvertAsync(
-            "input.mkv",
-            "output.mp4",
+            inputPath,
+            outputPath,
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 
@@ -161,6 +195,10 @@ public class FfmpegServiceConvertProgressTests
     [Fact]
     public async Task ConvertAsync_WithNumericDuration_ParsesSuccessfully()
     {
+        var inputPath = Path.Combine(_tempDir, "input-numeric.mkv");
+        var outputPath = Path.Combine(_tempDir, "output-numeric.mp4");
+        File.WriteAllText(inputPath, "input");
+
         var executableMock = new Mock<IExecutableService>();
         var ffprobeMock = new Mock<IFfprobeService>();
         var reports = new List<FfmpegProgress>();
@@ -175,8 +213,9 @@ public class FfmpegServiceConvertProgressTests
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<Action<string>>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, _, callback, _) =>
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, args, callback, _) =>
             {
+                File.WriteAllText(args.Last(), "encoded");
                 callback("out_time=00:00:10.250000");
                 callback("progress=continue");
                 return Task.FromResult(new ExecutableResult(string.Empty, string.Empty, 0));
@@ -188,8 +227,8 @@ public class FfmpegServiceConvertProgressTests
             NullLogger<FfmpegService>.Instance);
 
         await service.ConvertAsync(
-            "input.mkv",
-            "output.mp4",
+            inputPath,
+            outputPath,
             progress: new SynchronousProgressReporter(reports.Add),
             cancellationToken: TestContext.Current.CancellationToken);
 

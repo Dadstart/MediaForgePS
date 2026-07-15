@@ -1,6 +1,4 @@
 using System;
-using System.Management.Automation;
-using System.Reflection;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -131,64 +129,5 @@ public class SeriesProcessingServiceTests
         Assert.Equal(SubtitleOcrMode.Auto, cmdlet.Ocr);
         Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.Ocr)));
         Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("SkipOcr"));
-    }
-
-    [Fact]
-    public void TryParseTvDbEpisode_ValidPSObject_ReturnsTrueAndParsedEpisode()
-    {
-        var ps = PSObject.AsPSObject(new { Id = "42", Title = "Pilot", EpisodeNumber = 1, SeasonNumber = 2 });
-        var (success, episode) = InvokeTryParseTvDbEpisode(ps, 1);
-
-        Assert.True(success);
-        Assert.NotNull(episode);
-        Assert.Equal("42", episode!.Id);
-        Assert.Equal("Pilot", episode.Title);
-        Assert.Equal(1, episode.EpisodeNumber);
-        Assert.Equal(2, episode.SeasonNumber);
-    }
-
-    [Fact]
-    public void TryParseTvDbEpisode_EmptyId_ReturnsFalse()
-    {
-        var ps = PSObject.AsPSObject(new { Id = "", Title = "Pilot", EpisodeNumber = 1, SeasonNumber = 1 });
-        var (success, episode) = InvokeTryParseTvDbEpisode(ps, 1);
-
-        Assert.False(success);
-        Assert.Null(episode);
-    }
-
-    [Fact]
-    public void TryParseTvDbEpisode_InvalidEpisodeNumber_ReturnsFalse()
-    {
-        var ps = PSObject.AsPSObject(new { Id = "1", Title = "Pilot", EpisodeNumber = "nope", SeasonNumber = 1 });
-        var (success, episode) = InvokeTryParseTvDbEpisode(ps, 1);
-
-        Assert.False(success);
-        Assert.Null(episode);
-    }
-
-    [Fact]
-    public void TryParseTvDbEpisode_MissingSeasonNumber_UsesDefaultSeason()
-    {
-        var ps = PSObject.AsPSObject(new { Id = "99", Title = "Episode", EpisodeNumber = 3 });
-        var (success, episode) = InvokeTryParseTvDbEpisode(ps, 5);
-
-        Assert.True(success);
-        Assert.NotNull(episode);
-        Assert.Equal(5, episode!.SeasonNumber);
-        Assert.Equal(3, episode.EpisodeNumber);
-    }
-
-    private static (bool Success, TvDbEpisodeInfo? Episode) InvokeTryParseTvDbEpisode(PSObject ps, int defaultSeason)
-    {
-        var method = typeof(SeriesProcessingService).GetMethod(
-            "TryParseTvDbEpisode",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        var args = new object?[] { ps, defaultSeason, null };
-        var result = (bool)method.Invoke(null, args)!;
-        var episode = args[2] as TvDbEpisodeInfo;
-        return (result, episode);
     }
 }

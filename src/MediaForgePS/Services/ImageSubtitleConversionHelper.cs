@@ -43,7 +43,7 @@ public static class ImageSubtitleConversionHelper
 
     /// <summary>
     /// Converts a single image subtitle file to SRT. Runs Subtitle Edit; moves the default output to outputSrtPath if different.
-    /// Deletes the source image subtitle file(s) when conversion succeeds. Throws on failure.
+    /// Optionally keeps the source image subtitle file(s) when conversion succeeds; deletes them by default. Throws on failure.
     /// </summary>
     public static void ConvertToSrt(
         IExecutableService executableService,
@@ -51,25 +51,30 @@ public static class ImageSubtitleConversionHelper
         string inputPath,
         string outputSrtPath,
         ILogger? logger = null,
+        bool keepSource = false,
         CancellationToken cancellationToken = default)
     {
         var args = new[] { "/convert", inputPath, "srt", "/ocrengine:tesseract" };
         var result = executableService.ExecuteAsync(subtitleEditPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (result.ExitCode != 0)
-            throw new InvalidOperationException($"Subtitle Edit failed with exit code {result.ExitCode}. {result.ErrorOutput}");
+        result.EnsureProcessSuccess("Subtitle Edit");
         var defaultSrt = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
         if (!string.Equals(defaultSrt, outputSrtPath, StringComparison.OrdinalIgnoreCase) && File.Exists(defaultSrt))
         {
             var dir = Path.GetDirectoryName(outputSrtPath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
-            File.Move(defaultSrt, outputSrtPath, overwrite: true);
+            AtomicFileHelper.PromoteTempFile(defaultSrt, outputSrtPath);
         }
 
         if (!File.Exists(outputSrtPath))
             throw new InvalidOperationException($"Subtitle Edit reported success but SRT output was not found: {outputSrtPath}");
 
-        DeleteImageSubtitleSourceFiles(inputPath, logger);
+        var outputInfo = new FileInfo(outputSrtPath);
+        if (outputInfo.Length <= 0)
+            throw new InvalidOperationException($"Subtitle Edit reported success but SRT output is empty: {outputSrtPath}");
+
+        if (!keepSource)
+            DeleteImageSubtitleSourceFiles(inputPath, logger);
     }
 
     private static void TryDeleteFile(string path, ILogger? logger)
@@ -91,6 +96,7 @@ public static class ImageSubtitleConversionHelper
     /// <param name="imagePaths">Paths to .sup or .sub files.</param>
     /// <param name="throttleLimit">Maximum concurrent conversions.</param>
     /// <param name="writeError">Callback to write error records for failed conversions.</param>
+    /// <param name="keepSource">When true, keep image subtitle sources after successful OCR; otherwise delete them.</param>
     /// <returns>Paths of successfully converted SRT files.</returns>
     public static IReadOnlyList<string> ConvertImagePathsToSrtParallel(
         ICmdletProgress progress,
@@ -100,6 +106,7 @@ public static class ImageSubtitleConversionHelper
         IReadOnlyList<string> imagePaths,
         int throttleLimit,
         Action<ErrorRecord> writeError,
+        bool keepSource = false,
         CancellationToken cancellationToken = default)
     {
         var convertedSrtPaths = new ConcurrentBag<string>();
@@ -129,7 +136,14 @@ public static class ImageSubtitleConversionHelper
                     var srtPath = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
                     try
                     {
-                        ConvertToSrt(executableService, subtitleEditPath, inputPath, srtPath, logger, cancellationToken);
+                        ConvertToSrt(
+                            executableService,
+                            subtitleEditPath,
+                            inputPath,
+                            srtPath,
+                            logger,
+                            keepSource,
+                            cancellationToken);
                         logger.LogDebug("Converted image subtitles to SRT: {Path}", srtPath);
                         convertedSrtPaths.Add(srtPath);
                     }

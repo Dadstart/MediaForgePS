@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -33,7 +32,7 @@ public class SeriesProcessingService : ISeriesProcessingService
         _logger = logger;
         _seasonScanPhase = new SeriesSeasonScanPhase(tvDbClient, logger);
         _videoCopyPhase = new SeriesVideoCopyPhase();
-        _chapterExtractionPhase = new SeriesChapterExtractionPhase(mediaReaderService, executableService);
+        _chapterExtractionPhase = new SeriesChapterExtractionPhase(mediaReaderService, executableService, logger);
         _captionExtractionPhase = new SeriesCaptionExtractionPhase(mediaReaderService, executableService, logger);
     }
 
@@ -78,25 +77,40 @@ public class SeriesProcessingService : ISeriesProcessingService
                     ? io.Paths.CurrentLocationPath
                     : ResolveAbsolutePath(io, basePath);
 
-                var rootDir = NewProcessingDirectory(io, Path.Combine(currentBasePath, title), "show");
+                var safeTitle = PathSafetyHelper.SanitizePathSegment(title);
+                var rootDir = NewProcessingDirectory(io, Path.Combine(currentBasePath, safeTitle), "show");
+                PathSafetyHelper.EnsurePathUnderRoot(currentBasePath, rootDir);
+
                 var seasonDir = NewProcessingDirectory(io, Path.Combine(rootDir, $"Season {season:D2}"), "season");
+                PathSafetyHelper.EnsurePathUnderRoot(rootDir, seasonDir);
 
                 var dirs = subDirectories ?? _defaultSubDirectories;
                 var createdSubDirs = dirs
-                    .Select(subDir => NewProcessingDirectory(io, Path.Combine(seasonDir, subDir), subDir))
+                    .Select(subDir =>
+                    {
+                        var safeSubDir = PathSafetyHelper.SanitizePathSegment(subDir);
+                        var created = NewProcessingDirectory(io, Path.Combine(seasonDir, safeSubDir), subDir);
+                        PathSafetyHelper.EnsurePathUnderRoot(seasonDir, created);
+                        return created;
+                    })
                     .ToList();
 
                 return new ProcessingDirectoryStructure(rootDir, seasonDir, createdSubDirs);
             });
     }
 
-    public IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(ICmdletIO io, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
+    public IReadOnlyList<TvDbEpisodeInfo> InvokeSeasonScan(
+        ICmdletIO io,
+        int season,
+        string? tvDbSeriesUrl,
+        string? tvDbSeasonUrl,
+        CancellationToken cancellationToken = default)
     {
         return InvokeWithErrorHandling(
             io,
             "Season scanning",
             Array.Empty<TvDbEpisodeInfo>(),
-            () => _seasonScanPhase.Run(io, season, tvDbSeriesUrl, tvDbSeasonUrl));
+            () => _seasonScanPhase.Run(io, season, tvDbSeriesUrl, tvDbSeasonUrl, cancellationToken));
     }
 
     public IReadOnlyList<string> GetFilteredVideoFiles(ICmdletIO io, IReadOnlyList<string> paths, IReadOnlyList<string> filePatterns, long minimumFileSizeBytes)
@@ -166,8 +180,17 @@ public class SeriesProcessingService : ISeriesProcessingService
                 cancellationToken));
     }
 
-    public static string BuildEpisodeFileName(string title, int season, TvDbEpisodeInfo episode, string extension) =>
-        $"{title} {{tvdb {episode.Id}}} - s{season:D2}e{episode.EpisodeNumber:D2}{extension}";
+    public static string BuildEpisodeFileName(string title, int season, TvDbEpisodeInfo episode, string extension)
+    {
+        var safeTitle = PathSafetyHelper.SanitizePathSegment(title);
+        if (!string.IsNullOrEmpty(extension) &&
+            (extension.Contains(Path.DirectorySeparatorChar) ||
+             extension.Contains(Path.AltDirectorySeparatorChar) ||
+             extension.Contains("..", StringComparison.Ordinal)))
+            throw new ArgumentException("Extension cannot contain path separators or '..'.", nameof(extension));
+
+        return $"{safeTitle} {{tvdb {episode.Id}}} - s{season:D2}e{episode.EpisodeNumber:D2}{extension}";
+    }
 
     private static string ResolveAbsolutePath(ICmdletIO io, string path) =>
         PathHelper.ResolveAbsolutePath(path, io.Paths.CurrentLocationPath);
@@ -193,24 +216,4 @@ public class SeriesProcessingService : ISeriesProcessingService
             return defaultValue;
         }
     }
-
-    private static bool TryParseTvDbEpisode(PSObject ps, int defaultSeason, out TvDbEpisodeInfo episode)
-    {
-        episode = null!;
-        var id = ps.Properties["Id"]?.Value?.ToString() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(id))
-            return false;
-
-        var title = ps.Properties["Title"]?.Value?.ToString() ?? string.Empty;
-        var episodeNumberRaw = ps.Properties["EpisodeNumber"]?.Value?.ToString() ?? "0";
-        var seasonNumberRaw = ps.Properties["SeasonNumber"]?.Value?.ToString() ?? defaultSeason.ToString(CultureInfo.InvariantCulture);
-
-        if (!int.TryParse(episodeNumberRaw, out var episodeNumber))
-            return false;
-
-        var seasonNumber = int.TryParse(seasonNumberRaw, out var sn) ? sn : defaultSeason;
-        episode = new TvDbEpisodeInfo(id, seasonNumber, title, episodeNumber);
-        return true;
-    }
-
 }

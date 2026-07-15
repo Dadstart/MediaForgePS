@@ -66,7 +66,7 @@ public class ImageSubtitleConversionHelperTests : IDisposable
     }
 
     [Fact]
-    public void ConvertToSrt_WhenSuccessful_DeletesSourceSupAndKeepsSrt()
+    public void ConvertToSrt_WhenSuccessful_DeletesSourceSupByDefault()
     {
         var supPath = Path.Combine(_tempDir, "movie.sup");
         var srtPath = Path.Combine(_tempDir, "movie.srt");
@@ -92,7 +92,34 @@ public class ImageSubtitleConversionHelperTests : IDisposable
     }
 
     [Fact]
-    public void ConvertToSrt_WhenSuccessful_DeletesSubAndIdxCompanion()
+    public void ConvertToSrt_WhenKeepSource_PreservesSupAndKeepsSrt()
+    {
+        var supPath = Path.Combine(_tempDir, "movie-keep.sup");
+        var srtPath = Path.Combine(_tempDir, "movie-keep.srt");
+        File.WriteAllBytes(supPath, Array.Empty<byte>());
+
+        _executableServiceMock
+            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
+            {
+                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
+            })
+            .ReturnsAsync(new ExecutableResult(null, null, 0));
+
+        ImageSubtitleConversionHelper.ConvertToSrt(
+            _executableServiceMock.Object,
+            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            supPath,
+            srtPath,
+            keepSource: true,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(srtPath));
+        Assert.True(File.Exists(supPath));
+    }
+
+    [Fact]
+    public void ConvertToSrt_WhenSuccessful_DeletesSubAndIdxCompanionByDefault()
     {
         var subPath = Path.Combine(_tempDir, "movie.eng.sdh.sub");
         var idxPath = Path.Combine(_tempDir, "movie.eng.sdh.idx");
@@ -118,6 +145,36 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         Assert.True(File.Exists(srtPath));
         Assert.False(File.Exists(subPath));
         Assert.False(File.Exists(idxPath));
+    }
+
+    [Fact]
+    public void ConvertToSrt_WhenKeepSource_PreservesSubAndIdx()
+    {
+        var subPath = Path.Combine(_tempDir, "movie.keep.sub");
+        var idxPath = Path.Combine(_tempDir, "movie.keep.idx");
+        var srtPath = Path.Combine(_tempDir, "movie.keep.srt");
+        File.WriteAllBytes(subPath, Array.Empty<byte>());
+        File.WriteAllBytes(idxPath, Array.Empty<byte>());
+
+        _executableServiceMock
+            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
+            {
+                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
+            })
+            .ReturnsAsync(new ExecutableResult(null, null, 0));
+
+        ImageSubtitleConversionHelper.ConvertToSrt(
+            _executableServiceMock.Object,
+            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            subPath,
+            srtPath,
+            keepSource: true,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(File.Exists(srtPath));
+        Assert.True(File.Exists(subPath));
+        Assert.True(File.Exists(idxPath));
     }
 
     [Fact]

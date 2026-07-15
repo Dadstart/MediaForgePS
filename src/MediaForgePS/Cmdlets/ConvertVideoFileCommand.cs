@@ -108,6 +108,12 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
+    /// <summary>
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// </summary>
+    [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
+    public SwitchParameter KeepSource { get; set; }
+
     private const int DefaultOcrThrottleLimit = 10;
 
     private static readonly HashSet<string> _supportedVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -322,7 +328,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                             DefaultOcrThrottleLimit,
                             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
                             backupPath: null,
-                            StoppingToken);
+                            StoppingToken,
+                            KeepSource.IsPresent);
 
                         if (allSrtPaths == null)
                             return;

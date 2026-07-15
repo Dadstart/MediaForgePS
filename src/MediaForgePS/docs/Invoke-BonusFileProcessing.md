@@ -94,6 +94,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -KeepSource
+Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -BackupPath
 Directory to copy SRT files to before repairing. Path structure under the input directory is preserved. Only used when repair runs (i.e. when -SkipRepair is not specified and there are SRT files).
 

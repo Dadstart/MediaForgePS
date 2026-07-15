@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
@@ -18,6 +20,8 @@ public class MediaConversionServiceProgressTests
         var ffmpegMock = new Mock<IFfmpegService>();
         var reports = new List<FfmpegProgress>();
         var callIndex = 0;
+        var capturedOutputs = new List<string>();
+        var capturedArgs = new List<string[]>();
 
         ffmpegMock
             .Setup(service => service.ConvertAsync(
@@ -26,9 +30,11 @@ public class MediaConversionServiceProgressTests
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
                 It.IsAny<CancellationToken>()))
-            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken>((_, _, _, progress, _) =>
+            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken>((_, outputPath, args, progress, _) =>
             {
                 callIndex++;
+                capturedOutputs.Add(outputPath);
+                capturedArgs.Add(args?.ToArray() ?? []);
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(50),
                     TimeSpan.FromSeconds(100),
@@ -48,7 +54,7 @@ public class MediaConversionServiceProgressTests
 
         service.ExecuteConversion(
             "input.mkv",
-            "output.mp4",
+            Path.Combine(Path.GetTempPath(), "MediaForgePS-vbr-out.mp4"),
             settings,
             [],
             progress: new SynchronousProgressReporter(reports.Add),
@@ -58,6 +64,15 @@ public class MediaConversionServiceProgressTests
         Assert.Equal(2, reports.Count);
         Assert.Equal(50, reports[0].PercentComplete);
         Assert.Equal(100, reports[1].PercentComplete);
+        Assert.True(AtomicFileHelper.IsNullMuxerOutput(capturedOutputs[0]));
+        Assert.Contains("-pass", capturedArgs[0]);
+        Assert.Contains("1", capturedArgs[0]);
+        Assert.Contains("-an", capturedArgs[0]);
+        Assert.Contains("-f", capturedArgs[0]);
+        Assert.Contains("null", capturedArgs[0]);
+        Assert.Contains("-pass", capturedArgs[1]);
+        Assert.Contains("2", capturedArgs[1]);
+        Assert.DoesNotContain("-an", capturedArgs[1]);
     }
 
     [Fact]

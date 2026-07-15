@@ -6,15 +6,17 @@ using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.System;
+using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 internal sealed class SeriesChapterExtractionPhase(
     IMediaReaderService mediaReaderService,
-    IExecutableService executableService)
+    IExecutableService executableService,
+    ILogger logger)
 {
     public ProcessingPhaseStats Run(
-        ICmdletProgress progress,
+        ICmdletIO io,
         string seasonDir,
         IReadOnlyList<string> copiedFiles,
         int chapterNumber,
@@ -36,40 +38,54 @@ internal sealed class SeriesChapterExtractionPhase(
             var current = i + 1;
             var fileName = Path.GetFileName(file);
             var (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(progress, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteMainProgress(io, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Extracting chapter...", fileName, recordType: ProgressRecordType.Processing);
 
-            if (TryExtractChapterClip(file, chapterDir, chapterNumber, chapterDurationSeconds, cancellationToken))
+            if (TryExtractChapterClip(io, file, chapterDir, chapterNumber, chapterDurationSeconds, cancellationToken))
                 processed++;
             else
                 failed++;
 
             (phaseStatus, percent) = MediaConversionHelper.BuildCountBasedProgressStatus(current, total, fileName);
-            MediaConversionHelper.WriteMainProgress(progress, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
-            MediaConversionHelper.WriteCurrentItemProgress(progress, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
+            MediaConversionHelper.WriteMainProgress(io, "Chapter extraction", phaseStatus, percent, recordType: ProgressRecordType.Processing);
+            MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Completed", fileName, recordType: ProgressRecordType.Completed);
         }
 
-        MediaConversionHelper.WriteProgressCompleted(progress, "Chapter extraction", "Current file");
+        MediaConversionHelper.WriteProgressCompleted(io, "Chapter extraction", "Current file");
         return new ProcessingPhaseStats(processed, failed, copiedFiles.Count);
     }
 
     private bool TryExtractChapterClip(
+        ICmdletErrorSink errors,
         string filePath,
         string chapterDir,
         int chapterNumber,
         int chapterDurationSeconds,
         CancellationToken cancellationToken)
     {
+        string? tempClipPath = null;
         try
         {
             var media = mediaReaderService.GetMediaFileAsync(filePath, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
             if (media == null || media.Chapters.Length < chapterNumber)
+            {
+                var message = media == null
+                    ? $"Unable to read media metadata for chapter extraction: {filePath}"
+                    : $"File does not contain chapter {chapterNumber}: {filePath}";
+                logger.LogWarning("{Message}", message);
+                errors.WriteError(new ErrorRecord(
+                    new InvalidOperationException(message),
+                    "ChapterExtractionSkipped",
+                    ErrorCategory.ObjectNotFound,
+                    filePath));
                 return false;
+            }
 
             var chapter = media.Chapters[chapterNumber - 1];
             var startTime = TimeSpan.FromSeconds((double)chapter.StartTime);
             var clipPath = Path.Combine(chapterDir, $"{Path.GetFileNameWithoutExtension(filePath)}.chapter{chapterNumber:D2}.mp4");
+            tempClipPath = AtomicFileHelper.CreateTempSiblingPath(clipPath);
 
             var arguments = new[]
             {
@@ -77,20 +93,33 @@ internal sealed class SeriesChapterExtractionPhase(
                 "-i", filePath,
                 "-t", chapterDurationSeconds.ToString(CultureInfo.InvariantCulture),
                 "-c", "copy",
-                "-y", clipPath
+                "-y", tempClipPath
             };
 
             var result = executableService.ExecuteAsync("ffmpeg", arguments, cancellationToken)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
-            return result.ExitCode == 0;
+
+            result.EnsureProcessSuccess($"ffmpeg chapter extraction for '{filePath}'");
+            AtomicFileHelper.PromoteTempFile(tempClipPath, clipPath);
+            return true;
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Chapter extraction failed for {Path}", filePath);
+            errors.WriteError(new ErrorRecord(
+                ex,
+                "ChapterExtractionFailed",
+                ErrorCategory.OperationStopped,
+                filePath));
             return false;
+        }
+        finally
+        {
+            AtomicFileHelper.TryDelete(tempClipPath);
         }
     }
 }

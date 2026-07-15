@@ -107,6 +107,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// </summary>
+    [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
+    public SwitchParameter KeepSource { get; set; }
+
+    /// <summary>
     /// Directory to copy all SRT files to before repairing. Only used when repair runs.
     /// </summary>
     [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
@@ -208,7 +214,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                             ThrottleLimit,
                             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
                             BackupPath,
-                            StoppingToken);
+                            StoppingToken,
+                            KeepSource.IsPresent);
                     }
                 }
                 WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);

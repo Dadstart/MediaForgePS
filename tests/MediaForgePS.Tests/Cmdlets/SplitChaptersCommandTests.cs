@@ -42,7 +42,12 @@ public class SplitChaptersCommandTests : IDisposable
 
         _executableServiceMock
             .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            {
+                var output = args.Last();
+                File.WriteAllText(output, "encoded");
+                return new ExecutableResult(null, null, 0);
+            });
 
         var services = new ServiceCollection();
         services.AddSingleton(_pathResolverMock.Object);

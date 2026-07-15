@@ -57,6 +57,12 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
     [Parameter(HelpMessage = "Skip repair of OCR-produced SRT files.")]
     public SwitchParameter SkipRepair { get; set; }
 
+    /// <summary>
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// </summary>
+    [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
+    public SwitchParameter KeepSource { get; set; }
+
     private readonly List<object> _pathOrMediaFiles = new();
     private IMediaReaderService? _mediaReaderService;
     private IExecutableService? _executableService;
@@ -156,7 +162,8 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             ThrottleLimit,
             shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
             BackupPath,
-            StoppingToken);
+            StoppingToken,
+            KeepSource.IsPresent);
 
         if (allSrtPaths == null)
             return;

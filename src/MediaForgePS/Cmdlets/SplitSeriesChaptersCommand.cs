@@ -15,7 +15,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Splits a video file into episode files by chapter ranges with TVDb-based naming.
 /// </summary>
 /// <remarks>
-/// Output names follow: {Title} {'{'}tvdb Id{'}'} S{season}E{episode}.{ext}.
+/// Output names follow: {Title} {tvdb Id} - s{season}e{episode}.{ext}.
 /// Requires at least (EpisodeStart - 1) + rangeCount episodes from the TVDb scan.
 /// </remarks>
 [Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath")]
@@ -122,7 +122,7 @@ public class SplitSeriesChaptersCommand : CmdletBase
         }
 
         var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);
-        var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl)
+        var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl, StoppingToken)
             .OrderBy(e => e.EpisodeNumber)
             .ToArray();
         if (episodes.Length == 0)
@@ -187,9 +187,8 @@ public class SplitSeriesChaptersCommand : CmdletBase
                     return range.OutputName + inputExtension;
 
                 var episodeIndex = (EpisodeStart - 1) + rangeIndex;
-                var episodeNumber = EpisodeStart + rangeIndex;
                 var tvDbEpisode = episodes[episodeIndex];
-                return $"{Title} {{tvdb {tvDbEpisode.Id}}} S{Season:D2}E{episodeNumber:D2}{inputExtension}";
+                return Services.SeriesProcessing.SeriesProcessingService.BuildEpisodeFileName(Title, Season, tvDbEpisode, inputExtension);
             },
             WriteHostMessage,
             cancellationToken: StoppingToken);

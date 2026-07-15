@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Net.Http;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.TvDb;
@@ -11,7 +12,12 @@ namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 internal sealed class SeriesSeasonScanPhase(ITvDbClient tvDbClient, ILogger logger)
 {
-    public IReadOnlyList<TvDbEpisodeInfo> Run(ICmdletErrorSink errors, int season, string? tvDbSeriesUrl, string? tvDbSeasonUrl)
+    public IReadOnlyList<TvDbEpisodeInfo> Run(
+        ICmdletErrorSink errors,
+        int season,
+        string? tvDbSeriesUrl,
+        string? tvDbSeasonUrl,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(tvDbSeasonUrl) && string.IsNullOrWhiteSpace(tvDbSeriesUrl))
         {
@@ -41,21 +47,27 @@ internal sealed class SeriesSeasonScanPhase(ITvDbClient tvDbClient, ILogger logg
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             logger.LogDebug(
                 "Resolving TVDb series '{SeriesKey}' for season {Season} ({SeasonType})",
                 seriesKey,
                 effectiveSeason,
                 seasonType);
 
-            var seriesId = tvDbClient.ResolveSeriesIdAsync(seriesKey).ConfigureAwait(false).GetAwaiter().GetResult();
+            var seriesId = tvDbClient.ResolveSeriesIdAsync(seriesKey, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             var episodes = tvDbClient
-                .GetSeasonEpisodesAsync(seriesId, effectiveSeason, seasonType)
+                .GetSeasonEpisodesAsync(seriesId, effectiveSeason, seasonType, cancellationToken)
                 .ConfigureAwait(false)
                 .GetAwaiter()
                 .GetResult();
 
             logger.LogDebug("Found {Count} episodes for season {Season}", episodes.Count, effectiveSeason);
             return episodes;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (TvDbApiException ex)
         {

@@ -143,23 +143,18 @@ public class ExportMediaStreamCommand : CmdletBase
             {
                 var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArguments, StoppingToken).ConfigureAwait(false).GetAwaiter().GetResult();
 
-                if (result.ExitCode == 0)
+                try
                 {
+                    result.EnsureProcessSuccess("FFmpeg stream extraction");
                     Logger.LogInformation("Successfully extracted stream to: {OutputFileName}", outputFileName);
                 }
-                else
+                catch (InvalidOperationException ex)
                 {
-                    var errorMessage = $"Failed to extract stream. FFmpeg exit code: {result.ExitCode}";
-                    if (!string.IsNullOrWhiteSpace(result.ErrorOutput))
-                        errorMessage += $". Error: {result.ErrorOutput}";
-
-                    Logger.LogError(errorMessage);
-                    var errorRecord = new ErrorRecord(
-                        new Exception(errorMessage),
-                        ErrorIds.FfmpegExecutionFailed,
-                        ErrorCategory.OperationStopped,
-                        null);
-                    WriteError(errorRecord);
+                    Logger.LogError(ex, "Failed to extract stream");
+                    var errorId = result.Exception is not null
+                        ? ErrorIds.FfmpegExecutionException
+                        : ErrorIds.FfmpegExecutionFailed;
+                    WriteError(new ErrorRecord(ex, errorId, ErrorCategory.OperationStopped, null));
                 }
             }
             catch (Exception ex)

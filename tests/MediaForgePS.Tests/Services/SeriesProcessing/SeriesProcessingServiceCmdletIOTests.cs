@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using System.Threading;
@@ -22,7 +23,7 @@ public class SeriesProcessingServiceCmdletIOTests
         var io = new FakeCmdletIO();
         var service = CreateService();
 
-        var episodes = service.InvokeSeasonScan(io, season: 1, tvDbSeriesUrl: null, tvDbSeasonUrl: null);
+        var episodes = service.InvokeSeasonScan(io, season: 1, tvDbSeriesUrl: null, tvDbSeasonUrl: null, TestContext.Current.CancellationToken);
 
         Assert.Empty(episodes);
         var error = Assert.Single(io.Errors);
@@ -45,7 +46,8 @@ public class SeriesProcessingServiceCmdletIOTests
             io,
             season: 1,
             tvDbSeriesUrl: "https://thetvdb.com/series/12345",
-            tvDbSeasonUrl: null);
+            tvDbSeasonUrl: null,
+            TestContext.Current.CancellationToken);
 
         var episode = Assert.Single(episodes);
         Assert.Equal("999", episode.Id);
@@ -68,7 +70,8 @@ public class SeriesProcessingServiceCmdletIOTests
             io,
             season: 1,
             tvDbSeriesUrl: "https://thetvdb.com/series/my-show",
-            tvDbSeasonUrl: null);
+            tvDbSeasonUrl: null,
+            TestContext.Current.CancellationToken);
 
         Assert.Empty(episodes);
         var error = Assert.Single(io.Errors);
@@ -94,6 +97,101 @@ public class SeriesProcessingServiceCmdletIOTests
             Assert.Single(structure.SubDirs);
             Assert.True(Directory.Exists(structure.SubDirs[0]));
             Assert.Empty(io.Errors);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void InvokeSeasonScan_WhenCancelled_ThrowsOperationCanceledException()
+    {
+        var io = new FakeCmdletIO();
+        var tvDb = new Mock<ITvDbClient>();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        tvDb.Setup(client => client.ResolveSeriesIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException(cts.Token));
+
+        var service = CreateService(tvDb.Object);
+
+        Assert.Throws<OperationCanceledException>(() =>
+            service.InvokeSeasonScan(
+                io,
+                season: 1,
+                tvDbSeriesUrl: "https://thetvdb.com/series/my-show",
+                tvDbSeasonUrl: null,
+                cts.Token));
+    }
+
+    [Fact]
+    public void InvokeSeasonScan_PassesCancellationTokenToTvDbClient()
+    {
+        var io = new FakeCmdletIO();
+        var tvDb = new Mock<ITvDbClient>();
+        using var cts = new CancellationTokenSource();
+        tvDb.Setup(client => client.ResolveSeriesIdAsync("12345", cts.Token))
+            .ReturnsAsync(12345);
+        tvDb.Setup(client => client.GetSeasonEpisodesAsync(12345, 1, "official", cts.Token))
+            .ReturnsAsync([new TvDbEpisodeInfo("1", 1, "Pilot", 1)]);
+
+        var service = CreateService(tvDb.Object);
+        var episodes = service.InvokeSeasonScan(
+            io,
+            season: 1,
+            tvDbSeriesUrl: "https://thetvdb.com/series/12345",
+            tvDbSeasonUrl: null,
+            cts.Token);
+
+        Assert.Single(episodes);
+        tvDb.Verify(client => client.ResolveSeriesIdAsync("12345", cts.Token), Times.Once);
+        tvDb.Verify(client => client.GetSeasonEpisodesAsync(12345, 1, "official", cts.Token), Times.Once);
+    }
+
+    [Fact]
+    public void InvokeChapterExtractionPhase_WhenFfmpegFails_WritesErrorAndIncrementsFailed()
+    {
+        var io = new FakeCmdletIO();
+        var root = Path.Combine(Path.GetTempPath(), "MediaForgePS-ChapterFail-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var input = Path.Combine(root, "episode.mkv");
+            File.WriteAllText(input, "video");
+            var mediaReader = new Mock<IMediaReaderService>();
+            mediaReader
+                .Setup(reader => reader.GetMediaFileAsync(input, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MediaFile(
+                    input,
+                    new MediaFormat(input, 1, "matroska", "Matroska", 10, 100, 1000, 1000, new Dictionary<string, string>()),
+                    [new MediaChapter(0, 0, 10, new Dictionary<string, string>())],
+                    Array.Empty<MediaStream>(),
+                    "{}"));
+
+            var executable = new Mock<IExecutableService>();
+            executable
+                .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ExecutableResult(null, "boom", 1));
+
+            var service = new SeriesProcessingService(
+                NullLogger<SeriesProcessingService>.Instance,
+                mediaReader.Object,
+                executable.Object,
+                Mock.Of<ITvDbClient>());
+
+            var stats = service.InvokeChapterExtractionPhase(
+                io,
+                root,
+                [input],
+                chapterNumber: 1,
+                chapterDurationSeconds: 5,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(0, stats.Processed);
+            Assert.Equal(1, stats.Failed);
+            Assert.Contains(io.Errors, error => error.FullyQualifiedErrorId.Contains("ChapterExtractionFailed", StringComparison.Ordinal));
         }
         finally
         {

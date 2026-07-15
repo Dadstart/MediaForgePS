@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -29,14 +30,32 @@ public class MediaConversionService : IMediaConversionService
         int? pass = null,
         string[]? additionalArguments = null)
     {
+        return BuildFfmpegArguments(videoSettings, audioMappings, pass, passLogFile: null, additionalArguments);
+    }
+
+    /// <summary>
+    /// Builds FFmpeg arguments, optionally including two-pass logfile routing.
+    /// </summary>
+    public IEnumerable<string> BuildFfmpegArguments(
+        VideoEncodingSettings videoSettings,
+        AudioTrackMapping[] audioMappings,
+        int? pass,
+        string? passLogFile,
+        string[]? additionalArguments = null)
+    {
         var args = new List<string>();
 
-        // Add video encoding arguments
-        args.AddRange(videoSettings.ToFfmpegArgs(pass));
+        if (videoSettings is VariableRateVideoEncodingSettings variableRate && pass is int passNumber)
+            args.AddRange(variableRate.ToFfmpegArgs(passNumber, passLogFile));
+        else
+            args.AddRange(videoSettings.ToFfmpegArgs(pass));
 
-        // Add audio track mapping arguments
-        foreach (var audioMapping in audioMappings)
-            args.AddRange(audioMapping.ToFfmpegArgs());
+        // Pass 1 for VBR is video analysis only; omit audio mappings.
+        if (pass != 1)
+        {
+            foreach (var audioMapping in audioMappings)
+                args.AddRange(audioMapping.ToFfmpegArgs());
+        }
 
         // Enable experimental TrueHD-in-MP4 muxing when copying TrueHD/Atmos tracks.
         if (!ContainsStrictExperimental(additionalArguments))
@@ -89,15 +108,27 @@ public class MediaConversionService : IMediaConversionService
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
                 progress,
                 cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+            return;
         }
-        else
+
+        var passLogFile = Path.Combine(
+            Path.GetDirectoryName(Path.GetFullPath(resolvedOutputPath)) ?? Directory.GetCurrentDirectory(),
+            Path.GetFileNameWithoutExtension(resolvedOutputPath) + ".mediaforge.passlog");
+
+        try
         {
             // First pass maps to 0-50%; second pass maps to 50-100%.
             var firstPassProgress = CreatePassProgress(progress, passOffsetPercent: 0, passWeightPercent: 50);
+            var pass1Args = new List<string>(BuildFfmpegArguments(videoSettings, audioMappings, 1, passLogFile, additionalArguments))
+            {
+                "-f",
+                "null"
+            };
+
             _ffmpegService.ConvertAsync(
                 resolvedInputPath,
-                resolvedOutputPath,
-                BuildFfmpegArguments(videoSettings, audioMappings, 1, additionalArguments),
+                AtomicFileHelper.PlatformNullDevice,
+                pass1Args,
                 firstPassProgress,
                 cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
 
@@ -107,10 +138,23 @@ public class MediaConversionService : IMediaConversionService
             _ffmpegService.ConvertAsync(
                 resolvedInputPath,
                 resolvedOutputPath,
-                BuildFfmpegArguments(videoSettings, audioMappings, 2, additionalArguments),
+                BuildFfmpegArguments(videoSettings, audioMappings, 2, passLogFile, additionalArguments),
                 secondPassProgress,
                 cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         }
+        finally
+        {
+            CleanupPassLogFiles(passLogFile);
+        }
+    }
+
+    private static void CleanupPassLogFiles(string passLogFile)
+    {
+        AtomicFileHelper.TryDelete(passLogFile);
+        AtomicFileHelper.TryDelete(passLogFile + "-0.log");
+        AtomicFileHelper.TryDelete(passLogFile + ".log");
+        AtomicFileHelper.TryDelete(passLogFile + "-0.log.mbtree");
+        AtomicFileHelper.TryDelete(passLogFile + ".log.mbtree");
     }
 
     private static IProgress<FfmpegProgress>? CreatePassProgress(

@@ -15,6 +15,8 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class ChapterSplitHelper
 {
+    private const double ExistingOutputDurationToleranceSeconds = 1.0;
+
     /// <summary>
     /// Executes the shared chapter split workflow for a resolved input file.
     /// </summary>
@@ -64,6 +66,7 @@ public static class ChapterSplitHelper
             io,
             logger,
             executableService,
+            mediaReaderService,
             resolvedInputPath,
             outputDirectory,
             ranges,
@@ -140,7 +143,39 @@ public static class ChapterSplitHelper
         Action<string, ConsoleColor?>? writeHostMessage = null,
         CancellationToken cancellationToken = default)
     {
+        return SplitChapterRanges(
+            io,
+            logger,
+            executableService,
+            mediaReaderService: null,
+            resolvedInputPath,
+            outputDirectory,
+            ranges,
+            chapters,
+            buildOutputFileName,
+            writeHostMessage,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Splits the input file into output files for each chapter range.
+    /// </summary>
+    public static IReadOnlyList<string> SplitChapterRanges(
+        ICmdletIO io,
+        ILogger logger,
+        IExecutableService executableService,
+        IMediaReaderService? mediaReaderService,
+        string resolvedInputPath,
+        string outputDirectory,
+        IReadOnlyList<(int Start, int End, string? OutputName)> ranges,
+        IReadOnlyList<MediaChapter> chapters,
+        Func<int, (int Start, int End, string? OutputName), string> buildOutputFileName,
+        Action<string, ConsoleColor?>? writeHostMessage = null,
+        CancellationToken cancellationToken = default)
+    {
         var outputFiles = new List<string>();
+        var resolvedOutputDirectory = Path.GetFullPath(outputDirectory);
+        Directory.CreateDirectory(resolvedOutputDirectory);
 
         for (var i = 0; i < ranges.Count; i++)
         {
@@ -168,14 +203,19 @@ public static class ChapterSplitHelper
                     $"Start ({range.Start}) must be less than or equal to End ({range.End}) for range at index {i}.");
             }
 
-            var outputFileName = buildOutputFileName(i, range);
-            var outputFile = Path.Combine(outputDirectory, outputFileName);
-
-            if (File.Exists(outputFile))
+            var rawOutputFileName = buildOutputFileName(i, range);
+            string outputFile;
+            try
             {
-                io.WriteWarning($"Output file already exists: {outputFile}. Skipping...");
-                outputFiles.Add(outputFile);
-                continue;
+                var safeFileName = PathSafetyHelper.SanitizePathSegment(rawOutputFileName, replaceInvalidChars: false);
+                outputFile = PathSafetyHelper.GetContainedFilePath(resolvedOutputDirectory, safeFileName);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException(
+                    $"Output file name for range at index {i} is invalid: {ex.Message}",
+                    nameof(ranges),
+                    ex);
             }
 
             var startChapter = chapters[chapterStart];
@@ -184,35 +224,58 @@ public static class ChapterSplitHelper
             var endTime = (double)endChapter.EndTime;
             var duration = endTime - startTime;
 
+            if (File.Exists(outputFile))
+            {
+                if (IsValidExistingChapterOutput(mediaReaderService, outputFile, duration, cancellationToken))
+                {
+                    io.WriteWarning($"Output file already exists: {outputFile}. Skipping...");
+                    outputFiles.Add(outputFile);
+                    continue;
+                }
+
+                io.WriteWarning($"Existing output file appears incomplete or invalid and will be regenerated: {outputFile}");
+                AtomicFileHelper.TryDelete(outputFile);
+            }
+
             var startTimeCode = MediaConversionHelper.FormatTimeCode(startTime);
             var durationTimeCode = MediaConversionHelper.FormatTimeCode(duration);
+            var outputFileName = Path.GetFileName(outputFile);
 
             writeHostMessage?.Invoke(
                 $"Splitting chapters {chapterStart + 1}-{chapterEnd + 1} ({startTimeCode} - {durationTimeCode}) -> {outputFileName}",
                 ConsoleColor.Yellow);
 
-            var ffmpegArgs = new List<string>
+            var tempOutputFile = AtomicFileHelper.CreateTempSiblingPath(outputFile);
+            try
             {
-                "-i", resolvedInputPath,
-                "-ss", startTimeCode,
-                "-t", durationTimeCode,
-                "-map", "0",
-                "-c", "copy",
-                "-avoid_negative_ts", "make_zero",
-                outputFile
-            };
+                var ffmpegArgs = new List<string>
+                {
+                    "-i", resolvedInputPath,
+                    "-ss", startTimeCode,
+                    "-t", durationTimeCode,
+                    "-map", "0",
+                    "-c", "copy",
+                    "-avoid_negative_ts", "make_zero",
+                    "-y",
+                    tempOutputFile
+                };
 
-            logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
+                logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
 
-            var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken)
-                .ConfigureAwait(false).GetAwaiter().GetResult();
+                var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
 
-            if (result.ExitCode != 0)
+                result.EnsureProcessSuccess($"ffmpeg chapter split for '{outputFile}'");
+                AtomicFileHelper.PromoteTempFile(tempOutputFile, outputFile);
+            }
+            catch
             {
-                var message = $"ffmpeg failed with exit code {result.ExitCode} for output file: {outputFile}";
-                if (!string.IsNullOrWhiteSpace(result.ErrorOutput))
-                    message += ". " + result.ErrorOutput.Trim();
-                throw new InvalidOperationException(message);
+                AtomicFileHelper.TryDelete(tempOutputFile);
+                throw;
+            }
+            finally
+            {
+                AtomicFileHelper.TryDelete(tempOutputFile);
             }
 
             writeHostMessage?.Invoke($"Successfully created: {outputFile}", ConsoleColor.Green);
@@ -220,5 +283,44 @@ public static class ChapterSplitHelper
         }
 
         return outputFiles;
+    }
+
+    /// <summary>
+    /// Returns true when an existing chapter output is safe to skip remuxing: non-empty on disk,
+    /// and (when a media reader is available) its probed duration matches the expected chapter span
+    /// within <see cref="ExistingOutputDurationToleranceSeconds"/>. Corrupt or unreadable files
+    /// return false so the caller can regenerate them.
+    /// </summary>
+    private static bool IsValidExistingChapterOutput(
+        IMediaReaderService? mediaReaderService,
+        string outputFile,
+        double expectedDurationSeconds,
+        CancellationToken cancellationToken)
+    {
+        var info = new FileInfo(outputFile);
+        if (!info.Exists || info.Length <= 0)
+            return false;
+
+        if (mediaReaderService is null)
+            return true;
+
+        try
+        {
+            var media = mediaReaderService.GetMediaFileAsync(outputFile, cancellationToken)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+            if (media is null)
+                return false;
+
+            var actualDuration = (double)media.Format.Duration;
+            return Math.Abs(actualDuration - expectedDurationSeconds) <= ExistingOutputDurationToleranceSeconds;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

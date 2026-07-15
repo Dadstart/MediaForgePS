@@ -14,11 +14,11 @@ Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs the 
 
 ```
 Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipRepair]
- [-Recurse] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-KeepSource] [-Recurse] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs **only the OCR-produced SRT files** unless `-SkipRepair` is specified. Pre-existing SRT files in the input are not repaired.
+Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs **only the OCR-produced SRT files** unless `-SkipRepair` is specified. Source image subtitle files are deleted after a successful OCR conversion by default; use `-KeepSource` to preserve them. Pre-existing SRT files in the input are not repaired.
 
 Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10).
 
@@ -88,6 +88,21 @@ Aliases:
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -KeepSource
+Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
