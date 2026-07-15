@@ -14,6 +14,10 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// <see cref="CreateMappings"/> targets English audio only: DTS is copied; other codecs are AAC-encoded
 /// with channel-based bitrates. <see cref="CreateDirectoryEncodeMappings"/> is used by
 /// <see cref="Cmdlets.ConvertVideoFileCommand"/> and applies similar English-first rules.
+/// <para>
+/// <c>SourceIndex</c> values are 0-based ordinals among audio streams (for FFmpeg <c>-map 0:a:N</c>),
+/// not ffprobe global stream indices.
+/// </para>
 /// </remarks>
 public class AudioTrackMappingService : IAudioTrackMappingService
 {
@@ -32,6 +36,8 @@ public class AudioTrackMappingService : IAudioTrackMappingService
     public AudioTrackMapping[] CreateMappings(MediaFile mediaFile)
     {
         ArgumentNullException.ThrowIfNull(mediaFile);
+
+        var audioIndexLookup = BuildAudioIndexLookup(mediaFile.Streams);
 
         // Filter for English audio streams
         var englishAudioStreams = mediaFile.Streams
@@ -52,7 +58,9 @@ public class AudioTrackMappingService : IAudioTrackMappingService
         foreach (var stream in englishAudioStreams)
         {
             int channels = ParseChannelCount(stream.Raw);
-            stream.Tags.TryGetValue("title", out var title);
+            string? title = null;
+            stream.Tags?.TryGetValue("title", out title);
+            var sourceIndex = audioIndexLookup[stream.Index];
 
             AudioTrackMapping mapping;
             if (string.Equals(stream.Codec, "dts", StringComparison.OrdinalIgnoreCase))
@@ -61,7 +69,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
                 mapping = new CopyAudioTrackMapping(
                     title,
                     0, // SourceStream: input file index (always 0 for single input)
-                    stream.Index, // SourceIndex: stream index within the file
+                    sourceIndex,
                     destinationIndex);
             }
             else
@@ -90,7 +98,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
                 mapping = new EncodeAudioTrackMapping(
                     title,
                     0, // SourceStream: input file index (always 0 for single input)
-                    stream.Index, // SourceIndex: stream index within the file
+                    sourceIndex,
                     destinationIndex,
                     codec,
                     bitrate,
@@ -139,11 +147,14 @@ public class AudioTrackMappingService : IAudioTrackMappingService
     /// <summary>
     /// Creates automatic audio mappings from selected streams for conversion workflows.
     /// </summary>
-    /// <param name="streams">Selected streams to map.</param>
+    /// <param name="selectedStreams">Selected streams to map.</param>
+    /// <param name="allStreams">All streams from the media file (used to compute audio-relative indices).</param>
     /// <returns>Audio mappings for conversion workflows.</returns>
-    public AudioTrackMapping[] CreateAutomaticMappings(IEnumerable<MediaStream> streams)
+    public AudioTrackMapping[] CreateAutomaticMappings(
+        IEnumerable<MediaStream> selectedStreams,
+        IEnumerable<MediaStream> allStreams)
     {
-        return CreateAutomaticMappingsFromStreams(streams);
+        return CreateAutomaticMappingsFromStreams(selectedStreams, allStreams);
     }
 
     /// <summary>
@@ -170,9 +181,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
         if (englishAudioStreams.Count == 0)
             return Array.Empty<AudioTrackMapping>();
 
-        var audioIndexLookup = audioStreams
-            .Select((stream, index) => new { stream.Index, AudioIndex = index })
-            .ToDictionary(entry => entry.Index, entry => entry.AudioIndex);
+        var audioIndexLookup = BuildAudioIndexLookup(mediaFile.Streams);
 
         var mappings = new List<AudioTrackMapping>();
         var destinationIndex = 0;
@@ -255,16 +264,30 @@ public class AudioTrackMappingService : IAudioTrackMappingService
         return mappings.ToArray();
     }
 
-    public static AudioTrackMapping[] CreateAutomaticMappingsFromStreams(IEnumerable<MediaStream> streams)
+    /// <summary>
+    /// Creates automatic audio mappings from selected streams.
+    /// </summary>
+    /// <param name="selectedStreams">Selected audio streams to map.</param>
+    /// <param name="allStreams">All streams from the media file; used for <c>-map 0:a:N</c> ordinals.</param>
+    public static AudioTrackMapping[] CreateAutomaticMappingsFromStreams(
+        IEnumerable<MediaStream> selectedStreams,
+        IEnumerable<MediaStream> allStreams)
     {
-        ArgumentNullException.ThrowIfNull(streams);
+        ArgumentNullException.ThrowIfNull(selectedStreams);
+        ArgumentNullException.ThrowIfNull(allStreams);
 
+        var audioIndexLookup = BuildAudioIndexLookup(allStreams);
         var mappings = new List<AudioTrackMapping>();
         var destinationIndex = 0;
 
-        foreach (var stream in streams)
+        foreach (var stream in selectedStreams)
         {
-            var channels = ParseChannelCount(stream.Raw);
+            if (!audioIndexLookup.TryGetValue(stream.Index, out var sourceIndex))
+                throw new ArgumentException(
+                    $"Stream index {stream.Index} was not found among audio streams in the media file.",
+                    nameof(selectedStreams));
+
+            var channels = NormalizeChannelCount(ParseChannelCount(stream.Raw));
             stream.Tags.TryGetValue("title", out var title);
 
             AudioTrackMapping mapping;
@@ -273,11 +296,18 @@ public class AudioTrackMappingService : IAudioTrackMappingService
                 channels >= 6 &&
                 !string.Equals(stream.Profile, "dts", StringComparison.OrdinalIgnoreCase))
             {
-                mapping = new CopyAudioTrackMapping(title, 0, stream.Index - 1, destinationIndex);
+                mapping = new CopyAudioTrackMapping(title, 0, sourceIndex, destinationIndex);
             }
             else
             {
-                mapping = new EncodeAudioTrackMapping(title, 0, stream.Index - 1, destinationIndex, "aac", 0, channels);
+                mapping = new EncodeAudioTrackMapping(
+                    title,
+                    0,
+                    sourceIndex,
+                    destinationIndex,
+                    "aac",
+                    GetAacBitrate(channels),
+                    channels);
             }
 
             mappings.Add(mapping);
@@ -308,6 +338,20 @@ public class AudioTrackMappingService : IAudioTrackMappingService
         }
 
         return mappings.ToArray();
+    }
+
+    /// <summary>
+    /// Builds a map from ffprobe global stream index to 0-based audio ordinal (FFmpeg <c>-map 0:a:N</c>).
+    /// </summary>
+    internal static Dictionary<int, int> BuildAudioIndexLookup(IEnumerable<MediaStream> streams)
+    {
+        ArgumentNullException.ThrowIfNull(streams);
+
+        return streams
+            .Where(s => string.Equals(s.Type, "audio", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => s.Index)
+            .Select((stream, index) => new { stream.Index, AudioIndex = index })
+            .ToDictionary(entry => entry.Index, entry => entry.AudioIndex);
     }
 
     /// <summary>

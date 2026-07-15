@@ -454,7 +454,9 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
 
         try
         {
-            audioMappings = AudioTrackMappingService.CreateAutomaticMappings(audioSelection.SelectedStreams);
+            audioMappings = AudioTrackMappingService.CreateAutomaticMappings(
+                audioSelection.SelectedStreams,
+                mediaFile.Streams);
             UpdateFileProgress("Audio mappings ready", fileName, percentComplete: 40);
             return true;
         }

@@ -165,7 +165,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        _audioTrackMappingServiceMock.Verify(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()), Times.Never);
+        _audioTrackMappingServiceMock.Verify(
+            service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>(), It.IsAny<IEnumerable<MediaStream>>()),
+            Times.Never);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             resolvedInputPath,
             resolvedOutputPath,
@@ -192,7 +194,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
             .Returns(true);
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(resolvedInputPath, [CreateAudioStream(1, "aac", "eng", 2)]));
-        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()))
+        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(
+                It.IsAny<IEnumerable<MediaStream>>(),
+                It.IsAny<IEnumerable<MediaStream>>()))
             .Returns(autoMappings);
 
         using var ps = CreatePowerShell();
@@ -204,7 +208,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        _audioTrackMappingServiceMock.Verify(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()), Times.Once);
+        _audioTrackMappingServiceMock.Verify(
+            service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>(), It.IsAny<IEnumerable<MediaStream>>()),
+            Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             resolvedInputPath,
             resolvedOutputPath,
@@ -261,7 +267,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
             .Returns(true);
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(resolvedInputPath, [CreateAudioStream(1, "aac", "eng", 2)]));
-        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()))
+        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(
+                It.IsAny<IEnumerable<MediaStream>>(),
+                It.IsAny<IEnumerable<MediaStream>>()))
             .Throws(new InvalidOperationException("No compatible audio layout"));
 
         using var ps = CreatePowerShell();
@@ -301,7 +309,9 @@ public class ConvertMediaFilesCommandTests : IDisposable
             .Returns(true);
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(resolvedInputPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(resolvedInputPath, [CreateAudioStream(1, "aac", "eng", 2)]));
-        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(It.IsAny<IEnumerable<MediaStream>>()))
+        _audioTrackMappingServiceMock.Setup(service => service.CreateAutomaticMappings(
+                It.IsAny<IEnumerable<MediaStream>>(),
+                It.IsAny<IEnumerable<MediaStream>>()))
             .Returns(autoMappings);
 
         _mediaConversionServiceMock

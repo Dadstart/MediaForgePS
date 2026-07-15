@@ -99,7 +99,7 @@ public class AudioTrackMappingServiceTests
         // Assert
         Assert.Single(result);
         var mapping = Assert.IsType<CopyAudioTrackMapping>(result[0]);
-        Assert.Equal(1, mapping.SourceIndex);
+        Assert.Equal(0, mapping.SourceIndex);
         Assert.Equal(0, mapping.DestinationIndex);
         Assert.Equal("DTS 5.1", mapping.Title);
     }
@@ -124,7 +124,7 @@ public class AudioTrackMappingServiceTests
         // Assert
         Assert.Single(result);
         var mapping = Assert.IsType<EncodeAudioTrackMapping>(result[0]);
-        Assert.Equal(1, mapping.SourceIndex);
+        Assert.Equal(0, mapping.SourceIndex);
         Assert.Equal(0, mapping.DestinationIndex);
         Assert.Equal("aac", mapping.DestinationCodec);
         Assert.Equal(384, mapping.DestinationBitrate);
@@ -152,7 +152,7 @@ public class AudioTrackMappingServiceTests
         // Assert
         Assert.Single(result);
         var mapping = Assert.IsType<EncodeAudioTrackMapping>(result[0]);
-        Assert.Equal(1, mapping.SourceIndex);
+        Assert.Equal(0, mapping.SourceIndex);
         Assert.Equal(0, mapping.DestinationIndex);
         Assert.Equal("aac", mapping.DestinationCodec);
         Assert.Equal(160, mapping.DestinationBitrate);
@@ -180,7 +180,7 @@ public class AudioTrackMappingServiceTests
         // Assert
         Assert.Single(result);
         var mapping = Assert.IsType<EncodeAudioTrackMapping>(result[0]);
-        Assert.Equal(1, mapping.SourceIndex);
+        Assert.Equal(0, mapping.SourceIndex);
         Assert.Equal(0, mapping.DestinationIndex);
         Assert.Equal("aac", mapping.DestinationCodec);
         Assert.Equal(80, mapping.DestinationBitrate);
@@ -423,5 +423,95 @@ public class AudioTrackMappingServiceTests
         Assert.Equal(0, second.SourceIndex);
         Assert.Equal(1, second.DestinationIndex);
         Assert.Equal("TrueHD 7.1", second.Title);
+    }
+
+    [Fact]
+    public void CreateMappings_WithVideoPrecedingAudio_UsesAudioRelativeSourceIndex()
+    {
+        var mediaFile = new MediaFile(
+            "C:\\test.mkv",
+            new MediaFormat("C:\\test.mkv", 2, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            [
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                CreateAudioStream(1, "aac", "eng", 2, "Stereo")
+            ],
+            "{}");
+
+        var result = _service.CreateMappings(mediaFile);
+
+        Assert.Single(result);
+        Assert.Equal(0, result[0].SourceIndex);
+    }
+
+    [Fact]
+    public void CreateMappings_WithNonEnglishAudioPrecedingEnglish_UsesCorrectAudioOrdinal()
+    {
+        var mediaFile = new MediaFile(
+            "C:\\test.mkv",
+            new MediaFormat("C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            [
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                CreateAudioStream(1, "aac", "spa", 2, "Spanish"),
+                CreateAudioStream(2, "aac", "eng", 2, "English")
+            ],
+            "{}");
+
+        var result = _service.CreateMappings(mediaFile);
+
+        Assert.Single(result);
+        Assert.Equal(1, result[0].SourceIndex);
+        Assert.Equal("English", result[0].Title);
+    }
+
+    [Fact]
+    public void CreateAutomaticMappings_WithSubtitleBetweenVideoAndAudio_UsesAudioRelativeSourceIndex()
+    {
+        var allStreams = new MediaStream[]
+        {
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+            new("subtitle", 1, "subrip", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng", @"{""index"":1,""codec_type"":""subtitle""}"),
+            CreateAudioStream(2, "aac", "eng", 2, "Stereo")
+        };
+
+        var result = _service.CreateAutomaticMappings([allStreams[2]], allStreams);
+
+        Assert.Single(result);
+        Assert.Equal(0, result[0].SourceIndex);
+    }
+
+    [Fact]
+    public void CreateAutomaticMappings_WithNonEnglishPrecedingSelectedEnglish_UsesOrdinalAmongAllAudio()
+    {
+        var allStreams = new MediaStream[]
+        {
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+            CreateAudioStream(1, "aac", "spa", 2, "Spanish"),
+            CreateAudioStream(2, "aac", "eng", 2, "English")
+        };
+
+        var result = _service.CreateAutomaticMappings([allStreams[2]], allStreams);
+
+        Assert.Single(result);
+        Assert.Equal(1, result[0].SourceIndex);
+        Assert.Equal("English", result[0].Title);
+    }
+
+    [Fact]
+    public void BuildAudioIndexLookup_OrdersByStreamIndex()
+    {
+        var lookup = AudioTrackMappingService.BuildAudioIndexLookup(
+        [
+            CreateAudioStream(3, "aac", "eng", 2),
+            CreateAudioStream(1, "aac", "spa", 2),
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, "{}"),
+            CreateAudioStream(2, "aac", "eng", 6)
+        ]);
+
+        Assert.Equal(0, lookup[1]);
+        Assert.Equal(1, lookup[2]);
+        Assert.Equal(2, lookup[3]);
+        Assert.False(lookup.ContainsKey(0));
     }
 }
