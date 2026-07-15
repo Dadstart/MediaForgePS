@@ -1,5 +1,4 @@
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -17,10 +16,8 @@ public record CopyAudioTrackMapping(
     /// Converts the audio track mapping to a list of Ffmpeg arguments.
     /// </summary>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService)
+    public override IEnumerable<string> ToFfmpegArgs()
     {
-        ArgumentNullException.ThrowIfNull(platformService);
-
         var builder = new FfmpegArgumentBuilder();
         return builder
             .AddSourceMap(SourceStream, StreamType, SourceIndex)
@@ -34,4 +31,3 @@ public record CopyAudioTrackMapping(
     /// </summary>
     public override string ToString() => $"Audio stream {SourceIndex} → copy (→ index {DestinationIndex}) [Copy]";
 }
-

@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 using Moq;
 using Xunit;
 
@@ -17,7 +16,6 @@ public class MediaConversionServiceProgressTests
     public void ExecuteConversion_TwoPass_MapsProgressAcrossPasses()
     {
         var ffmpegMock = new Mock<IFfmpegService>();
-        var platformMock = new Mock<IPlatformService>();
         var reports = new List<FfmpegProgress>();
         var callIndex = 0;
 
@@ -36,10 +34,10 @@ public class MediaConversionServiceProgressTests
                     TimeSpan.FromSeconds(100),
                     100,
                     TimeSpan.Zero));
-                return Task.FromResult(true);
+                return Task.CompletedTask;
             });
 
-        var service = new MediaConversionService(ffmpegMock.Object, platformMock.Object);
+        var service = new MediaConversionService(ffmpegMock.Object);
         var settings = new VariableRateVideoEncodingSettings(
             "libx264",
             "medium",
@@ -66,7 +64,6 @@ public class MediaConversionServiceProgressTests
     public void ExecuteConversion_SinglePass_ForwardsProgressUnchanged()
     {
         var ffmpegMock = new Mock<IFfmpegService>();
-        var platformMock = new Mock<IPlatformService>();
         var reports = new List<FfmpegProgress>();
         IProgress<FfmpegProgress>? capturedProgress = null;
 
@@ -85,10 +82,10 @@ public class MediaConversionServiceProgressTests
                     TimeSpan.FromSeconds(100),
                     40,
                     TimeSpan.FromSeconds(90)));
-                return Task.FromResult(true);
+                return Task.CompletedTask;
             });
 
-        var service = new MediaConversionService(ffmpegMock.Object, platformMock.Object);
+        var service = new MediaConversionService(ffmpegMock.Object);
         var settings = new ConstantRateVideoEncodingSettings(
             "libx265",
             "medium",

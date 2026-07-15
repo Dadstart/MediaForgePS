@@ -46,24 +46,24 @@ Describe 'Get-MediaFile' {
         }
 
         It 'Should throw error when Path parameter is whitespace' {
-            { Get-MediaFile -Path '   ' -ErrorAction Stop } | Should -Throw
+            { Get-MediaFile -Path '   ' -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
         }
 
         It 'Should accept Path from pipeline' {
             $nonExistentPath = 'NonExistentFile.mp4'
-            { $nonExistentPath | Get-MediaFile -ErrorAction Stop } | Should -Throw
+            { $nonExistentPath | Get-MediaFile -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
         }
 
         It 'Should accept Path from pipeline by property name' {
             $obj = [PSCustomObject]@{ Path = 'NonExistentFile.mp4' }
-            { $obj | Get-MediaFile -ErrorAction Stop } | Should -Throw
+            { $obj | Get-MediaFile -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
         }
     }
 
     Context 'File Not Found Handling' {
         It 'Should write error when file does not exist' {
             $nonExistentPath = Join-Path $TestDrive 'NonExistentFile.mp4'
-            { Get-MediaFile -Path $nonExistentPath -ErrorAction Stop } | Should -Throw
+            { Get-MediaFile -Path $nonExistentPath -ErrorAction Stop -WarningAction SilentlyContinue } | Should -Throw
         }
         <#
         TODO: Fix and enable test
@@ -100,17 +100,9 @@ Describe 'Get-MediaFile' {
         }
 
         It 'Should output MediaFile type when successful' {
-            $nonExistentPath = Join-Path $TestDrive 'Test.mp4'
-            try {
-                $result = Get-MediaFile -Path $nonExistentPath -ErrorAction SilentlyContinue
-                # If no error, result should be MediaFile type (this test may not execute if file doesn't exist)
-                if ($null -ne $result) {
-                    $result | Should -BeOfType [Dadstart.Labs.MediaForge.Models.MediaFile]
-                }
-            }
-            catch {
-                # Expected to fail for non-existent file
-            }
+            $command = Get-Command Get-MediaFile
+            $typeNames = @($command.OutputType | ForEach-Object { $_.Name })
+            $typeNames | Should -Contain 'Dadstart.Labs.MediaForge.Models.MediaFile'
         }
     }
 

@@ -1,5 +1,4 @@
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -26,9 +25,8 @@ public record NvencVideoEncodingSettings(
     /// </summary>
     /// <param name="pass">Ignored for NVENC CQ encoding (always single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public override IEnumerable<string> ToFfmpegArgs(IPlatformService platformService, int? pass)
+    public override IEnumerable<string> ToFfmpegArgs(int? pass)
     {
-        ArgumentNullException.ThrowIfNull(platformService);
         var builder = new FfmpegArgumentBuilder();
         builder
             .AddSourceMap(0, StreamType, 0)

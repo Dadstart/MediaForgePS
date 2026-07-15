@@ -346,6 +346,44 @@ public class ConvertMediaFilesCommandTests : IDisposable
                 && record.SecondsRemaining == 31);
     }
 
+    [Fact]
+    public void ConvertMediaFiles_WithWhatIf_RecordsWhatIfResultAndSkipsConversion()
+    {
+        var inputPath = CreateInputPath("episode1.mkv");
+        var outputDirectory = CreateOutputDirectory();
+        var resolvedInputPath = inputPath;
+        var resolvedOutputPath = PathCombine(outputDirectory, "episode1.mp4");
+
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveInputPath(inputPath, out resolvedInputPath))
+            .Returns(true);
+        _pathResolverMock.Setup(pathResolver => pathResolver.TryResolveOutputPath(PathCombine(outputDirectory, "episode1.mp4"), out resolvedOutputPath))
+            .Returns(true);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-MediaFiles")
+            .AddParameter("InputPath", new object[] { inputPath })
+            .AddParameter("OutputDirectory", outputDirectory)
+            .AddParameter("WhatIf");
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        var conversionResults = Assert.IsAssignableFrom<IEnumerable<MediaConversionResult>>(
+            Assert.Single(results).BaseObject);
+        var result = Assert.Single(conversionResults);
+        Assert.Equal(MediaConversionResult.WhatIfStatus, result.Status);
+        Assert.Equal(inputPath, result.InputPath);
+        Assert.Equal(resolvedOutputPath, result.OutputPath);
+        _mediaReaderServiceMock.Verify(service => service.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<VideoEncodingSettings>(),
+            It.IsAny<AudioTrackMapping[]>(),
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static PowerShell CreatePowerShell() => PowerShellCmdletTestHost.Create<ConvertMediaFilesCommand>("Convert-MediaFiles");
 
     private static MediaFile CreateMediaFile(string path, MediaStream[] streams)

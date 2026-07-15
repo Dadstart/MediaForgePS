@@ -11,6 +11,10 @@ namespace Dadstart.Labs.MediaForge.E2ETests;
 
 public abstract class E2ETestBase : IDisposable
 {
+    private static readonly object _packLock = new();
+    private static string? _cachedModuleManifest;
+    private static string? _cachedConfiguration;
+
     private readonly List<string> _tempDirectories = new();
     private PowerShell? _powerShell;
 
@@ -40,24 +44,7 @@ public abstract class E2ETestBase : IDisposable
 
         var repoRoot = FindRepoRoot();
         var configuration = ResolveBuildConfiguration(repoRoot);
-        var packScript = Path.Combine(repoRoot, "scripts", "Pack-Module.ps1");
-        Assert.True(File.Exists(packScript), $"Pack script not found: {packScript}");
-
-        RunPwsh(
-            new[]
-            {
-                "-NoProfile",
-                "-File",
-                packScript,
-                "-Configuration",
-                configuration,
-                "-RepoRoot",
-                repoRoot
-            },
-            "pack MediaForgePS module");
-
-        var moduleManifest = Path.Combine(repoRoot, "artifacts", "MediaForgePS", "MediaForgePS.psd1");
-        Assert.True(File.Exists(moduleManifest), $"Packed module manifest not found: {moduleManifest}");
+        var moduleManifest = EnsurePackedModule(repoRoot, configuration);
 
         var initialSessionState = InitialSessionState.CreateDefault();
         // Format .ps1xml load is gated by execution policy (Restricted on Windows CI runners).
@@ -74,6 +61,40 @@ public abstract class E2ETestBase : IDisposable
         _powerShell.Commands.Clear();
 
         return _powerShell;
+    }
+
+    private static string EnsurePackedModule(string repoRoot, string configuration)
+    {
+        lock (_packLock)
+        {
+            if (_cachedModuleManifest is not null &&
+                string.Equals(_cachedConfiguration, configuration, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(_cachedModuleManifest))
+                return _cachedModuleManifest;
+
+            var packScript = Path.Combine(repoRoot, "scripts", "Pack-Module.ps1");
+            Assert.True(File.Exists(packScript), $"Pack script not found: {packScript}");
+
+            RunPwsh(
+                new[]
+                {
+                    "-NoProfile",
+                    "-File",
+                    packScript,
+                    "-Configuration",
+                    configuration,
+                    "-RepoRoot",
+                    repoRoot
+                },
+                "pack MediaForgePS module");
+
+            var moduleManifest = Path.Combine(repoRoot, "artifacts", "MediaForgePS", "MediaForgePS.psd1");
+            Assert.True(File.Exists(moduleManifest), $"Packed module manifest not found: {moduleManifest}");
+
+            _cachedModuleManifest = moduleManifest;
+            _cachedConfiguration = configuration;
+            return moduleManifest;
+        }
     }
 
     protected void SkipIfTestAssetsMissing()
@@ -196,9 +217,23 @@ public abstract class E2ETestBase : IDisposable
             if (!process.Start())
                 return false;
 
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             if (!process.WaitForExit(5000))
-                return false;
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                }
 
+                return false;
+            }
+
+            _ = stdoutTask.GetAwaiter().GetResult();
+            _ = stderrTask.GetAwaiter().GetResult();
             return process.ExitCode == 0;
         }
         catch

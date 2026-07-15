@@ -1,5 +1,4 @@
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
-using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -30,7 +29,7 @@ public abstract record VideoEncodingSettings(
     /// </summary>
     /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
     /// <returns>A list of Ffmpeg arguments.</returns>
-    public abstract IEnumerable<string> ToFfmpegArgs(IPlatformService platformService, int? pass);
+    public abstract IEnumerable<string> ToFfmpegArgs(int? pass);
 
     /// <summary>
     /// Converts the codec name to the Ffmpeg codec name (e.g., "x264" to "libx264").

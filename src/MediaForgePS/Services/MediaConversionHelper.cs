@@ -126,6 +126,12 @@ public static class MediaConversionHelper
         string.Equals(result.Status, MediaConversionResult.CompletedStatus, StringComparison.Ordinal);
 
     /// <summary>
+    /// Whether the result status indicates a WhatIf / ShouldProcess skip.
+    /// </summary>
+    public static bool IsWhatIfConversion(MediaConversionResult result) =>
+        string.Equals(result.Status, MediaConversionResult.WhatIfStatus, StringComparison.Ordinal);
+
+    /// <summary>
     /// Formats a size-reduction percent as a short human-readable phrase.
     /// </summary>
     public static string FormatSizeReduction(double? sizeReductionPercent)
@@ -328,6 +334,30 @@ public static class MediaConversionHelper
         var percent = totalFiles > 0 ? (int)((currentFileIndex * 100.0) / totalFiles) : 0;
         var status = $"File {currentFileIndex} of {totalFiles} ({percent}%) — {currentFileName}";
         return (status, percent);
+    }
+
+    /// <summary>
+    /// Sums byte sizes for the current file and all files after it in an ordered batch list.
+    /// </summary>
+    /// <param name="orderedSizes">File sizes in processing order.</param>
+    /// <param name="currentOneBasedIndex">1-based index of the file currently being processed.</param>
+    /// <returns>Remaining bytes including the current file, or 0 when the index is out of range.</returns>
+    public static long SumRemainingBytesFromOrderedSizes(IReadOnlyList<long> orderedSizes, int currentOneBasedIndex)
+    {
+        ArgumentNullException.ThrowIfNull(orderedSizes);
+
+        if (currentOneBasedIndex < 1 || orderedSizes.Count == 0)
+            return 0;
+
+        var startIndex = currentOneBasedIndex - 1;
+        if (startIndex >= orderedSizes.Count)
+            return 0;
+
+        long remainingBytes = 0;
+        for (var i = startIndex; i < orderedSizes.Count; i++)
+            remainingBytes += orderedSizes[i];
+
+        return remainingBytes;
     }
 
     /// <summary>
