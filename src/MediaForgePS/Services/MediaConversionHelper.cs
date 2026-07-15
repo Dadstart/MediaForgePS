@@ -492,11 +492,19 @@ public static class MediaConversionHelper
     /// <summary>
     /// Creates automatic audio track mappings for conversion from selected streams.
     /// </summary>
-    /// <param name="streams">Selected audio streams to map.</param>
+    /// <param name="selectedStreams">Selected audio streams to map.</param>
+    /// <param name="allStreams">
+    /// All streams from the media file; used for FFmpeg <c>-map 0:a:N</c> ordinals.
+    /// When omitted, <paramref name="selectedStreams"/> is treated as the full stream set.
+    /// </param>
     /// <returns>Array of conversion mappings.</returns>
-    public static AudioTrackMapping[] CreateAutomaticAudioTrackMappings(IEnumerable<MediaStream> streams)
+    public static AudioTrackMapping[] CreateAutomaticAudioTrackMappings(
+        IEnumerable<MediaStream> selectedStreams,
+        IEnumerable<MediaStream>? allStreams = null)
     {
-        return AudioTrackMappingService.CreateAutomaticMappingsFromStreams(streams);
+        return AudioTrackMappingService.CreateAutomaticMappingsFromStreams(
+            selectedStreams,
+            allStreams ?? selectedStreams);
     }
 
     /// <summary>

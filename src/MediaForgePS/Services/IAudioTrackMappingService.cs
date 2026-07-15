@@ -17,9 +17,12 @@ public interface IAudioTrackMappingService
     /// <summary>
     /// Creates automatic audio track mappings from the selected streams.
     /// </summary>
-    /// <param name="streams">Selected audio streams to map.</param>
+    /// <param name="selectedStreams">Selected audio streams to map.</param>
+    /// <param name="allStreams">All streams from the media file; used to compute FFmpeg <c>-map 0:a:N</c> ordinals.</param>
     /// <returns>Array of conversion mappings.</returns>
-    AudioTrackMapping[] CreateAutomaticMappings(IEnumerable<MediaStream> streams);
+    AudioTrackMapping[] CreateAutomaticMappings(
+        IEnumerable<MediaStream> selectedStreams,
+        IEnumerable<MediaStream> allStreams);
 
     /// <summary>
     /// Creates audio mappings for MKV directory batch encoding.
