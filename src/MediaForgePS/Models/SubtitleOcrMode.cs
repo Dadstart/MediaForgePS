@@ -7,6 +7,7 @@ public static class SubtitleOcrMode
 {
     /// <summary>
     /// OCR image-based subtitles when the source has a single exported subtitle format and it is not SRT.
+    /// When a text SRT is already present, unused image sidecars are discarded unless -KeepSource is set.
     /// </summary>
     public const string Auto = "Auto";
 

@@ -114,4 +114,27 @@ public static class SubtitlePathHelper
 
         return extensions.Count == 1 && !IsSrtExtension(extensions[0]);
     }
+
+    /// <summary>
+    /// Image subtitle paths that Auto mode leaves unused because the same source already exported an SRT.
+    /// These are typically VobSub/SUP sidecars from DVD or Blu-ray rips that also include a text track.
+    /// </summary>
+    public static IReadOnlyList<string> SelectUnusedImageSubtitlePaths(IEnumerable<string> exportedPaths)
+    {
+        var unused = new List<string>();
+        foreach (var group in exportedPaths.GroupBy(GetMediaBaseKeyFromSubtitlePath, StringComparer.OrdinalIgnoreCase))
+        {
+            var groupPaths = group.ToList();
+            if (!groupPaths.Any(IsSrtPath))
+                continue;
+
+            foreach (var path in groupPaths)
+            {
+                if (IsImageSubtitlePath(path))
+                    unused.Add(path);
+            }
+        }
+
+        return unused;
+    }
 }

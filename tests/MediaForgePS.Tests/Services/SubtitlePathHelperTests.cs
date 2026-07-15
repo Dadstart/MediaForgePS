@@ -113,4 +113,33 @@ public class SubtitlePathHelperTests
 
         Assert.False(result);
     }
+
+    [Fact]
+    public void SelectUnusedImageSubtitlePaths_WhenSrtCoexistsWithVobSub_ReturnsImagePaths()
+    {
+        var exported = new[]
+        {
+            @"C:\out\movie.eng.sdh.srt",
+            @"C:\out\movie.2.eng.sdh.sub",
+            @"C:\out\only-sub.eng.sdh.sub",
+        };
+
+        var result = SubtitlePathHelper.SelectUnusedImageSubtitlePaths(exported);
+
+        Assert.Equal([@"C:\out\movie.2.eng.sdh.sub"], result);
+    }
+
+    [Fact]
+    public void SelectUnusedImageSubtitlePaths_WhenOnlyImageSubtitles_ReturnsEmpty()
+    {
+        var exported = new[]
+        {
+            @"C:\out\movie.eng.sdh.sub",
+            @"C:\out\movie.3.eng.sdh.sup",
+        };
+
+        var result = SubtitlePathHelper.SelectUnusedImageSubtitlePaths(exported);
+
+        Assert.Empty(result);
+    }
 }

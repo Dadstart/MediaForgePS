@@ -22,7 +22,7 @@ Export-Subtitles extracts English subtitle tracks from media files (MKV and othe
 
 Use `-Ocr` to control post-extraction OCR and repair. Accepted values are **Auto** (default), **Skip**, and **Force**:
 
-- **Auto** - OCR image subtitles only when the source has a single exported subtitle format and it is not SRT.
+- **Auto** - OCR image subtitles only when the source has a single exported subtitle format and it is not SRT. When a text SRT is already exported alongside VobSub/SUP, unused image sidecars (`.sub`/`.idx`/`.sup`) are deleted unless `-KeepSource` is set.
 - **Force** - OCR all exported image subtitle files.
 - **Skip** - extract only; no OCR or repair.
 
@@ -101,7 +101,7 @@ Accept wildcard characters: False
 ```
 
 ### -KeepSource
-Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion. Sources are deleted by default.
+Keep source `.sup`/`.sub`/`.idx` files after a successful OCR conversion, and keep unused image sidecars that Auto would otherwise discard when a text SRT is already present. Sources are deleted by default.
 
 ```yaml
 Type: SwitchParameter

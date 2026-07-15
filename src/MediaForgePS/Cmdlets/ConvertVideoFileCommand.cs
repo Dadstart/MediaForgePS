@@ -109,7 +109,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     public SwitchParameter SkipRepair { get; set; }
 
     /// <summary>
-    /// Keeps source .sup/.sub/.idx files after successful OCR conversion. By default they are deleted.
+    /// Keeps source .sup/.sub/.idx files after successful OCR conversion, and keeps unused image sidecars Auto would otherwise discard when a text SRT is already present. By default they are deleted.
     /// </summary>
     [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
     public SwitchParameter KeepSource { get; set; }
@@ -336,6 +336,14 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
                         WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                     }
+
+                    // Auto skips OCR when a text SRT coexists with VobSub/SUP (common on DVD MKVs).
+                    // Remove those unused image sidecars (.sub/.idx/.sup) unless -KeepSource.
+                    ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+                        extractedCaptionPaths,
+                        Ocr,
+                        KeepSource.IsPresent,
+                        Logger);
                 }
             }
         }
