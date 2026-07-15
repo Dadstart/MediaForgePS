@@ -10,7 +10,16 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// </summary>
 public static class PathSafetyHelper
 {
-    private static readonly char[] _invalidFileNameChars = Path.GetInvalidFileNameChars();
+    /// <summary>
+    /// Both Windows and Unix separators so traversal payloads are rejected on every OS.
+    /// </summary>
+    private static readonly char[] _pathSeparators = ['/', '\\'];
+
+    /// <summary>
+    /// Characters that are invalid on any supported OS, plus the host platform set.
+    /// Ensures sanitized names stay portable (e.g. ':' and '?' replaced on Linux/macOS too).
+    /// </summary>
+    private static readonly char[] _invalidFileNameChars = BuildInvalidFileNameChars();
 
     /// <summary>
     /// Sanitizes a single directory or file-name segment by replacing invalid characters.
@@ -27,9 +36,7 @@ public static class PathSafetyHelper
         if (Path.IsPathRooted(trimmed))
             throw new ArgumentException("Path segment cannot be rooted.", nameof(segment));
 
-        if (trimmed.Contains(Path.DirectorySeparatorChar) ||
-            trimmed.Contains(Path.AltDirectorySeparatorChar) ||
-            trimmed.Contains('\0'))
+        if (trimmed.IndexOfAny(_pathSeparators) >= 0 || trimmed.Contains('\0'))
             throw new ArgumentException("Path segment cannot contain directory separators.", nameof(segment));
 
         if (!replaceInvalidChars)
@@ -71,9 +78,7 @@ public static class PathSafetyHelper
         if (Path.IsPathRooted(relativePath))
             throw new ArgumentException("Relative path cannot be rooted.", nameof(relativePath));
 
-        var parts = relativePath.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
+        var parts = relativePath.Split(_pathSeparators, StringSplitOptions.RemoveEmptyEntries);
 
         if (parts.Length == 0)
             throw new ArgumentException("Relative path is empty.", nameof(relativePath));
@@ -109,4 +114,15 @@ public static class PathSafetyHelper
 
         return candidateFull;
     }
+
+    private static char[] BuildInvalidFileNameChars()
+    {
+        // Portable Windows-reserved set (valid on some Unix hosts otherwise).
+        char[] portableInvalid = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+        return Path.GetInvalidFileNameChars()
+            .Concat(portableInvalid)
+            .Distinct()
+            .ToArray();
+    }
 }
+

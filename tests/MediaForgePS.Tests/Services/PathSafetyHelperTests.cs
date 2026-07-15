@@ -40,11 +40,13 @@ public class PathSafetyHelperTests : IDisposable
         Assert.Throws<ArgumentException>(() => PathSafetyHelper.SanitizePathSegment(segment));
     }
 
-    [Fact]
-    public void GetContainedFilePath_RejectsParentTraversal()
+    [Theory]
+    [InlineData("..\\outside.mkv")]
+    [InlineData("../outside.mkv")]
+    public void GetContainedFilePath_RejectsParentTraversal(string fileNameSegment)
     {
         Assert.Throws<ArgumentException>(() =>
-            PathSafetyHelper.GetContainedFilePath(_tempDir, "..\\outside.mkv"));
+            PathSafetyHelper.GetContainedFilePath(_tempDir, fileNameSegment));
     }
 
     [Fact]
