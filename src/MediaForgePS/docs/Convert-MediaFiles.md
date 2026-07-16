@@ -15,15 +15,15 @@ Converts multiple media files with automatic audio stream selection and configur
 ### DefaultEncoder (Default)
 ```
 Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String> [-DefaultVideoEncoder <String>]
- [-AudioTrackMappings <AudioTrackMapping[]>] [-X265Params <String>] [-ProgressAction <ActionPreference>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AudioTrackMappings <AudioTrackMapping[]>] [-X265Params <String>] [-Alert]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### ExplicitSettings
 ```
 Convert-MediaFiles [-InputPath] <Object[]> [-OutputDirectory] <String>
  -VideoEncodingSettings <VideoEncodingSettings> [-AudioTrackMappings <AudioTrackMapping[]>]
- [-X265Params <String>] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-X265Params <String>] [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -191,6 +191,21 @@ Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to h
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
 
 Required: False
 Position: Named

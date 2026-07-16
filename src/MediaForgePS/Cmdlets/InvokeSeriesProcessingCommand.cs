@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -14,9 +15,10 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Runs five steps in order: (1) create OutputPath\Title\Season XX, (2) scan TVDb, (3) copy episodes,
 /// (4) optionally extract chapters, (5) optionally extract captions with optional OCR (-Ocr Auto/Skip/Force).
 /// Terminates with an error when the TVDb scan returns no episodes or no files are copied.
+/// When caption extraction runs, writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing")]
-[OutputType(typeof(void))]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeSeriesProcessingCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -202,16 +204,17 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
             WriteHostMessage($"  Processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}", ConsoleColor.Green);
             WriteVerbose($"Caption extraction - processed: {captionStats.Processed}, failed: {captionStats.Failed}, total: {captionStats.Total}.");
 
+            IReadOnlyList<string> convertedPaths = Array.Empty<string>();
+            var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
             if (SubtitleOcrMode.RequiresOcrProcessing(Ocr))
             {
-                var extractedCaptionPaths = captionStats.ExtractedCaptionPaths;
                 var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
                 if (imagePaths.Count > 0)
                 {
                     var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
                     WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
-                    var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                    var ocrResult = SubtitleOcrRepairWorkflow.Run(
                         CmdletIO,
                         Logger,
                         ExecutableService,
@@ -225,9 +228,13 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                         StoppingToken,
                         KeepSource.IsPresent);
 
-                    if (allSrtPaths == null)
+                    if (ocrResult == null)
+                    {
+                        WriteSubtitleProcessingResult(extractedCaptionPaths, convertedPaths);
                         return;
+                    }
 
+                    convertedPaths = ocrResult.ConvertedSrtPaths;
                     WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                 }
 
@@ -237,11 +244,22 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                     KeepSource.IsPresent,
                     Logger);
             }
+
+            WriteSubtitleProcessingResult(extractedCaptionPaths, convertedPaths);
         }
 
         WriteHostMessage(string.Empty);
         WriteHostMessage($"Series processing completed for '{Title}' Season {Season:D2}.", ConsoleColor.Green);
         WriteVerbose($"Series processing completed for '{Title}' season {Season}.");
+    }
+
+    private void WriteSubtitleProcessingResult(IReadOnlyList<string> extractedPaths, IReadOnlyList<string> convertedPaths)
+    {
+        var result = SubtitleProcessingResult.Create(extractedPaths, convertedPaths);
+        WriteHostMessage(
+            $"  Subtitles: {result.ExtractedCount} extracted, {result.ConvertedCount} converted.",
+            ConsoleColor.Green);
+        WriteObject(result);
     }
 
     /// <summary>

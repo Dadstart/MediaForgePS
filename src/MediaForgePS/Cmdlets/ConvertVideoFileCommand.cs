@@ -21,10 +21,12 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
 /// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
 /// Writes a <see cref="MediaConversionResult"/> per processed file to the pipeline.
+/// When captions are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class ConvertVideoFileCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -304,11 +306,9 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 }
 
                 MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Caption extraction", "Current file");
-                WriteHostMessage(
-                    $"  Processed {total} file(s), {extractedCaptionPaths.Count} caption file(s) extracted.",
-                    ConsoleColor.Green);
                 WriteVerbose($"Caption extraction - files: {total}, paths: {extractedCaptionPaths.Count}.");
 
+                IReadOnlyList<string> convertedPaths = Array.Empty<string>();
                 if (SubtitleOcrMode.RequiresOcrProcessing(Ocr) && extractedCaptionPaths.Count > 0)
                 {
                     var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(extractedCaptionPaths, Ocr);
@@ -317,7 +317,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         var srtPathsFromCaptions = SubtitlePathHelper.GetSrtPaths(extractedCaptionPaths);
                         WriteHostMessage("  Running OCR and repair on extracted captions...", ConsoleColor.Cyan);
 
-                        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+                        var ocrResult = SubtitleOcrRepairWorkflow.Run(
                             CmdletIO,
                             Logger,
                             ExecutableService,
@@ -331,9 +331,13 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                             StoppingToken,
                             KeepSource.IsPresent);
 
-                        if (allSrtPaths == null)
+                        if (ocrResult == null)
+                        {
+                            WriteSubtitleProcessingResult(extractedCaptionPaths, convertedPaths);
                             return;
+                        }
 
+                        convertedPaths = ocrResult.ConvertedSrtPaths;
                         WriteHostMessage("  Caption OCR and repair completed.", ConsoleColor.Green);
                     }
 
@@ -345,6 +349,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         KeepSource.IsPresent,
                         Logger);
                 }
+
+                WriteSubtitleProcessingResult(extractedCaptionPaths, convertedPaths);
             }
         }
 
@@ -354,6 +360,15 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             WriteHostMessage($"Directory conversion finished: {ok} file(s) OK.", ConsoleColor.Green);
         else
             WriteHostMessage($"Directory conversion finished: {ok} succeeded, {failed} failed.", ConsoleColor.Yellow);
+    }
+
+    private void WriteSubtitleProcessingResult(IReadOnlyList<string> extractedPaths, IReadOnlyList<string> convertedPaths)
+    {
+        var result = SubtitleProcessingResult.Create(extractedPaths, convertedPaths);
+        WriteHostMessage(
+            $"  Subtitles: {result.ExtractedCount} extracted, {result.ConvertedCount} converted.",
+            ConsoleColor.Green);
+        WriteObject(result);
     }
 
     private MediaConversionResult ConvertSingleFile(

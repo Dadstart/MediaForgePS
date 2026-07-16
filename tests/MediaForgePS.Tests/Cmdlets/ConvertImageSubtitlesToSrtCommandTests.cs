@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
@@ -204,7 +205,10 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.Empty(errors);
             Assert.Single(results);
-            Assert.Equal(Path.ChangeExtension(supPath, "srt"), results[0]);
+            var result = Assert.IsType<SubtitleProcessingResult>(results[0]);
+            Assert.Equal(0, result.ExtractedCount);
+            Assert.Equal(1, result.ConvertedCount);
+            Assert.Equal(Path.ChangeExtension(supPath, "srt"), Assert.Single(result.ConvertedPaths));
             Assert.False(File.Exists(supPath));
         }
         finally
@@ -244,7 +248,8 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.NotEmpty(errors);
-            Assert.Empty(results);
+            var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results));
+            Assert.Equal(0, result.ConvertedCount);
             Assert.True(File.Exists(supPath));
         }
         finally
@@ -281,7 +286,8 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.NotEmpty(errors);
-            Assert.Empty(results);
+            var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results));
+            Assert.Equal(0, result.ConvertedCount);
             Assert.True(File.Exists(supPath));
         }
         finally
@@ -334,7 +340,8 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.NotEmpty(errors);
-            Assert.Empty(results);
+            var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results));
+            Assert.Equal(0, result.ConvertedCount);
             Assert.True(File.Exists(supPath));
         }
         finally
@@ -391,7 +398,9 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.Empty(errors);
             Assert.Single(results);
-            Assert.Equal(customOutput, results[0]);
+            var result = Assert.IsType<SubtitleProcessingResult>(results[0]);
+            Assert.Equal(1, result.ConvertedCount);
+            Assert.Equal(customOutput, Assert.Single(result.ConvertedPaths));
             Assert.True(File.Exists(customOutput));
             Assert.False(File.Exists(supPath));
         }
@@ -403,7 +412,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertImageSubtitlesToSrt_WhenDirectoryHasNoSupFiles_OutputsNothing()
+    public void ConvertImageSubtitlesToSrt_WhenDirectoryHasNoSupFiles_OutputsEmptyResult()
     {
         if (!SubtitleEditExists())
             return;
@@ -421,7 +430,11 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.Empty(errors);
-            Assert.Empty(results);
+            Assert.Single(results);
+            var result = Assert.IsType<SubtitleProcessingResult>(results[0]);
+            Assert.Equal(0, result.ExtractedCount);
+            Assert.Equal(0, result.ConvertedCount);
+            Assert.Empty(result.ConvertedPaths);
         }
         finally
         {
@@ -453,7 +466,9 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 
             Assert.Empty(errors);
             Assert.Single(results);
-            Assert.Equal(Path.ChangeExtension(supPath, "srt"), results[0]);
+            var result = Assert.IsType<SubtitleProcessingResult>(results[0]);
+            Assert.Equal(1, result.ConvertedCount);
+            Assert.Equal(Path.ChangeExtension(supPath, "srt"), Assert.Single(result.ConvertedPaths));
             Assert.False(File.Exists(supPath));
         }
         finally

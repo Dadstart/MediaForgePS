@@ -14,13 +14,13 @@ Converts image-based subtitle files (SUP, SUB) to SRT via OCR, then repairs the 
 
 ```
 Invoke-SubtitleOcrRepair [-InputPath] <String[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-SkipRepair]
- [-KeepSource] [-Recurse] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-KeepSource] [-Recurse] [-Alert] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs **only the OCR-produced SRT files** unless `-SkipRepair` is specified. Source image subtitle files are deleted after a successful OCR conversion by default; use `-KeepSource` to preserve them. Pre-existing SRT files in the input are not repaired.
 
-Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10).
+Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10). Writes a SubtitleProcessingResult with ConvertedCount to the pipeline.
 
 ## EXAMPLES
 
@@ -152,6 +152,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -162,8 +177,8 @@ Paths to .sup, .sub, or .srt files, or directories containing them. Alias: Path.
 
 ## OUTPUTS
 
-### None
-This cmdlet does not write to the pipeline.
+### SubtitleProcessingResult
+ExtractedCount (always 0), ConvertedCount, ExtractedPaths (empty), and ConvertedPaths (SRT files produced by OCR).
 
 ## NOTES
 Requires Subtitle Edit and Tesseract when any input is SUP or SUB.

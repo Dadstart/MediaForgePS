@@ -21,10 +21,12 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
 /// Existing destination files are skipped.
 /// Writes a <see cref="MediaConversionResult"/> per converted bonus file to the pipeline.
+/// When subtitles are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -197,13 +199,14 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 WriteHostMessage(string.Empty);
                 WriteHostMessage("Step 2: Extracting subtitles from bonus files...", ConsoleColor.Cyan);
                 var exportedPaths = ExtractSubtitlesFromBonusFiles(inputFullPath);
+                IReadOnlyList<string> convertedPaths = Array.Empty<string>();
                 if (exportedPaths.Count > 0 && SubtitleOcrMode.RequiresOcrProcessing(Ocr))
                 {
                     var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
                     if (imagePaths.Count > 0)
                     {
                         var srtPaths = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-                        SubtitleOcrRepairWorkflow.Run(
+                        var ocrResult = SubtitleOcrRepairWorkflow.Run(
                             CmdletIO,
                             Logger,
                             ExecutableService,
@@ -216,6 +219,9 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                             BackupPath,
                             StoppingToken,
                             KeepSource.IsPresent);
+
+                        if (ocrResult != null)
+                            convertedPaths = ocrResult.ConvertedSrtPaths;
                     }
 
                     ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
@@ -224,7 +230,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                         KeepSource.IsPresent,
                         Logger);
                 }
-                WriteHostMessage("Subtitle extraction completed", ConsoleColor.Green);
+
+                var subtitleResult = SubtitleProcessingResult.Create(exportedPaths, convertedPaths);
+                WriteHostMessage(
+                    $"Subtitle extraction completed: {subtitleResult.ExtractedCount} extracted, {subtitleResult.ConvertedCount} converted.",
+                    ConsoleColor.Green);
+                WriteObject(subtitleResult);
             }
             catch (OperationCanceledException)
             {

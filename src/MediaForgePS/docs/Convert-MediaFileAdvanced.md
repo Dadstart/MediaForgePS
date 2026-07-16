@@ -15,8 +15,8 @@ Converts a single media file using explicit video encoding settings and audio tr
 ```
 Convert-MediaFileAdvanced [-InputPath] <String> [-OutputPath] <String>
  -VideoEncodingSettings <VideoEncodingSettings> -AudioTrackMappings <AudioTrackMapping[]>
- [-AdditionalArguments <String[]>] [-X265Params <String>] [-ProgressAction <ActionPreference>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-AdditionalArguments <String[]>] [-X265Params <String>] [-ProgressAction <ActionPreference>] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION

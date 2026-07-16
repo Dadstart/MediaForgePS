@@ -17,10 +17,12 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Always extracts subtitle tracks whose language matches English. Folder input processes <c>*.mkv</c> files only.
 /// Use -Ocr Auto (default), Skip, or Force to control OCR of image-based subtitles after extraction.
 /// When OCR runs, only OCR-produced SRT files are repaired; native exported SRT files are not repaired.
+/// Writes a <see cref="SubtitleProcessingResult"/> with extract and OCR conversion counts.
 /// Alias: Export-RepairedSubtitles.
 /// </remarks>
 [Cmdlet(VerbsData.Export, "Subtitles")]
 [Alias("Export-RepairedSubtitles")]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class ExportSubtitlesCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -134,44 +136,57 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
         if (exportedPaths.Count == 0)
         {
             WriteHostMessage("No subtitle files exported.", ConsoleColor.Green);
+            WriteObject(SubtitleProcessingResult.Empty);
             return;
         }
 
-        if (!SubtitleOcrMode.RequiresOcrProcessing(Ocr))
+        IReadOnlyList<string> convertedPaths = Array.Empty<string>();
+        if (SubtitleOcrMode.RequiresOcrProcessing(Ocr))
         {
-            WriteHostMessage("Export completed.", ConsoleColor.Green);
-            return;
+            var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
+            if (imagePaths.Count > 0)
+            {
+                var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
+                var ocrResult = SubtitleOcrRepairWorkflow.Run(
+                    CmdletIO,
+                    Logger,
+                    ExecutableService,
+                    PathResolver,
+                    imagePaths,
+                    srtPathsFromExport,
+                    performOcr: true,
+                    ThrottleLimit,
+                    shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
+                    BackupPath,
+                    StoppingToken,
+                    KeepSource.IsPresent);
+
+                if (ocrResult == null)
+                {
+                    WriteSubtitleProcessingResult(exportedPaths, convertedPaths);
+                    return;
+                }
+
+                convertedPaths = ocrResult.ConvertedSrtPaths;
+            }
+
+            ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
+                exportedPaths,
+                Ocr,
+                KeepSource.IsPresent,
+                Logger);
         }
 
-        var imagePaths = SubtitlePathHelper.SelectImagePathsForOcr(exportedPaths, Ocr);
-        if (imagePaths.Count > 0)
-        {
-            var srtPathsFromExport = SubtitlePathHelper.GetSrtPaths(exportedPaths);
-            var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
-                CmdletIO,
-                Logger,
-                ExecutableService,
-                PathResolver,
-                imagePaths,
-                srtPathsFromExport,
-                performOcr: true,
-                ThrottleLimit,
-                shouldRepair: SubtitleOcrMode.ShouldRepair(Ocr, SkipRepair.IsPresent),
-                BackupPath,
-                StoppingToken,
-                KeepSource.IsPresent);
+        WriteSubtitleProcessingResult(exportedPaths, convertedPaths);
+    }
 
-            if (allSrtPaths == null)
-                return;
-        }
-
-        ImageSubtitleConversionHelper.DeleteUnusedImageSubtitleSources(
-            exportedPaths,
-            Ocr,
-            KeepSource.IsPresent,
-            Logger);
-
-        WriteHostMessage("Export completed.", ConsoleColor.Green);
+    private void WriteSubtitleProcessingResult(IReadOnlyList<string> extractedPaths, IReadOnlyList<string> convertedPaths)
+    {
+        var result = SubtitleProcessingResult.Create(extractedPaths, convertedPaths);
+        WriteHostMessage(
+            $"Export completed: {result.ExtractedCount} extracted, {result.ConvertedCount} converted.",
+            ConsoleColor.Green);
+        WriteObject(result);
     }
 
     private void ExportSubtitlesForMediaFile(MediaFile mediaFile, int totalFiles, int fileIndex, List<string> exportedPaths)

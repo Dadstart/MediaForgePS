@@ -20,10 +20,19 @@ namespace Dadstart.Labs.MediaForge.Services;
 public static class SubtitleOcrRepairWorkflow
 {
     /// <summary>
+    /// Result of <see cref="Run"/> when the workflow completes (or has nothing to do).
+    /// </summary>
+    /// <param name="AllSrtPaths">Pre-existing plus OCR-produced SRT paths.</param>
+    /// <param name="ConvertedSrtPaths">SRT paths produced by OCR in this run.</param>
+    public sealed record Result(
+        IReadOnlyList<string> AllSrtPaths,
+        IReadOnlyList<string> ConvertedSrtPaths);
+
+    /// <summary>
     /// Runs optional OCR conversion and optional repair of OCR-produced SRT files.
     /// Returns null when workflow cannot continue (for example, Subtitle Edit missing when OCR is required).
     /// </summary>
-    public static IReadOnlyList<string>? Run(
+    public static Result? Run(
         ICmdletIO io,
         ILogger logger,
         IExecutableService executableService,
@@ -70,6 +79,6 @@ public static class SubtitleOcrRepairWorkflow
         if (convertedSrtPaths.Count > 0)
             SrtRepairHelper.RunRepairLoop(io, logger, pathResolver, convertedSrtPaths, shouldRepair, backupPath);
 
-        return allSrtPaths;
+        return new Result(allSrtPaths, convertedSrtPaths);
     }
 }

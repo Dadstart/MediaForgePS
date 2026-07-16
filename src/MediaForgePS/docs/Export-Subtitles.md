@@ -14,7 +14,7 @@ Exports English subtitle streams from media files. Use -Ocr Auto, Skip, or Force
 
 ```
 Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr <String>]
- [-SkipRepair] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-SkipRepair] [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -26,7 +26,7 @@ Use `-Ocr` to control post-extraction OCR and repair. Accepted values are **Auto
 - **Force** - OCR all exported image subtitle files.
 - **Skip** - extract only; no OCR or repair.
 
-When OCR runs, only **OCR-produced** SRT files are repaired (native exported SRT files are not repaired). Use `-BackupPath` to copy SRT files to a backup location before repairing. Use `-SkipRepair` to skip the repair step.
+When OCR runs, only **OCR-produced** SRT files are repaired (native exported SRT files are not repaired). Use `-BackupPath` to copy SRT files to a backup location before repairing. Use `-SkipRepair` to skip the repair step. Writes a SubtitleProcessingResult with extract and OCR conversion counts to the pipeline.
 
 InputPath can be media file path(s), folder path(s) containing `.mkv` files, or `MediaFile` objects from `Get-MediaFile`. This cmdlet has alias **Export-RepairedSubtitles**.
 
@@ -160,6 +160,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -170,8 +185,8 @@ Path strings, folder paths, or MediaFile objects (e.g. from Get-MediaFile). For 
 
 ## OUTPUTS
 
-### None
-This cmdlet does not write to the pipeline.
+### SubtitleProcessingResult
+ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths. ConvertedCount is the number of image subtitle files successfully OCR'd to SRT (0 when `-Ocr Skip` or no image tracks were converted).
 
 ## NOTES
 Alias: **Export-RepairedSubtitles**. Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit). Folder input processes `*.mkv` files only.

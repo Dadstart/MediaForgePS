@@ -16,7 +16,7 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
  [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr <String>] [-SkipRepair]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -28,7 +28,7 @@ Invoke-SeriesProcessing is a high-level workflow that runs five steps in order:
 4. **Extract chapters** - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes.
 5. **Extract captions** - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.
 
-Use `-Ocr` with values **Auto** (default), **Skip**, or **Force** to control image subtitle OCR after caption extraction. When OCR runs, OCR-produced SRT files are repaired by default; use `-SkipRepair` to skip repair. OCR parallelism is fixed at 10 concurrent conversions.
+Use `-Ocr` with values **Auto** (default), **Skip**, or **Force** to control image subtitle OCR after caption extraction. When OCR runs, OCR-produced SRT files are repaired by default; use `-SkipRepair` to skip repair. OCR parallelism is fixed at 10 concurrent conversions. When caption extraction runs, writes a SubtitleProcessingResult with extract/OCR counts.
 
 Use `-EpisodeStart` when your source files begin mid-season (e.g. episode 5 on disc 1). `-MinimumFileSize` defaults to 1 GB but can be set to 0 to include all matching files.
 
@@ -285,6 +285,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -295,8 +310,8 @@ Parameters are specified directly; InputPath and FilePatterns are required.
 
 ## OUTPUTS
 
-### None
-This cmdlet does not write to the pipeline.
+### SubtitleProcessingResult
+When caption extraction runs (unless `-SkipCaptionExtraction`): ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths.
 
 ## NOTES
 TVDb URLs are used to fetch episode metadata. If no episodes are returned or no files match, the cmdlet writes an error and stops.

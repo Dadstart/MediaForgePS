@@ -14,14 +14,14 @@ Converts bonus MKV files, extracts subtitles, and organizes them into Plex-style
 
 ```
 Invoke-BonusFileProcessing [-InputPath] <String> [-OutputPath] <String> [-DefaultVideoEncoder <String>]
- [-SkipSubtitles] [-Ocr <String>] [-SkipRepair] [-BackupPath <String>] [-ThrottleLimit <Int32>]
- [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-SkipSubtitles] [-Ocr <String>] [-SkipRepair] [-KeepSource] [-BackupPath <String>] [-ThrottleLimit <Int32>]
+ [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 Invoke-BonusFileProcessing does three steps: (1) Converts bonus MKV files in `-InputPath` (files whose names end with `-behindthescenes`, `-deleted`, `-featurette`, `-interview`, `-scene`, `-short`, `-trailer`, or `-other`) using encoder defaults from `-DefaultVideoEncoder` (default **nvenc**). (2) Unless `-SkipSubtitles` is specified, extracts English subtitle streams from each bonus MKV. Use `-Ocr` (**Auto**, **Skip**, or **Force**; default Auto) to control image subtitle OCR; OCR-produced SRT files are repaired by default unless `-SkipRepair` is specified. (3) Organizes converted `.mp4` and matching subtitle files (`.srt`, `.vtt`) into Plex bonus folders under `-OutputPath`.
 
-Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Writes a MediaConversionResult per converted file (output path, size reduction, and processing time). Supports -WhatIf and -Confirm.
+Source files are moved via copy-then-delete. If a destination file already exists, that file is skipped. Writes a MediaConversionResult per converted file (output path, size reduction, and processing time). When subtitles are extracted, also writes a SubtitleProcessingResult. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -230,6 +230,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -242,6 +257,9 @@ Parameters are specified directly.
 
 ### MediaConversionResult
 One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.
+
+### SubtitleProcessingResult
+When subtitles are extracted (unless `-SkipSubtitles`): ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths.
 
 ## NOTES
 Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.

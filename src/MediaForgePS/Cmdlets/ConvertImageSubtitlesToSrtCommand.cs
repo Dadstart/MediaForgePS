@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -12,13 +13,13 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
 /// </summary>
 /// <remarks>
-/// Alias: Convert-SupToSrt. Writes created SRT file paths to the pipeline.
+/// Alias: Convert-SupToSrt. Writes a <see cref="SubtitleProcessingResult"/> with conversion counts and SRT paths.
 /// Requires Subtitle Edit under %ProgramFiles%\Subtitle Edit and Tesseract OCR.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt", SupportsShouldProcess = true)]
 [Alias("Convert-SupToSrt")]
-[OutputType(typeof(string))]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 {
     /// <summary>
@@ -154,8 +155,11 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
 
         MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Converting image subtitles to SRT", "Current file");
 
-        foreach (var path in writtenPaths)
-            WriteObject(path);
+        var result = SubtitleProcessingResult.Create(convertedPaths: writtenPaths);
+        WriteHostMessage(
+            $"Conversion completed: {result.ConvertedCount} of {totalFiles} image subtitle file(s) converted.",
+            ConsoleColor.Green);
+        WriteObject(result);
     }
 
     private bool ConvertFile(string subtitleEditPath, string inputSubtitlePath, string outputSrtPath)
