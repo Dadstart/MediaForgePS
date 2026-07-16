@@ -13,7 +13,7 @@ Fixes common OCR errors in SRT subtitle files (e.g. music note misreads, pipe as
 ## SYNTAX
 
 ```
-Repair-Subtitles [-InputPath] <String[]> [[-OutputPath] <String>] [-Recurse] [-BackupPath <String>]
+Repair-Subtitles [-InputPath] <String[]> [[-OutputPath] <String>] [-Recurse] [-BackupPath <String>] [-Alert]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
@@ -113,6 +113,21 @@ Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to h
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
 
 Required: False
 Position: Named

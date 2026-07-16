@@ -15,11 +15,11 @@ Converts video files in a directory (or specified paths) to MP4 with automatic a
 ```
 Convert-VideoFile [-InputPath] <String[]> [[-OutputDirectory] <String>] [-Recurse]
  [-DefaultVideoEncoder <String>] [-X265Params <String>] [-SkipSubtitles] [-Ocr <String>] [-SkipRepair]
- [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes MediaConversionResult objects to the pipeline.
+Convert-VideoFile is the primary batch conversion cmdlet for video sources. For each input it auto-detects audio track mappings, converts to MP4 in the output directory (same relative path layout as the input root), and writes MediaConversionResult objects to the pipeline. When captions are extracted (unless -SkipSubtitles), it also writes a SubtitleProcessingResult with extract and OCR conversion counts.
 
 Supported input extensions: `.mkv`, `.mp4`, `.m4v`, `.mov`, `.avi`, `.wmv`, `.flv`, `.webm`, `.mpg`, `.mpeg`, `.ts`, `.m2ts`, `.mts`, `.vob`, `.ogv`, `.3gp`, `.asf`. Extension matching is case-insensitive. When -InputPath is a directory, only files with a supported extension are enumerated; other files are silently ignored. A single file passed via -InputPath must have a supported extension or the cmdlet emits an `InvalidInputPath` error.
 
@@ -267,6 +267,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -279,6 +294,9 @@ Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Pat
 
 ### MediaConversionResult
 For each processed file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is `Success` when conversion completed.
+
+### SubtitleProcessingResult
+When captions are extracted (unless `-SkipSubtitles`): ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths. ConvertedCount is the number of image subtitle files successfully OCR'd to SRT.
 
 ## NOTES
 Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.

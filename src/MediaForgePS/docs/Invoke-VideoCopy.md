@@ -15,7 +15,7 @@ Copies episode video files into a destination folder using TVDb episode metadata
 ```
 Invoke-VideoCopy -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -Path <String[]>
  -FilePatterns <String[]> [-MinimumFileSize <Int64>] -Destination <String> -Episodes <TvDbEpisodeInfo[]>
- [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -201,6 +201,21 @@ Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to h
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Alert
+Play a system beep when the cmdlet finishes.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
 
 Required: False
 Position: Named

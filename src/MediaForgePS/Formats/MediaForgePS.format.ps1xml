@@ -442,5 +442,49 @@
         </TableRowEntries>
       </TableControl>
     </View>
+    <View>
+      <Name>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>ExtractedCount</Label>
+            <Width>14</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>ConvertedCount</Label>
+            <Width>14</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>ExtractedPaths</Label>
+            <Width>16</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>ConvertedPaths</Label>
+            <Width>16</Width>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>ExtractedCount</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>ConvertedCount</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>$_.ExtractedPaths.Count</ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>$_.ConvertedPaths.Count</ScriptBlock>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
   </ViewDefinitions>
 </Configuration>

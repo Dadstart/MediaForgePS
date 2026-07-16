@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Threading;
@@ -148,10 +149,14 @@ public class ExportSubtitlesCommandTests : IDisposable
             .AddParameter("InputPath", new[] { mediaPath })
             .AddParameter("Ocr", SubtitleOcrMode.Skip);
 
-        ps.Invoke();
+        var results = ps.Invoke().Select(p => p.BaseObject).ToList();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
+        Assert.NotEmpty(results);
+        var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results.OfType<SubtitleProcessingResult>()));
+        Assert.Equal(1, result.ExtractedCount);
+        Assert.Equal(0, result.ConvertedCount);
     }
 
     [Fact]
@@ -178,10 +183,13 @@ public class ExportSubtitlesCommandTests : IDisposable
         ps.AddCommand("Export-Subtitles")
             .AddParameter("InputPath", new[] { mediaPath });
 
-        ps.Invoke();
+        var results = ps.Invoke().Select(p => p.BaseObject).ToList();
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
+        var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results.OfType<SubtitleProcessingResult>()));
+        Assert.Equal(1, result.ExtractedCount);
+        Assert.Equal(0, result.ConvertedCount);
     }
 
     private static MediaFile CreateMediaFile(string mediaPath, string subtitleCodec)

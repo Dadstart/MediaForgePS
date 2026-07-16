@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Management.Automation;
+using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,10 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// For subtitles already on disk. Equivalent to running <see cref="ConvertImageSubtitlesToSrtCommand"/> on image paths,
 /// then <see cref="RepairSubtitlesCommand"/> on OCR-produced SRT paths only. Pre-existing SRT files in the input are not repaired.
 /// Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
+/// Writes a <see cref="SubtitleProcessingResult"/> with conversion counts to the pipeline.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "SubtitleOcrRepair")]
+[OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
 {
     protected override bool ShouldSetCommandTerminalTitle => true;
@@ -107,7 +110,7 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
 
         WriteHostMessage($"Processing {imagePaths.Count} image subtitle(s) and {srtPathsFromInput.Count} SRT file(s).", ConsoleColor.Cyan);
 
-        var allSrtPaths = SubtitleOcrRepairWorkflow.Run(
+        var ocrResult = SubtitleOcrRepairWorkflow.Run(
             CmdletIO,
             Logger,
             ExecutableService,
@@ -121,16 +124,21 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
             StoppingToken,
             KeepSource.IsPresent);
 
-        if (allSrtPaths == null)
+        if (ocrResult == null)
             return;
 
-        if (allSrtPaths.Count == 0)
+        var result = SubtitleProcessingResult.Create(convertedPaths: ocrResult.ConvertedSrtPaths);
+        if (ocrResult.AllSrtPaths.Count == 0)
         {
             WriteHostMessage("No SRT files to repair.", ConsoleColor.Green);
+            WriteObject(result);
             return;
         }
 
-        WriteHostMessage("OCR and repair completed.", ConsoleColor.Green);
+        WriteHostMessage(
+            $"OCR and repair completed: {result.ConvertedCount} converted.",
+            ConsoleColor.Green);
+        WriteObject(result);
     }
 
 }

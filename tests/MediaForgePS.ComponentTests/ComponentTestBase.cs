@@ -83,6 +83,48 @@ public abstract class ComponentTestBase : IDisposable
         CreateSampleVideoWithEnglishAudio(fileName);
 
     /// <summary>
+    /// Creates a remux of the sample with a silent English audio track and an English SubRip subtitle stream.
+    /// </summary>
+    protected string CreateSampleVideoWithEnglishSubtitles(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+        var srtPath = Path.Combine(directory, "sample.eng.srt");
+
+        File.WriteAllText(
+            srtPath,
+            """
+            1
+            00:00:00,000 --> 00:00:01,000
+            Component test caption.
+            """);
+
+        RunFfmpeg(
+            [
+                "-y",
+                "-i", SampleVideoPath,
+                "-f", "lavfi",
+                "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+                "-i", srtPath,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-c:s", "srt",
+                "-shortest",
+                "-metadata:s:a:0", "language=eng",
+                "-metadata:s:s:0", "language=eng",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-map", "2:0",
+                destination
+            ],
+            "create sample with English subtitles");
+        Assert.True(File.Exists(destination));
+
+        return destination;
+    }
+
+    /// <summary>
     /// Creates a remux of the sample with two chapter markers for split tests.
     /// </summary>
     protected string CreateSampleVideoWithChapters(string fileName)
