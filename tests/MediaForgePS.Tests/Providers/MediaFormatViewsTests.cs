@@ -29,6 +29,9 @@ public class MediaFormatViewsTests
         Assert.Contains(typeof(ConstantRateVideoEncodingSettings).FullName!, typeNames);
         Assert.Contains(typeof(VariableRateVideoEncodingSettings).FullName!, typeNames);
         Assert.Contains(typeof(NvencVideoEncodingSettings).FullName!, typeNames);
+        Assert.Contains(typeof(MediaConversionResult).FullName!, typeNames);
+        Assert.Contains(typeof(MediaConversionStatistics).FullName!, typeNames);
+        Assert.Contains(typeof(SubtitleProcessingResult).FullName!, typeNames);
     }
 
     [Fact]

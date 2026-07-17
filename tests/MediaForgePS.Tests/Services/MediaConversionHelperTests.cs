@@ -101,6 +101,57 @@ public class MediaConversionHelperTests
     }
 
     [Fact]
+    public void FormatConversionStatisticsLine_WithAverages_IncludesSizesAndDuration()
+    {
+        var statistics = new MediaConversionStatistics(
+            2,
+            50.0,
+            1 << 20,
+            512 * 1024,
+            TimeSpan.FromSeconds(95));
+
+        var line = MediaConversionHelper.FormatConversionStatisticsLine(statistics);
+
+        Assert.Contains("Averages —", line, StringComparison.Ordinal);
+        Assert.Contains("50% smaller", line, StringComparison.Ordinal);
+        Assert.Contains("1.0 MB → 512.0 KB", line, StringComparison.Ordinal);
+        Assert.Contains("01:35", line, StringComparison.Ordinal);
+        Assert.Contains("2 files", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FormatConversionStatisticsLine_WithEmpty_ReturnsNa()
+    {
+        var line = MediaConversionHelper.FormatConversionStatisticsLine(MediaConversionStatistics.Empty);
+
+        Assert.Equal("Averages — n/a (0 files)", line);
+    }
+
+    [Fact]
+    public void CreateConversionStatistics_DelegatesToModel()
+    {
+        var results = new[]
+        {
+            new MediaConversionResult(
+                @"C:\a.mkv",
+                @"C:\a.mp4",
+                MediaConversionResult.CompletedStatus,
+                1000,
+                400,
+                60.0,
+                TimeSpan.FromSeconds(10)),
+        };
+
+        var statistics = MediaConversionHelper.CreateConversionStatistics(results);
+
+        Assert.Equal(1, statistics.FileCount);
+        Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
+        Assert.Equal(1000, statistics.AverageInputSizeBytes);
+        Assert.Equal(400, statistics.AverageOutputSizeBytes);
+        Assert.Equal(TimeSpan.FromSeconds(10), statistics.AverageProcessingTime);
+    }
+
+    [Fact]
     public void CreateConversionResult_WithExistingFiles_ComputesSizeReduction()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS-Tests-" + Guid.NewGuid().ToString("N"));

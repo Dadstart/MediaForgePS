@@ -443,6 +443,82 @@
       </TableControl>
     </View>
     <View>
+      <Name>Dadstart.Labs.MediaForge.Models.MediaConversionStatistics</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.MediaConversionStatistics</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>Files</Label>
+            <Width>8</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AvgSizeReduction</Label>
+            <Width>16</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AvgInputSize</Label>
+            <Width>13</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AvgOutputSize</Label>
+            <Width>14</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>AvgDuration</Label>
+            <Width>12</Width>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>FileCount</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  if ($null -eq $_.AverageSizeReductionPercent) { 'n/a' }
+                  elseif ($_.AverageSizeReductionPercent -gt 0) { '{0:0.#}% smaller' -f $_.AverageSizeReductionPercent }
+                  elseif ($_.AverageSizeReductionPercent -lt 0) { '{0:0.#}% larger' -f [math]::Abs($_.AverageSizeReductionPercent) }
+                  else { 'same size' }
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  function Format-ByteCount([long]$Bytes) {
+                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
+                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
+                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
+                    else { "$Bytes B" }
+                  }
+                  Format-ByteCount $_.AverageInputSizeBytes
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  function Format-ByteCount([long]$Bytes) {
+                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
+                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
+                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
+                    else { "$Bytes B" }
+                  }
+                  Format-ByteCount $_.AverageOutputSizeBytes
+                </ScriptBlock>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>
+                  $t = $_.AverageProcessingTime
+                  if ($t.TotalHours -ge 1) { '{0}:{1:D2}:{2:D2}' -f [int]$t.TotalHours, $t.Minutes, $t.Seconds }
+                  else { '{0:D2}:{1:D2}' -f [int]$t.TotalMinutes, $t.Seconds }
+                </ScriptBlock>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+    <View>
       <Name>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult</Name>
       <ViewSelectedBy>
         <TypeName>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult</TypeName>

@@ -34,8 +34,10 @@ public class ConvertMediaFilesCommandSpacedPathComponentTests : ComponentTestBas
         Assert.True(new FileInfo(expectedOutput).Length > 0);
 
         var conversionResults = Assert.IsAssignableFrom<IEnumerable<MediaConversionResult>>(
-            Assert.Single(results).BaseObject);
+            Assert.Single(results.Select(r => r.BaseObject).OfType<IEnumerable<MediaConversionResult>>()));
         var result = Assert.Single(conversionResults);
         AssertSuccessfulConversionResult(result, inputPath, expectedOutput);
+
+        Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 }

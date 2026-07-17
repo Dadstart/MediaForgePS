@@ -320,7 +320,8 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        var result = Assert.IsType<MediaConversionResult>(Assert.Single(results).BaseObject);
+        var result = Assert.IsType<MediaConversionResult>(
+            Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionResult>()));
         Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
         Assert.Equal(mkvPath, result.InputPath);
         Assert.Equal(expectedOutput, result.OutputPath);
@@ -328,6 +329,12 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         Assert.Equal(400, result.OutputSizeBytes);
         Assert.Equal(60.0, result.SizeReductionPercent);
         Assert.True(result.ProcessingTime >= TimeSpan.Zero);
+
+        var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
+        Assert.Equal(1, statistics.FileCount);
+        Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
+        Assert.Equal(1000, statistics.AverageInputSizeBytes);
+        Assert.Equal(400, statistics.AverageOutputSizeBytes);
     }
 
     [Fact]

@@ -162,6 +162,27 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Formats batch conversion averages for host summaries.
+    /// </summary>
+    public static string FormatConversionStatisticsLine(MediaConversionStatistics statistics)
+    {
+        if (statistics.FileCount <= 0)
+            return "Averages — n/a (0 files)";
+
+        var sizeChange = FormatSizeReduction(statistics.AverageSizeReductionPercent);
+        var sizes = $"{FormatByteCount(statistics.AverageInputSizeBytes)} → {FormatByteCount(statistics.AverageOutputSizeBytes)}";
+        var fileLabel = statistics.FileCount == 1 ? "1 file" : $"{statistics.FileCount} files";
+        return $"Averages — {sizeChange} ({sizes}) in {FormatTimespan(statistics.AverageProcessingTime)} ({fileLabel})";
+    }
+
+    /// <summary>
+    /// Builds aggregate averages from completed conversion results.
+    /// </summary>
+    public static MediaConversionStatistics CreateConversionStatistics(
+        IEnumerable<MediaConversionResult>? results) =>
+        MediaConversionStatistics.Create(results);
+
+    /// <summary>
     /// Builds encode status text including media position as <c>mm:ss / mm:ss</c>.
     /// </summary>
     public static string BuildEncodeProgressStatus(string baseStatus, FfmpegProgress progress)
