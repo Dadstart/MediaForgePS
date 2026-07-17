@@ -18,12 +18,13 @@ public static class SubtitleExportHelper
 {
     /// <summary>
     /// Mapping from ffprobe/FFmpeg subtitle codec names to file extensions for export.
+    /// Extraction stream-copies the payload, so each codec must keep its native extension.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> CodecToExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["subrip"] = "srt",
-        ["ass"] = "srt",
-        ["ssa"] = "srt",
+        ["ass"] = "ass",
+        ["ssa"] = "ssa",
         ["webvtt"] = "vtt",
         ["dvd_subtitle"] = "sub",
         ["hdmv_pgs_subtitle"] = "sup"
