@@ -52,6 +52,12 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Formats a byte count as megabytes with one decimal place (e.g. <c>1.5 MB</c>).
+    /// </summary>
+    public static string FormatMegabyteCount(long bytes) =>
+        $"{bytes / (double)(1 << 20):F1} MB";
+
+    /// <summary>
     /// Formats a timespan as <c>mm:ss</c>, or <c>h:mm:ss</c> when one hour or longer.
     /// </summary>
     public static string FormatTimespan(TimeSpan time)
@@ -157,7 +163,7 @@ public static class MediaConversionHelper
             return $"{result.InputPath} — {result.Status}";
 
         var sizeChange = FormatSizeReduction(result.SizeReductionPercent);
-        var sizes = $"{FormatByteCount(result.InputSizeBytes)} → {FormatByteCount(result.OutputSizeBytes)}";
+        var sizes = $"{FormatMegabyteCount(result.InputSizeBytes)} → {FormatMegabyteCount(result.OutputSizeBytes)}";
         return $"{result.OutputPath} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
     }
 
@@ -170,7 +176,7 @@ public static class MediaConversionHelper
             return "Averages — n/a (0 files)";
 
         var sizeChange = FormatSizeReduction(statistics.AverageSizeReductionPercent);
-        var sizes = $"{FormatByteCount(statistics.AverageInputSizeBytes)} → {FormatByteCount(statistics.AverageOutputSizeBytes)}";
+        var sizes = $"{FormatMegabyteCount(statistics.AverageInputSizeBytes)} → {FormatMegabyteCount(statistics.AverageOutputSizeBytes)}";
         var fileLabel = statistics.FileCount == 1 ? "1 file" : $"{statistics.FileCount} files";
         return $"Averages — {sizeChange} ({sizes}) in {FormatTimespan(statistics.AverageProcessingTime)} ({fileLabel})";
     }

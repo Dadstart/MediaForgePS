@@ -26,6 +26,18 @@ public class MediaConversionHelperTests
     }
 
     [Theory]
+    [InlineData(0, "0.0 MB")]
+    [InlineData(524288, "0.5 MB")]
+    [InlineData(1048576, "1.0 MB")]
+    [InlineData(1572864, "1.5 MB")]
+    public void FormatMegabyteCount_ReturnsExpectedValue(long bytes, string expected)
+    {
+        var result = MediaConversionHelper.FormatMegabyteCount(bytes);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
     [InlineData(0, 0, 45, "00:45")]
     [InlineData(0, 2, 30, "02:30")]
     [InlineData(1, 5, 0, "1:05:00")]
@@ -79,7 +91,7 @@ public class MediaConversionHelperTests
 
         Assert.Contains(@"C:\out.mp4", line, StringComparison.Ordinal);
         Assert.Contains("50% smaller", line, StringComparison.Ordinal);
-        Assert.Contains("1.0 MB → 512.0 KB", line, StringComparison.Ordinal);
+        Assert.Contains("1.0 MB → 0.5 MB", line, StringComparison.Ordinal);
         Assert.Contains("01:35", line, StringComparison.Ordinal);
     }
 
@@ -114,7 +126,7 @@ public class MediaConversionHelperTests
 
         Assert.Contains("Averages —", line, StringComparison.Ordinal);
         Assert.Contains("50% smaller", line, StringComparison.Ordinal);
-        Assert.Contains("1.0 MB → 512.0 KB", line, StringComparison.Ordinal);
+        Assert.Contains("1.0 MB → 0.5 MB", line, StringComparison.Ordinal);
         Assert.Contains("01:35", line, StringComparison.Ordinal);
         Assert.Contains("2 files", line, StringComparison.Ordinal);
     }

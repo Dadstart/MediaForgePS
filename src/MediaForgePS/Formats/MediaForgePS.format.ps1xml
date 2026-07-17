@@ -407,24 +407,12 @@
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  function Format-ByteCount([long]$Bytes) {
-                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
-                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
-                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
-                    else { "$Bytes B" }
-                  }
-                  Format-ByteCount $_.InputSizeBytes
+                  '{0:0.0} MB' -f ($_.InputSizeBytes / 1MB)
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  function Format-ByteCount([long]$Bytes) {
-                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
-                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
-                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
-                    else { "$Bytes B" }
-                  }
-                  Format-ByteCount $_.OutputSizeBytes
+                  '{0:0.0} MB' -f ($_.OutputSizeBytes / 1MB)
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
@@ -486,24 +474,12 @@
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  function Format-ByteCount([long]$Bytes) {
-                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
-                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
-                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
-                    else { "$Bytes B" }
-                  }
-                  Format-ByteCount $_.AverageInputSizeBytes
+                  '{0:0.0} MB' -f ($_.AverageInputSizeBytes / 1MB)
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  function Format-ByteCount([long]$Bytes) {
-                    if ($Bytes -ge 1GB) { '{0:0.0} GB' -f ($Bytes / 1GB) }
-                    elseif ($Bytes -ge 1MB) { '{0:0.0} MB' -f ($Bytes / 1MB) }
-                    elseif ($Bytes -ge 1KB) { '{0:0.0} KB' -f ($Bytes / 1KB) }
-                    else { "$Bytes B" }
-                  }
-                  Format-ByteCount $_.AverageOutputSizeBytes
+                  '{0:0.0} MB' -f ($_.AverageOutputSizeBytes / 1MB)
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
