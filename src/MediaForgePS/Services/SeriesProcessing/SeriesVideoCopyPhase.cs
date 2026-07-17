@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -12,6 +13,13 @@ namespace Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 
 internal sealed class SeriesVideoCopyPhase
 {
+    /// <summary>
+    /// Culture-invariant natural (numeric-aware) comparer so files map to episodes deterministically
+    /// on every platform, e.g. "Episode 2" sorts before "Episode 10".
+    /// </summary>
+    private static readonly StringComparer _naturalPathComparer =
+        CultureInfo.InvariantCulture.CompareInfo.GetStringComparer(CompareOptions.IgnoreCase | CompareOptions.NumericOrdering);
+
     public IReadOnlyList<string> GetFilteredVideoFiles(
         ICmdletIO io,
         IReadOnlyList<string> paths,
@@ -40,6 +48,7 @@ internal sealed class SeriesVideoCopyPhase
             }
         }
 
+        acceptedFiles.Sort(_naturalPathComparer);
         return acceptedFiles;
     }
 
