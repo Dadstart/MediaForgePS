@@ -21,11 +21,13 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// (3) move converted MP4 and matching .srt/.vtt files into Plex bonus folders under OutputPath.
 /// Existing destination files are skipped.
 /// Writes a <see cref="MediaConversionResult"/> per converted bonus file to the pipeline.
+/// After conversion, writes a <see cref="MediaConversionStatistics"/> with averages for completed files.
 /// When subtitles are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "BonusFileProcessing", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
+[OutputType(typeof(MediaConversionStatistics))]
 [OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 {
@@ -726,6 +728,14 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             foreach (var result in failed)
                 WriteHostMessage($"    {MediaConversionHelper.FormatConversionResultLine(result)}", ConsoleColor.Gray);
         }
+
+        var statistics = MediaConversionHelper.CreateConversionStatistics(_conversionResults);
+        if (statistics.FileCount <= 0)
+            return;
+
+        WriteHostMessage(string.Empty);
+        WriteHostMessage($"  {MediaConversionHelper.FormatConversionStatisticsLine(statistics)}", ConsoleColor.Cyan);
+        WriteObject(statistics);
     }
 
     private void InvokePlexFileOperation(string sourceDirectory, string destinationDirectory)

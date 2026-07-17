@@ -31,12 +31,17 @@ public class InvokeBonusFileProcessingCommandComponentTests : ComponentTestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        var result = Assert.IsType<MediaConversionResult>(Assert.Single(results).BaseObject);
+        var result = Assert.IsType<MediaConversionResult>(
+            Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionResult>()));
         AssertSuccessfulConversionResult(
             result,
             inputPath,
             expectedConversionOutput,
             requireOutputFileExists: false);
+
+        var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
+        Assert.Equal(1, statistics.FileCount);
+        Assert.Equal(result.SizeReductionPercent, statistics.AverageSizeReductionPercent);
 
         Assert.True(
             File.Exists(expectedPlexDestination),
@@ -66,6 +71,7 @@ public class InvokeBonusFileProcessingCommandComponentTests : ComponentTestBase
 
         Assert.Empty(errors);
         Assert.Single(results.OfType<MediaConversionResult>());
+        Assert.Single(results.OfType<MediaConversionStatistics>());
         var subtitles = Assert.Single(results.OfType<SubtitleProcessingResult>());
         Assert.Equal(1, subtitles.ExtractedCount);
         Assert.Equal(0, subtitles.ConvertedCount);

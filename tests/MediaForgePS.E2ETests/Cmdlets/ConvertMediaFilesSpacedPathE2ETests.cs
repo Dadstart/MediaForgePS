@@ -36,11 +36,13 @@ public class ConvertMediaFilesSpacedPathE2ETests : E2ETestBase
         Assert.True(new FileInfo(expectedOutputPath).Length > 0);
 
         var conversionResults = Assert.IsAssignableFrom<IEnumerable<MediaConversionResult>>(
-            Assert.Single(results).BaseObject);
+            Assert.Single(results.Select(r => r.BaseObject).OfType<IEnumerable<MediaConversionResult>>()));
         var result = Assert.Single(conversionResults);
         Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
         Assert.True(
             string.Equals(result.OutputPath, expectedOutputPath, StringComparison.OrdinalIgnoreCase),
             $"OutputPath mismatch: {result.OutputPath}");
+
+        Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 }

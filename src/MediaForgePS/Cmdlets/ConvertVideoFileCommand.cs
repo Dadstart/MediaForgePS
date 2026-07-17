@@ -21,11 +21,13 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
 /// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
 /// Writes a <see cref="MediaConversionResult"/> per processed file to the pipeline.
+/// After conversions complete, writes a <see cref="MediaConversionStatistics"/> with averages for completed files.
 /// When captions are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
+[OutputType(typeof(MediaConversionStatistics))]
 [OutputType(typeof(SubtitleProcessingResult))]
 public class ConvertVideoFileCommand : ProgressCmdletBase
 {
@@ -279,6 +281,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
 
         _batchStopwatch?.Stop();
         MediaConversionHelper.WriteProgressCompleted(CmdletIO, "Video file conversion", "File conversion");
+        WriteConversionStatistics(_results);
 
         if (!SkipSubtitles.IsPresent)
         {
@@ -334,6 +337,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         if (ocrResult == null)
                         {
                             WriteSubtitleProcessingResult(extractedCaptionPaths, convertedPaths);
+                            WriteDirectoryConversionFinished();
                             return;
                         }
 
@@ -354,12 +358,27 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
             }
         }
 
+        WriteDirectoryConversionFinished();
+    }
+
+    private void WriteDirectoryConversionFinished()
+    {
         var ok = _results.Count(MediaConversionHelper.IsCompletedConversion);
         var failed = _results.Count - ok;
         if (failed == 0)
             WriteHostMessage($"Directory conversion finished: {ok} file(s) OK.", ConsoleColor.Green);
         else
             WriteHostMessage($"Directory conversion finished: {ok} succeeded, {failed} failed.", ConsoleColor.Yellow);
+    }
+
+    private void WriteConversionStatistics(IReadOnlyList<MediaConversionResult> results)
+    {
+        var statistics = MediaConversionHelper.CreateConversionStatistics(results);
+        if (statistics.FileCount <= 0)
+            return;
+
+        WriteHostMessage(MediaConversionHelper.FormatConversionStatisticsLine(statistics), ConsoleColor.Cyan);
+        WriteObject(statistics);
     }
 
     private void WriteSubtitleProcessingResult(IReadOnlyList<string> extractedPaths, IReadOnlyList<string> convertedPaths)
