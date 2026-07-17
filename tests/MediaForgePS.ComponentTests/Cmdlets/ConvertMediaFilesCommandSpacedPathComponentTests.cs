@@ -38,6 +38,6 @@ public class ConvertMediaFilesCommandSpacedPathComponentTests : ComponentTestBas
         var result = Assert.Single(conversionResults);
         AssertSuccessfulConversionResult(result, inputPath, expectedOutput);
 
-        Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
+        Assert.Empty(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 }

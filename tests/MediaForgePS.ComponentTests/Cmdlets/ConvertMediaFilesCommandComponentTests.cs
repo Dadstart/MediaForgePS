@@ -36,10 +36,6 @@ public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
         var result = Assert.Single(conversionResults);
         AssertSuccessfulConversionResult(result, SampleVideoPath, expectedOutput);
 
-        var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
-        Assert.Equal(1, statistics.FileCount);
-        Assert.Equal(result.SizeReductionPercent, statistics.AverageSizeReductionPercent);
-        Assert.Equal(result.InputSizeBytes, statistics.AverageInputSizeBytes);
-        Assert.Equal(result.OutputSizeBytes, statistics.AverageOutputSizeBytes);
+        Assert.Empty(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 }

@@ -21,7 +21,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Default video encoder is nvenc. After each successful conversion, English subtitle streams are extracted unless -SkipSubtitles is specified.
 /// Use -Ocr Auto, Skip, or Force to control OCR of image-based captions (SUP, SUB) after extraction.
 /// Writes a <see cref="MediaConversionResult"/> per processed file to the pipeline.
-/// After conversions complete, writes a <see cref="MediaConversionStatistics"/> with averages for completed files.
+/// After conversions complete, when more than one file completed, writes a <see cref="MediaConversionStatistics"/> with averages.
 /// When captions are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
@@ -374,7 +374,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     private void WriteConversionStatistics(IReadOnlyList<MediaConversionResult> results)
     {
         var statistics = MediaConversionHelper.CreateConversionStatistics(results);
-        if (statistics.FileCount <= 0)
+        // Single-file conversions already surface size/duration on MediaConversionResult; averages are redundant.
+        if (statistics.FileCount <= 1)
             return;
 
         WriteHostMessage(MediaConversionHelper.FormatConversionStatisticsLine(statistics), ConsoleColor.Cyan);

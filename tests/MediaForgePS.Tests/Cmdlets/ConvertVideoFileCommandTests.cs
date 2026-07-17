@@ -443,11 +443,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         Assert.Equal(60.0, result.SizeReductionPercent);
         Assert.True(result.ProcessingTime >= TimeSpan.Zero);
 
-        var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
-        Assert.Equal(1, statistics.FileCount);
-        Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
-        Assert.Equal(1000, statistics.AverageInputSizeBytes);
-        Assert.Equal(400, statistics.AverageOutputSizeBytes);
+        Assert.Empty(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 
     [Fact]
