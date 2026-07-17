@@ -218,6 +218,45 @@ public class SubtitleExportHelperTests
         Assert.Contains("broken", ex.Message);
     }
 
+    // ---- GetExtensionForStream ----
+
+    [Theory]
+    [InlineData("subrip", "srt")]
+    [InlineData("ass", "ass")]
+    [InlineData("ssa", "ssa")]
+    [InlineData("webvtt", "vtt")]
+    [InlineData("dvd_subtitle", "sub")]
+    [InlineData("hdmv_pgs_subtitle", "sup")]
+    [InlineData("mystery_codec", "bin")]
+    public void GetExtensionForStream_KeepsNativeExtensionForStreamCopy(string codec, string expected)
+    {
+        var stream = CreateStream(codec);
+
+        Assert.Equal(expected, SubtitleExportHelper.GetExtensionForStream(stream));
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_AssStream_WritesAssFile()
+    {
+        var (mock, calls) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv",
+            CreateStream("ass", index: 2, language: "eng"));
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            MkvextractPath,
+            buildOutputPath: plan => SubtitleExportHelper.GetOutputPath(
+                media.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var path = Assert.Single(result);
+        Assert.Equal(@"C:\media\movie.eng.sdh.ass", path);
+        var call = Assert.Single(calls);
+        Assert.Equal("ffmpeg", call.Exe);
+        Assert.Contains(@"C:\media\movie.eng.sdh.ass", call.Args);
+    }
+
     // ---- GetEnglishSubtitleStreams ----
 
     [Fact]
