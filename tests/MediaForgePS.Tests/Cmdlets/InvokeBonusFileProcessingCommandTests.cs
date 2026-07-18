@@ -325,16 +325,16 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
         Assert.Equal(mkvPath, result.InputPath);
         Assert.Equal(expectedOutput, result.OutputPath);
-        Assert.Equal(1000, result.InputSizeBytes);
-        Assert.Equal(400, result.OutputSizeBytes);
+        Assert.Equal(MediaConversionHelper.BytesToMegabytes(1000), result.InputSizeMegabytes);
+        Assert.Equal(MediaConversionHelper.BytesToMegabytes(400), result.OutputSizeMegabytes);
         Assert.Equal(60.0, result.SizeReductionPercent);
         Assert.True(result.ProcessingTime >= TimeSpan.Zero);
 
         var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
         Assert.Equal(1, statistics.FileCount);
         Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
-        Assert.Equal(1000, statistics.AverageInputSizeBytes);
-        Assert.Equal(400, statistics.AverageOutputSizeBytes);
+        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(1000), 1), statistics.AverageInputSizeMegabytes);
+        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(400), 1), statistics.AverageOutputSizeMegabytes);
     }
 
     [Fact]

@@ -250,8 +250,8 @@ public abstract class ComponentTestBase : IDisposable
             string.Equals(result.OutputPath, expectedOutputPath, StringComparison.OrdinalIgnoreCase),
             $"OutputPath mismatch: expected {expectedOutputPath}, got {result.OutputPath}");
         Assert.Equal(result.InputPath, result.FilePath);
-        Assert.True(result.InputSizeBytes > 0, "InputSizeBytes should be > 0");
-        Assert.True(result.OutputSizeBytes > 0, "OutputSizeBytes should be > 0");
+        Assert.True(result.InputSizeMegabytes > 0, "InputSizeMegabytes should be > 0");
+        Assert.True(result.OutputSizeMegabytes > 0, "OutputSizeMegabytes should be > 0");
         Assert.NotNull(result.SizeReductionPercent);
         Assert.True(result.ProcessingTime >= TimeSpan.Zero, "ProcessingTime should be >= 0");
 

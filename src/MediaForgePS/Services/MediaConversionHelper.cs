@@ -52,10 +52,22 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Converts a byte count to megabytes (MiB).
+    /// </summary>
+    public static double BytesToMegabytes(long bytes) =>
+        bytes / (double)(1 << 20);
+
+    /// <summary>
     /// Formats a byte count as megabytes with one decimal place (e.g. <c>1.5 MB</c>).
     /// </summary>
     public static string FormatMegabyteCount(long bytes) =>
-        $"{bytes / (double)(1 << 20):F1} MB";
+        FormatMegabytes(BytesToMegabytes(bytes));
+
+    /// <summary>
+    /// Formats a megabyte value with one decimal place (e.g. <c>1.5 MB</c>).
+    /// </summary>
+    public static string FormatMegabytes(double megabytes) =>
+        $"{megabytes:F1} MB";
 
     /// <summary>
     /// Formats a timespan as <c>mm:ss</c>, or <c>h:mm:ss</c> when one hour or longer.
@@ -111,16 +123,16 @@ public static class MediaConversionHelper
         string status,
         TimeSpan processingTime)
     {
-        var inputSize = TryGetFileSizeBytes(inputPath);
-        var outputSize = success ? TryGetFileSizeBytes(outputPath) : 0L;
-        var reduction = success ? CalculateSizeReductionPercent(inputSize, outputSize) : null;
+        var inputSizeBytes = TryGetFileSizeBytes(inputPath);
+        var outputSizeBytes = success ? TryGetFileSizeBytes(outputPath) : 0L;
+        var reduction = success ? CalculateSizeReductionPercent(inputSizeBytes, outputSizeBytes) : null;
 
         return new MediaConversionResult(
             inputPath,
             outputPath,
             status,
-            inputSize,
-            outputSize,
+            BytesToMegabytes(inputSizeBytes),
+            BytesToMegabytes(outputSizeBytes),
             reduction,
             processingTime);
     }
@@ -163,7 +175,7 @@ public static class MediaConversionHelper
             return $"{result.InputPath} — {result.Status}";
 
         var sizeChange = FormatSizeReduction(result.SizeReductionPercent);
-        var sizes = $"{FormatMegabyteCount(result.InputSizeBytes)} → {FormatMegabyteCount(result.OutputSizeBytes)}";
+        var sizes = $"{FormatMegabytes(result.InputSizeMegabytes)} → {FormatMegabytes(result.OutputSizeMegabytes)}";
         return $"{result.OutputPath} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
     }
 
@@ -176,7 +188,7 @@ public static class MediaConversionHelper
             return "Averages — n/a (0 files)";
 
         var sizeChange = FormatSizeReduction(statistics.AverageSizeReductionPercent);
-        var sizes = $"{FormatMegabyteCount(statistics.AverageInputSizeBytes)} → {FormatMegabyteCount(statistics.AverageOutputSizeBytes)}";
+        var sizes = $"{FormatMegabytes(statistics.AverageInputSizeMegabytes)} → {FormatMegabytes(statistics.AverageOutputSizeMegabytes)}";
         var fileLabel = statistics.FileCount == 1 ? "1 file" : $"{statistics.FileCount} files";
         return $"Averages — {sizeChange} ({sizes}) in {FormatTimespan(statistics.AverageProcessingTime)} ({fileLabel})";
     }

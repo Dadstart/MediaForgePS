@@ -13,8 +13,8 @@ public class MediaConversionStatisticsTests
 
         Assert.Equal(0, statistics.FileCount);
         Assert.Null(statistics.AverageSizeReductionPercent);
-        Assert.Equal(0, statistics.AverageInputSizeBytes);
-        Assert.Equal(0, statistics.AverageOutputSizeBytes);
+        Assert.Equal(0, statistics.AverageInputSizeMegabytes);
+        Assert.Equal(0, statistics.AverageOutputSizeMegabytes);
         Assert.Equal(TimeSpan.Zero, statistics.AverageProcessingTime);
     }
 
@@ -31,8 +31,8 @@ public class MediaConversionStatisticsTests
     {
         var results = new[]
         {
-            new MediaConversionResult(@"C:\a.mkv", @"C:\a.mkv", "Failed", 1000, 0, null, TimeSpan.FromSeconds(1)),
-            new MediaConversionResult(@"C:\b.mkv", @"C:\b.mkv", MediaConversionResult.WhatIfStatus, 1000, 0, null, TimeSpan.Zero),
+            new MediaConversionResult(@"C:\a.mkv", @"C:\a.mkv", "Failed", 1.0, 0, null, TimeSpan.FromSeconds(1)),
+            new MediaConversionResult(@"C:\b.mkv", @"C:\b.mkv", MediaConversionResult.WhatIfStatus, 1.0, 0, null, TimeSpan.Zero),
         };
 
         var statistics = MediaConversionStatistics.Create(results);
@@ -75,8 +75,8 @@ public class MediaConversionStatisticsTests
 
         Assert.Equal(2, statistics.FileCount);
         Assert.Equal(55.0, statistics.AverageSizeReductionPercent);
-        Assert.Equal(2000, statistics.AverageInputSizeBytes);
-        Assert.Equal(950, statistics.AverageOutputSizeBytes);
+        Assert.Equal(2000, statistics.AverageInputSizeMegabytes);
+        Assert.Equal(950, statistics.AverageOutputSizeMegabytes);
         Assert.Equal(TimeSpan.FromSeconds(20), statistics.AverageProcessingTime);
     }
 }

@@ -10,8 +10,8 @@ namespace Dadstart.Labs.MediaForge.Models;
 /// <param name="Status">
 /// Human-readable status or error message. Equals <see cref="CompletedStatus"/> when conversion succeeded.
 /// </param>
-/// <param name="InputSizeBytes">Size of the input file in bytes.</param>
-/// <param name="OutputSizeBytes">Size of the output file in bytes when conversion succeeded.</param>
+/// <param name="InputSizeMegabytes">Size of the input file in megabytes (MiB).</param>
+/// <param name="OutputSizeMegabytes">Size of the output file in megabytes (MiB) when conversion succeeded.</param>
 /// <param name="SizeReductionPercent">
 /// Percent of input size saved by conversion (positive means smaller output). Null when conversion failed or input size is unavailable.
 /// </param>
@@ -20,8 +20,8 @@ public sealed record MediaConversionResult(
     string InputPath,
     string OutputPath,
     string Status,
-    long InputSizeBytes,
-    long OutputSizeBytes,
+    double InputSizeMegabytes,
+    double OutputSizeMegabytes,
     double? SizeReductionPercent,
     TimeSpan ProcessingTime)
 {

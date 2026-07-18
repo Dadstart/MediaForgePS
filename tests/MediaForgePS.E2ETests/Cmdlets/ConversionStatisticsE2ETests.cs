@@ -35,11 +35,11 @@ public class ConversionStatisticsE2ETests : E2ETestBase
         Assert.Equal(2, statistics.FileCount);
         Assert.NotNull(statistics.AverageSizeReductionPercent);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.InputSizeBytes)),
-            statistics.AverageInputSizeBytes);
+            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 1),
+            statistics.AverageInputSizeMegabytes);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.OutputSizeBytes)),
-            statistics.AverageOutputSizeBytes);
+            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 1),
+            statistics.AverageOutputSizeMegabytes);
         Assert.Equal(
             Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 1),
             statistics.AverageSizeReductionPercent!.Value,

@@ -438,8 +438,8 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
         Assert.Equal(mkvPath, result.InputPath);
         Assert.Equal(expectedOutput, result.OutputPath);
-        Assert.Equal(1000, result.InputSizeBytes);
-        Assert.Equal(400, result.OutputSizeBytes);
+        Assert.Equal(MediaConversionHelper.BytesToMegabytes(1000), result.InputSizeMegabytes);
+        Assert.Equal(MediaConversionHelper.BytesToMegabytes(400), result.OutputSizeMegabytes);
         Assert.Equal(60.0, result.SizeReductionPercent);
         Assert.True(result.ProcessingTime >= TimeSpan.Zero);
 
