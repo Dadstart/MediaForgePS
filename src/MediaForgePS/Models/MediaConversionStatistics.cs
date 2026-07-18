@@ -11,14 +11,14 @@ namespace Dadstart.Labs.MediaForge.Models;
 /// <param name="AverageSizeReductionPercent">
 /// Mean of per-file size-reduction percents (positive means smaller output). Null when no completed conversions.
 /// </param>
-/// <param name="AverageInputSizeBytes">Mean input file size in bytes across completed conversions.</param>
-/// <param name="AverageOutputSizeBytes">Mean output file size in bytes across completed conversions.</param>
+/// <param name="AverageInputSizeMegabytes">Mean input file size in megabytes (MiB) across completed conversions.</param>
+/// <param name="AverageOutputSizeMegabytes">Mean output file size in megabytes (MiB) across completed conversions.</param>
 /// <param name="AverageProcessingTime">Mean wall-clock processing time across completed conversions.</param>
 public sealed record MediaConversionStatistics(
     int FileCount,
     double? AverageSizeReductionPercent,
-    long AverageInputSizeBytes,
-    long AverageOutputSizeBytes,
+    double AverageInputSizeMegabytes,
+    double AverageOutputSizeMegabytes,
     TimeSpan AverageProcessingTime)
 {
     /// <summary>
@@ -42,16 +42,16 @@ public sealed record MediaConversionStatistics(
         if (completed.Count == 0)
             return Empty;
 
-        var totalInput = 0L;
-        var totalOutput = 0L;
+        var totalInput = 0.0;
+        var totalOutput = 0.0;
         var totalTicks = 0L;
         var reductionSum = 0.0;
         var reductionCount = 0;
 
         foreach (var result in completed)
         {
-            totalInput += result.InputSizeBytes;
-            totalOutput += result.OutputSizeBytes;
+            totalInput += result.InputSizeMegabytes;
+            totalOutput += result.OutputSizeMegabytes;
             totalTicks += result.ProcessingTime.Ticks;
 
             if (!result.SizeReductionPercent.HasValue)
@@ -69,8 +69,8 @@ public sealed record MediaConversionStatistics(
         return new MediaConversionStatistics(
             count,
             averageReduction,
-            (long)Math.Round(totalInput / (double)count),
-            (long)Math.Round(totalOutput / (double)count),
+            Math.Round(totalInput / count, 1),
+            Math.Round(totalOutput / count, 1),
             TimeSpan.FromTicks(totalTicks / count));
     }
 }

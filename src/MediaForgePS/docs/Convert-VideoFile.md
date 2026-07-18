@@ -293,7 +293,7 @@ Directory path, video file path(s), or piped paths. Aliases: InputDirectory, Pat
 ## OUTPUTS
 
 ### MediaConversionResult
-For each processed file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is `Success` when conversion completed.
+For each processed file: InputPath, OutputPath, Status, InputSizeMegabytes, OutputSizeMegabytes, SizeReductionPercent (percent smaller; positive means reduction), and ProcessingTime. Status is `Success` when conversion completed.
 
 ### SubtitleProcessingResult
 When captions are extracted (unless `-SkipSubtitles`): ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths. ConvertedCount is the number of image subtitle files successfully OCR'd to SRT.

@@ -20,7 +20,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// When -DefaultVideoEncoder is omitted, libx265 (x265) is used. Encoder presets: x264 (libx264, CRF 18), x265 (libx265, CRF 18), nvenc (hevc_nvenc, CQ 18).
 /// Audio mappings are auto-detected per file when -AudioTrackMappings is not supplied (English audio preferred).
 /// Failed files are reported via <see cref="MediaConversionResult"/> and WriteError; the batch continues.
-/// After the result list, writes a <see cref="MediaConversionStatistics"/> with averages for completed conversions.
+/// After the result list, when more than one file completed, writes a <see cref="MediaConversionStatistics"/> with averages.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true)]
@@ -255,7 +255,8 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
     private void WriteConversionStatistics(IReadOnlyList<MediaConversionResult> results)
     {
         var statistics = MediaConversionHelper.CreateConversionStatistics(results);
-        if (statistics.FileCount <= 0)
+        // Single-file conversions already surface size/duration on MediaConversionResult; averages are redundant.
+        if (statistics.FileCount <= 1)
             return;
 
         WriteHostMessage(MediaConversionHelper.FormatConversionStatisticsLine(statistics), ConsoleColor.Cyan);

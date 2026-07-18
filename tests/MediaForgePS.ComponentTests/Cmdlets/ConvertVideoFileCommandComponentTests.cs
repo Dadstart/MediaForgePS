@@ -33,11 +33,7 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
             Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionResult>()));
         AssertSuccessfulConversionResult(result, inputPath, expectedOutput);
 
-        var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
-        Assert.Equal(1, statistics.FileCount);
-        Assert.Equal(result.SizeReductionPercent, statistics.AverageSizeReductionPercent);
-        Assert.Equal(result.InputSizeBytes, statistics.AverageInputSizeBytes);
-        Assert.Equal(result.OutputSizeBytes, statistics.AverageOutputSizeBytes);
+        Assert.Empty(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
     }
 
     [Fact(Timeout = 120_000)]
@@ -69,11 +65,11 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         var statistics = Assert.Single(results.OfType<MediaConversionStatistics>());
         Assert.Equal(2, statistics.FileCount);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.InputSizeBytes)),
-            statistics.AverageInputSizeBytes);
+            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 1),
+            statistics.AverageInputSizeMegabytes);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.OutputSizeBytes)),
-            statistics.AverageOutputSizeBytes);
+            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 1),
+            statistics.AverageOutputSizeMegabytes);
         Assert.NotNull(statistics.AverageSizeReductionPercent);
         Assert.Equal(
             Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 1),
@@ -106,8 +102,7 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         var conversion = Assert.Single(results.OfType<MediaConversionResult>());
         AssertSuccessfulConversionResult(conversion, inputPath, expectedOutput);
 
-        var statistics = Assert.Single(results.OfType<MediaConversionStatistics>());
-        Assert.Equal(1, statistics.FileCount);
+        Assert.Empty(results.OfType<MediaConversionStatistics>());
 
         var subtitles = Assert.Single(results.OfType<SubtitleProcessingResult>());
         Assert.Equal(1, subtitles.ExtractedCount);

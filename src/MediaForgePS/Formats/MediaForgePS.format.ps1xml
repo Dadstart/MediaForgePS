@@ -407,12 +407,12 @@
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f ($_.InputSizeBytes / 1MB)
+                  '{0:0.0} MB' -f $_.InputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f ($_.OutputSizeBytes / 1MB)
+                  '{0:0.0} MB' -f $_.OutputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
@@ -474,12 +474,12 @@
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f ($_.AverageInputSizeBytes / 1MB)
+                  '{0:0.0} MB' -f $_.AverageInputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f ($_.AverageOutputSizeBytes / 1MB)
+                  '{0:0.0} MB' -f $_.AverageOutputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>

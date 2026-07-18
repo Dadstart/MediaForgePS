@@ -256,7 +256,7 @@ Parameters are specified directly.
 ## OUTPUTS
 
 ### MediaConversionResult
-One object per converted bonus file: InputPath, OutputPath, Status, InputSizeBytes, OutputSizeBytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.
+One object per converted bonus file: InputPath, OutputPath, Status, InputSizeMegabytes, OutputSizeMegabytes, SizeReductionPercent, and ProcessingTime. Status is `Success` when conversion completed.
 
 ### SubtitleProcessingResult
 When subtitles are extracted (unless `-SkipSubtitles`): ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths.

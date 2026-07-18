@@ -35,11 +35,11 @@ public class ConversionStatisticsE2ETests : E2ETestBase
         Assert.Equal(2, statistics.FileCount);
         Assert.NotNull(statistics.AverageSizeReductionPercent);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.InputSizeBytes)),
-            statistics.AverageInputSizeBytes);
+            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 1),
+            statistics.AverageInputSizeMegabytes);
         Assert.Equal(
-            (long)Math.Round(conversions.Average(c => c.OutputSizeBytes)),
-            statistics.AverageOutputSizeBytes);
+            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 1),
+            statistics.AverageOutputSizeMegabytes);
         Assert.Equal(
             Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 1),
             statistics.AverageSizeReductionPercent!.Value,
@@ -52,12 +52,16 @@ public class ConversionStatisticsE2ETests : E2ETestBase
     {
         using var ps = ImportPackedModule();
 
+        var inputDir = CreateTempDirectory();
         var outputDir = CreateTempDirectory();
+        File.Copy(SampleVideoPath, Path.Combine(inputDir, "episode-one.mkv"));
+        File.Copy(SampleVideoPath, Path.Combine(inputDir, "episode-two.mkv"));
 
-        ps.AddCommand("Convert-MediaFiles")
-            .AddParameter("InputPath", new object[] { SampleVideoPath })
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", inputDir)
             .AddParameter("OutputDirectory", outputDir)
-            .AddParameter("DefaultVideoEncoder", "x264");
+            .AddParameter("DefaultVideoEncoder", "x264")
+            .AddParameter("SkipSubtitles");
         ps.AddCommand("Where-Object")
             .AddParameter("FilterScript", System.Management.Automation.ScriptBlock.Create(
                 "$_ -is [Dadstart.Labs.MediaForge.Models.MediaConversionStatistics]"));

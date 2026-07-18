@@ -38,6 +38,30 @@ public class MediaConversionHelperTests
     }
 
     [Theory]
+    [InlineData(0, 0.0)]
+    [InlineData(524288, 0.5)]
+    [InlineData(1048576, 1.0)]
+    [InlineData(1572864, 1.5)]
+    public void BytesToMegabytes_ReturnsExpectedValue(long bytes, double expected)
+    {
+        var result = MediaConversionHelper.BytesToMegabytes(bytes);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(0.0, "0.0 MB")]
+    [InlineData(0.5, "0.5 MB")]
+    [InlineData(1.0, "1.0 MB")]
+    [InlineData(1.5, "1.5 MB")]
+    public void FormatMegabytes_ReturnsExpectedValue(double megabytes, string expected)
+    {
+        var result = MediaConversionHelper.FormatMegabytes(megabytes);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
     [InlineData(0, 0, 45, "00:45")]
     [InlineData(0, 2, 30, "02:30")]
     [InlineData(1, 5, 0, "1:05:00")]
@@ -82,8 +106,8 @@ public class MediaConversionHelperTests
             @"C:\in.mkv",
             @"C:\out.mp4",
             MediaConversionResult.CompletedStatus,
-            1 << 20,
-            512 * 1024,
+            1.0,
+            0.5,
             50.0,
             TimeSpan.FromSeconds(95));
 
@@ -118,8 +142,8 @@ public class MediaConversionHelperTests
         var statistics = new MediaConversionStatistics(
             2,
             50.0,
-            1 << 20,
-            512 * 1024,
+            1.0,
+            0.5,
             TimeSpan.FromSeconds(95));
 
         var line = MediaConversionHelper.FormatConversionStatisticsLine(statistics);
@@ -148,8 +172,8 @@ public class MediaConversionHelperTests
                 @"C:\a.mkv",
                 @"C:\a.mp4",
                 MediaConversionResult.CompletedStatus,
-                1000,
-                400,
+                1.0,
+                0.4,
                 60.0,
                 TimeSpan.FromSeconds(10)),
         };
@@ -158,8 +182,8 @@ public class MediaConversionHelperTests
 
         Assert.Equal(1, statistics.FileCount);
         Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
-        Assert.Equal(1000, statistics.AverageInputSizeBytes);
-        Assert.Equal(400, statistics.AverageOutputSizeBytes);
+        Assert.Equal(1.0, statistics.AverageInputSizeMegabytes);
+        Assert.Equal(0.4, statistics.AverageOutputSizeMegabytes);
         Assert.Equal(TimeSpan.FromSeconds(10), statistics.AverageProcessingTime);
     }
 
@@ -182,8 +206,8 @@ public class MediaConversionHelperTests
                 "Success",
                 TimeSpan.FromSeconds(12));
 
-            Assert.Equal(1000, result.InputSizeBytes);
-            Assert.Equal(400, result.OutputSizeBytes);
+            Assert.Equal(MediaConversionHelper.BytesToMegabytes(1000), result.InputSizeMegabytes);
+            Assert.Equal(MediaConversionHelper.BytesToMegabytes(400), result.OutputSizeMegabytes);
             Assert.Equal(60.0, result.SizeReductionPercent);
             Assert.Equal(TimeSpan.FromSeconds(12), result.ProcessingTime);
             Assert.Equal(inputPath, result.FilePath);
