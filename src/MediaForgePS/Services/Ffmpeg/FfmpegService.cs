@@ -51,7 +51,8 @@ public class FfmpegService : IFfmpegService
             return;
         }
 
-        var tempOutputPath = AtomicFileHelper.CreateTempSiblingPath(outputPath);
+        var tempOutputPath = AtomicFileHelper.CreateTempOutputPath(outputPath);
+        var tempDirectory = Path.GetDirectoryName(tempOutputPath);
         try
         {
             var allArguments = BuildArguments(inputPath, tempOutputPath, arguments, trackProgress: progress is not null);
@@ -61,14 +62,9 @@ public class FfmpegService : IFfmpegService
             HandleResult(result, inputPath, outputPath);
             AtomicFileHelper.PromoteTempFile(tempOutputPath, outputPath);
         }
-        catch
-        {
-            AtomicFileHelper.TryDelete(tempOutputPath);
-            throw;
-        }
         finally
         {
-            AtomicFileHelper.TryDelete(tempOutputPath);
+            AtomicFileHelper.TryDeleteDirectory(tempDirectory);
         }
     }
 

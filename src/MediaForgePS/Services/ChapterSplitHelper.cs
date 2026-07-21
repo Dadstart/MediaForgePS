@@ -245,7 +245,8 @@ public static class ChapterSplitHelper
                 $"Splitting chapters {chapterStart + 1}-{chapterEnd + 1} ({startTimeCode} - {durationTimeCode}) -> {outputFileName}",
                 ConsoleColor.Yellow);
 
-            var tempOutputFile = AtomicFileHelper.CreateTempSiblingPath(outputFile);
+            var tempOutputFile = AtomicFileHelper.CreateTempOutputPath(outputFile);
+            var tempDirectory = Path.GetDirectoryName(tempOutputFile);
             try
             {
                 var ffmpegArgs = new List<string>
@@ -268,14 +269,9 @@ public static class ChapterSplitHelper
                 result.EnsureProcessSuccess($"ffmpeg chapter split for '{outputFile}'");
                 AtomicFileHelper.PromoteTempFile(tempOutputFile, outputFile);
             }
-            catch
-            {
-                AtomicFileHelper.TryDelete(tempOutputFile);
-                throw;
-            }
             finally
             {
-                AtomicFileHelper.TryDelete(tempOutputFile);
+                AtomicFileHelper.TryDeleteDirectory(tempDirectory);
             }
 
             writeHostMessage?.Invoke($"Successfully created: {outputFile}", ConsoleColor.Green);

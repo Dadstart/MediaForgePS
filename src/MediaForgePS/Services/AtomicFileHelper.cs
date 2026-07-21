@@ -5,11 +5,38 @@ using System.Text;
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Same-directory temporary file helpers for crash-safe writes and promotions.
+/// Temporary file helpers for crash-safe writes, conversion staging, and promotions.
 /// </summary>
 public static class AtomicFileHelper
 {
     private const string TempSuffix = ".mediaforge.tmp";
+    private const string TempDirectoryPrefix = "MediaForgePS_";
+
+    /// <summary>
+    /// Creates a unique directory under the system temp path for staging conversion outputs.
+    /// </summary>
+    public static string CreateTempDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), TempDirectoryPrefix + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    /// <summary>
+    /// Creates a staging path under a unique system temp directory for <paramref name="finalPath"/>.
+    /// Preserves the final file name (and extension) so tools like FFmpeg can detect the output format.
+    /// Callers must delete the parent directory with <see cref="TryDeleteDirectory"/> when finished.
+    /// </summary>
+    public static string CreateTempOutputPath(string finalPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
+
+        var fileName = Path.GetFileName(Path.GetFullPath(finalPath));
+        if (string.IsNullOrEmpty(fileName))
+            throw new ArgumentException("Final path must include a file name.", nameof(finalPath));
+
+        return Path.Combine(CreateTempDirectory(), fileName);
+    }
 
     /// <summary>
     /// Creates a sibling temporary path for <paramref name="finalPath"/> in the same directory.
@@ -79,6 +106,26 @@ public static class AtomicFileHelper
         try
         {
             File.Delete(path);
+        }
+        catch (Exception ex) when (
+            ex is IOException
+                or UnauthorizedAccessException
+                or DirectoryNotFoundException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Deletes a directory when it exists. Swallows expected I/O failures so callers can clean up best-effort.
+    /// </summary>
+    public static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        try
+        {
+            Directory.Delete(path, recursive: true);
         }
         catch (Exception ex) when (
             ex is IOException
