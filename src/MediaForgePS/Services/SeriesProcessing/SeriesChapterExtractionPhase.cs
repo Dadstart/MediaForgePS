@@ -63,7 +63,7 @@ internal sealed class SeriesChapterExtractionPhase(
         int chapterDurationSeconds,
         CancellationToken cancellationToken)
     {
-        string? tempClipPath = null;
+        string? tempDirectory = null;
         try
         {
             var media = mediaReaderService.GetMediaFileAsync(filePath, cancellationToken)
@@ -85,7 +85,8 @@ internal sealed class SeriesChapterExtractionPhase(
             var chapter = media.Chapters[chapterNumber - 1];
             var startTime = TimeSpan.FromSeconds((double)chapter.StartTime);
             var clipPath = Path.Combine(chapterDir, $"{Path.GetFileNameWithoutExtension(filePath)}.chapter{chapterNumber:D2}.mp4");
-            tempClipPath = AtomicFileHelper.CreateTempSiblingPath(clipPath);
+            var tempClipPath = AtomicFileHelper.CreateTempOutputPath(clipPath);
+            tempDirectory = Path.GetDirectoryName(tempClipPath);
 
             var arguments = new[]
             {
@@ -119,7 +120,7 @@ internal sealed class SeriesChapterExtractionPhase(
         }
         finally
         {
-            AtomicFileHelper.TryDelete(tempClipPath);
+            AtomicFileHelper.TryDeleteDirectory(tempDirectory);
         }
     }
 }

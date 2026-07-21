@@ -111,12 +111,11 @@ public class MediaConversionService : IMediaConversionService
             return;
         }
 
-        var passLogFile = Path.Combine(
-            Path.GetDirectoryName(Path.GetFullPath(resolvedOutputPath)) ?? Directory.GetCurrentDirectory(),
-            Path.GetFileNameWithoutExtension(resolvedOutputPath) + ".mediaforge.passlog");
-
+        var workDirectory = AtomicFileHelper.CreateTempDirectory();
         try
         {
+            var passLogFile = Path.Combine(workDirectory, "passlog");
+
             // First pass maps to 0-50%; second pass maps to 50-100%.
             var firstPassProgress = CreatePassProgress(progress, passOffsetPercent: 0, passWeightPercent: 50);
             var pass1Args = new List<string>(BuildFfmpegArguments(videoSettings, audioMappings, 1, passLogFile, additionalArguments))
@@ -144,17 +143,8 @@ public class MediaConversionService : IMediaConversionService
         }
         finally
         {
-            CleanupPassLogFiles(passLogFile);
+            AtomicFileHelper.TryDeleteDirectory(workDirectory);
         }
-    }
-
-    private static void CleanupPassLogFiles(string passLogFile)
-    {
-        AtomicFileHelper.TryDelete(passLogFile);
-        AtomicFileHelper.TryDelete(passLogFile + "-0.log");
-        AtomicFileHelper.TryDelete(passLogFile + ".log");
-        AtomicFileHelper.TryDelete(passLogFile + "-0.log.mbtree");
-        AtomicFileHelper.TryDelete(passLogFile + ".log.mbtree");
     }
 
     private static IProgress<FfmpegProgress>? CreatePassProgress(

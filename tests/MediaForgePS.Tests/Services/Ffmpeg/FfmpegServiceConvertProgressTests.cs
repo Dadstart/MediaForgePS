@@ -59,7 +59,10 @@ public class FfmpegServiceConvertProgressTests : IDisposable
                 Assert.Contains("pipe:1", argumentList);
                 Assert.Contains("-i", argumentList);
                 Assert.Contains(inputPath, argumentList);
-                Assert.Contains(argumentList, arg => arg.Contains(".mediaforge.tmp.", StringComparison.Ordinal));
+                Assert.Contains(argumentList, arg =>
+                    Path.GetDirectoryName(arg)?.StartsWith(
+                        Path.Combine(Path.GetTempPath(), "MediaForgePS_"),
+                        StringComparison.OrdinalIgnoreCase) == true);
                 File.WriteAllText(argumentList[^1], "encoded");
 
                 callback("out_time=00:00:05.000000");

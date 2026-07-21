@@ -73,6 +73,15 @@ public class MediaConversionServiceProgressTests
         Assert.Contains("-pass", capturedArgs[1]);
         Assert.Contains("2", capturedArgs[1]);
         Assert.DoesNotContain("-an", capturedArgs[1]);
+
+        var passLogIndex = Array.IndexOf(capturedArgs[0], "-passlogfile");
+        Assert.True(passLogIndex >= 0);
+        var passLogPath = capturedArgs[0][passLogIndex + 1];
+        Assert.StartsWith(
+            Path.Combine(Path.GetTempPath(), "MediaForgePS_"),
+            Path.GetDirectoryName(passLogPath),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.False(Directory.Exists(Path.GetDirectoryName(passLogPath)));
     }
 
     [Fact]

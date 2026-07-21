@@ -65,10 +65,14 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Contains("-crf", capturedArgs);
         Assert.Contains("23", capturedArgs);
         Assert.Equal("-y", capturedArgs[^2]);
-        Assert.EndsWith(".mediaforge.tmp." + Path.GetFileName(capturedArgs[^1]).Split(".mediaforge.tmp.")[1], capturedArgs[^1], StringComparison.Ordinal);
+        Assert.Equal("final cut.mp4", Path.GetFileName(capturedArgs[^1]));
+        Assert.StartsWith(
+            Path.Combine(Path.GetTempPath(), "MediaForgePS_"),
+            Path.GetDirectoryName(capturedArgs[^1]),
+            StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(outputPath));
         Assert.Equal("encoded", File.ReadAllText(outputPath));
-        Assert.Empty(Directory.GetFiles(_tempDir, "*.mediaforge.tmp.*"));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(capturedArgs[^1])));
     }
 
     [Fact]
@@ -114,8 +118,13 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Contains("-progress", capturedArgs);
         Assert.Contains("pipe:1", capturedArgs);
         Assert.Equal(inputPath, capturedArgs[Array.IndexOf(capturedArgs, "-i") + 1]);
-        Assert.Contains(".mediaforge.tmp.", capturedArgs[^1], StringComparison.Ordinal);
+        Assert.Equal("episode 01.mp4", Path.GetFileName(capturedArgs[^1]));
+        Assert.StartsWith(
+            Path.Combine(Path.GetTempPath(), "MediaForgePS_"),
+            Path.GetDirectoryName(capturedArgs[^1]),
+            StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(outputPath));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(capturedArgs[^1])));
     }
 
     [Fact]
@@ -125,6 +134,7 @@ public class FfmpegServiceConvertResultTests : IDisposable
         var outputPath = Path.Combine(_tempDir, "output.mp4");
         File.WriteAllText(inputPath, "input");
         File.WriteAllText(outputPath, "existing");
+        string? stagedDirectory = null;
 
         var executableMock = new Mock<IExecutableService>();
         executableMock
@@ -132,7 +142,12 @@ public class FfmpegServiceConvertResultTests : IDisposable
                 "ffmpeg",
                 It.IsAny<IEnumerable<string>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(string.Empty, "Conversion failed: invalid codec", 1));
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            {
+                stagedDirectory = Path.GetDirectoryName(args.Last());
+                File.WriteAllText(args.Last(), "partial");
+                return new ExecutableResult(string.Empty, "Conversion failed: invalid codec", 1);
+            });
 
         var service = CreateService(executableMock.Object);
 
@@ -147,7 +162,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Equal(1, ex.ExitCode);
         Assert.Equal("Conversion failed: invalid codec", ex.ErrorOutput);
         Assert.Equal("existing", File.ReadAllText(outputPath));
-        Assert.Empty(Directory.GetFiles(_tempDir, "*.mediaforge.tmp.*"));
+        Assert.NotNull(stagedDirectory);
+        Assert.False(Directory.Exists(stagedDirectory));
     }
 
     [Fact]
@@ -179,11 +195,44 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Equal(outputPath, ex.OutputPath);
         Assert.Null(ex.ExitCode);
         Assert.False(File.Exists(outputPath));
-        Assert.Empty(Directory.GetFiles(_tempDir, "*.mediaforge.tmp.*"));
     }
 
     [Fact]
-    public async Task ConvertAsync_NullMuxerOutput_DoesNotCreateTempSibling()
+    public async Task ConvertAsync_WhenCancelled_CleansUpTempDirectory()
+    {
+        var inputPath = Path.Combine(_tempDir, "input.mkv");
+        var outputPath = Path.Combine(_tempDir, "output.mp4");
+        File.WriteAllText(inputPath, "input");
+        string? stagedDirectory = null;
+
+        var executableMock = new Mock<IExecutableService>();
+        executableMock
+            .Setup(service => service.ExecuteAsync(
+                "ffmpeg",
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((string _, IEnumerable<string> args, CancellationToken _) =>
+            {
+                stagedDirectory = Path.GetDirectoryName(args.Last());
+                File.WriteAllText(args.Last(), "partial");
+                return Task.FromException<ExecutableResult>(new OperationCanceledException());
+            });
+
+        var service = CreateService(executableMock.Object);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            service.ConvertAsync(
+                inputPath,
+                outputPath,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.False(File.Exists(outputPath));
+        Assert.NotNull(stagedDirectory);
+        Assert.False(Directory.Exists(stagedDirectory));
+    }
+
+    [Fact]
+    public async Task ConvertAsync_NullMuxerOutput_DoesNotStageTempDirectory()
     {
         var inputPath = Path.Combine(_tempDir, "input.mkv");
         File.WriteAllText(inputPath, "input");
@@ -210,7 +259,7 @@ public class FfmpegServiceConvertResultTests : IDisposable
 
         Assert.NotNull(capturedArgs);
         Assert.Equal("NUL", capturedArgs[^1]);
-        Assert.DoesNotContain(capturedArgs, arg => arg.Contains(".mediaforge.tmp.", StringComparison.Ordinal));
+        Assert.Equal("-y", capturedArgs[^2]);
     }
 
     [Fact]

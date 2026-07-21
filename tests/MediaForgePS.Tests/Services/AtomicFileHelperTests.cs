@@ -35,6 +35,57 @@ public class AtomicFileHelperTests : IDisposable
     }
 
     [Fact]
+    public void CreateTempDirectory_CreatesUniqueDirectoryUnderSystemTemp()
+    {
+        var path = AtomicFileHelper.CreateTempDirectory();
+        try
+        {
+            Assert.True(Directory.Exists(path));
+            Assert.Equal(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetDirectoryName(path));
+            Assert.StartsWith("MediaForgePS_", Path.GetFileName(path), StringComparison.Ordinal);
+        }
+        finally
+        {
+            AtomicFileHelper.TryDeleteDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void CreateTempOutputPath_PreservesFileNameUnderSystemTempDirectory()
+    {
+        var finalPath = Path.Combine(_tempDir, "final cut.mp4");
+
+        var tempPath = AtomicFileHelper.CreateTempOutputPath(finalPath);
+        var tempDirectory = Path.GetDirectoryName(tempPath);
+        try
+        {
+            Assert.Equal("final cut.mp4", Path.GetFileName(tempPath));
+            Assert.NotEqual(Path.GetDirectoryName(finalPath), tempDirectory);
+            Assert.StartsWith(
+                Path.Combine(Path.GetTempPath(), "MediaForgePS_"),
+                tempDirectory,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.True(Directory.Exists(tempDirectory));
+        }
+        finally
+        {
+            AtomicFileHelper.TryDeleteDirectory(tempDirectory);
+        }
+    }
+
+    [Fact]
+    public void TryDeleteDirectory_RemovesDirectoryAndContents()
+    {
+        var directory = AtomicFileHelper.CreateTempDirectory();
+        File.WriteAllText(Path.Combine(directory, "staging.mp4"), "data");
+
+        AtomicFileHelper.TryDeleteDirectory(directory);
+
+        Assert.False(Directory.Exists(directory));
+    }
+
+    [Fact]
     public void WriteTextAtomically_CreatesFinalFileWithoutLeavingTemp()
     {
         var finalPath = Path.Combine(_tempDir, "file.srt");
