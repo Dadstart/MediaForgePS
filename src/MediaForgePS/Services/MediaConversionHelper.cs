@@ -172,11 +172,11 @@ public static class MediaConversionHelper
     public static string FormatConversionResultLine(MediaConversionResult result)
     {
         if (!IsCompletedConversion(result))
-            return $"{Path.GetFileName(result.InputPath)} — {result.Status}";
+            return $"{PathHelper.GetFileName(result.InputPath)} — {result.Status}";
 
         var sizeChange = FormatSizeReduction(result.SizeReductionPercent);
         var sizes = $"{FormatMegabytes(result.InputSizeMegabytes)} → {FormatMegabytes(result.OutputSizeMegabytes)}";
-        return $"{Path.GetFileName(result.OutputPath)} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
+        return $"{PathHelper.GetFileName(result.OutputPath)} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
     }
 
     /// <summary>

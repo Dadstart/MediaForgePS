@@ -396,7 +396,7 @@
             <TableColumnItems>
               <TableColumnItem>
                 <ScriptBlock>
-                  [System.IO.Path]::GetFileName($_.OutputPath)
+                  [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_.OutputPath)
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
@@ -532,13 +532,13 @@
               <TableColumnItem>
                 <ScriptBlock>
                   if ($null -eq $_.ExtractedPaths -or $_.ExtractedPaths.Count -eq 0) { '' }
-                  else { ($_.ExtractedPaths | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ', ' }
+                  else { ($_.ExtractedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
                   if ($null -eq $_.ConvertedPaths -or $_.ConvertedPaths.Count -eq 0) { '' }
-                  else { ($_.ConvertedPaths | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ', ' }
+                  else { ($_.ConvertedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
                 </ScriptBlock>
               </TableColumnItem>
             </TableColumnItems>
