@@ -1,3 +1,4 @@
+using System.Text;
 using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -74,9 +75,48 @@ public class FfmpegArgumentBuilder
         if (string.IsNullOrWhiteSpace(title))
             return this;
 
-        _argumentBuilder.AddOption($"-metadata:s:{streamType}:{destinationIndex}", $"title={title}");
+        _argumentBuilder.AddOption(
+            $"-metadata:s:{streamType}:{destinationIndex}",
+            $"title={EscapeMetadataValue(title)}");
         return this;
     }
+
+    /// <summary>
+    /// Escapes a metadata value per FFmpeg metadata rules.
+    /// Characters <c>=</c>, <c>;</c>, <c>#</c>, <c>\</c>, and newline are prefixed with a backslash.
+    /// </summary>
+    /// <param name="value">Unescaped metadata value.</param>
+    /// <returns>Escaped value safe for FFmpeg metadata key=value forms.</returns>
+    internal static string EscapeMetadataValue(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var needsEscape = false;
+        foreach (var c in value)
+        {
+            if (IsMetadataSpecialCharacter(c))
+            {
+                needsEscape = true;
+                break;
+            }
+        }
+
+        if (!needsEscape)
+            return value;
+
+        var builder = new StringBuilder(value.Length * 2);
+        foreach (var c in value)
+        {
+            if (IsMetadataSpecialCharacter(c))
+                builder.Append('\\');
+            builder.Append(c);
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsMetadataSpecialCharacter(char c) =>
+        c is '=' or ';' or '#' or '\\' or '\n';
 
     /// <summary>
     /// Adds a preset argument for encoding.
