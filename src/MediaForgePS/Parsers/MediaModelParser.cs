@@ -159,8 +159,9 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
             ?? throw new JsonException("Failed to deserialize MediaChapter from JSON");
         _logger.LogInformation("Deserialized MediaChapter");
 
-        chapter.Tags.TryGetValue("title", out var title);
-        return chapter with { Title = title, Raw = json };
+        var tags = chapter.Tags ?? [];
+        tags.TryGetValue("title", out var title);
+        return chapter with { Title = title, Tags = tags, Raw = json };
     }
 
     /// <inheritdoc />
@@ -194,8 +195,9 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         var format = JsonSerializer.Deserialize(json, MediaForgeJsonContext.Default.MediaFormat)
             ?? throw new JsonException("Failed to deserialize MediaFormat from JSON");
         _logger.LogInformation("Deserialized MediaFormat");
-        format.Tags.TryGetValue("title", out var title);
-        return format with { Title = title, Raw = json };
+        var tags = format.Tags ?? [];
+        tags.TryGetValue("title", out var title);
+        return format with { Title = title, Tags = tags, Raw = json };
     }
 
     /// <inheritdoc />
@@ -231,15 +233,14 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
             ?? throw new JsonException("Failed to deserialize MediaStream from JSON");
         _logger.LogInformation("Deserialized MediaStream");
 
-        stream.Tags.TryGetValue("language", out var language);
+        var tags = stream.Tags ?? [];
+        tags.TryGetValue("language", out var language);
         TimeSpan duration = TimeSpan.Zero;
 
-        if (language is not null && stream.Tags.TryGetValue($"DURATION-{language}", out var durationStr))
-        {
+        if (language is not null && tags.TryGetValue($"DURATION-{language}", out var durationStr))
             duration = ParseDuration(durationStr);
-        }
 
-        return stream with { Language = language, Duration = duration, Raw = json };
+        return stream with { Language = language, Duration = duration, Tags = tags, Raw = json };
     }
 
     /// <inheritdoc />

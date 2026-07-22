@@ -76,6 +76,28 @@ public class MediaModelParserTests
     }
 
     [Fact]
+    public void ParseChapter_WithMissingTags_ReturnsEmptyTagsAndNullTitle()
+    {
+        // Arrange — ffprobe often omits "tags" entirely
+        var json = """
+            {
+                "id": "123",
+                "start_time": 0.000000,
+                "end_time": 100.000000
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseChapter(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Tags);
+        Assert.Empty(result.Tags);
+        Assert.Null(result.Title);
+    }
+
+    [Fact]
     public void ParseChapter_WithNullJson_ThrowsArgumentException()
     {
         // Arrange
@@ -213,6 +235,33 @@ public class MediaModelParserTests
     }
 
     [Fact]
+    public void ParseFormat_WithMissingTags_ReturnsEmptyTagsAndNullTitle()
+    {
+        // Arrange — ffprobe often omits "tags" entirely
+        var json = """
+            {
+                "filename": "test.mkv",
+                "nb_streams": 1,
+                "format_name": "matroska",
+                "format_long_name": "Matroska",
+                "start_time": 0.000000,
+                "duration": 100.000000,
+                "size": 1000,
+                "bit_rate": 100
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseFormat(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Tags);
+        Assert.Empty(result.Tags);
+        Assert.Null(result.Title);
+    }
+
+    [Fact]
     public void ParseFormat_WithNullJson_ThrowsArgumentException()
     {
         // Arrange
@@ -305,6 +354,31 @@ public class MediaModelParserTests
 
         // Assert
         Assert.NotNull(result);
+        Assert.Null(result.Language);
+        Assert.Equal(TimeSpan.Zero, result.Duration);
+    }
+
+    [Fact]
+    public void ParseStream_WithMissingTags_ReturnsEmptyTagsAndNullLanguage()
+    {
+        // Arrange — ffprobe often omits "tags" entirely
+        var json = """
+            {
+                "index": 0,
+                "codec_name": "h264",
+                "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+                "profile": "High",
+                "codec_type": "video"
+            }
+            """;
+
+        // Act
+        var result = _parser.ParseStream(json);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Tags);
+        Assert.Empty(result.Tags);
         Assert.Null(result.Language);
         Assert.Equal(TimeSpan.Zero, result.Duration);
     }
