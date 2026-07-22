@@ -63,6 +63,8 @@ public record VariableRateVideoEncodingSettings(
         builder
             .AddDestinationCodec(StreamType, FfmpegCodecName)
             .AddPreset(Preset)
+            .AddProfile(CodecProfile)
+            .AddTune(Tune)
             .AddBitrate(StreamType, 0, Bitrate)
             .AddPixelFormat(PixelFormat);
 

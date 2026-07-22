@@ -130,6 +130,34 @@ public class FfmpegArgumentBuilder
     }
 
     /// <summary>
+    /// Adds a video codec profile argument (e.g. <c>-profile:v high</c>).
+    /// </summary>
+    /// <param name="profile">The codec profile (only added if not null or whitespace).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddProfile(string? profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile))
+            return this;
+
+        _argumentBuilder.AddOption("-profile:v", profile);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a codec tune argument (e.g. <c>-tune film</c>).
+    /// </summary>
+    /// <param name="tune">The tune option (only added if not null or whitespace).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddTune(string? tune)
+    {
+        if (string.IsNullOrWhiteSpace(tune))
+            return this;
+
+        _argumentBuilder.AddOption("-tune", tune);
+        return this;
+    }
+
+    /// <summary>
     /// Adds a CRF (Constant Rate Factor) argument for quality-based encoding.
     /// </summary>
     /// <param name="crf">The CRF value.</param>

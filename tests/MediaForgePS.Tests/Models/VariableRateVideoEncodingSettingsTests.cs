@@ -51,4 +51,26 @@ public class VariableRateVideoEncodingSettingsTests
         Assert.Contains("-movflags", args);
         Assert.DoesNotContain("-an", args);
     }
+
+    [Fact]
+    public void ToFfmpegArgs_IncludesProfileAndTune()
+    {
+        var settings = new VariableRateVideoEncodingSettings(
+            "libx264",
+            "medium",
+            "high",
+            "film",
+            2500,
+            "yuv420p");
+
+        var args = settings.ToFfmpegArgs(1, @"C:\temp\passlog").ToArray();
+
+        var profileIndex = Array.IndexOf(args, "-profile:v");
+        Assert.True(profileIndex >= 0);
+        Assert.Equal("high", args[profileIndex + 1]);
+
+        var tuneIndex = Array.IndexOf(args, "-tune");
+        Assert.True(tuneIndex >= 0);
+        Assert.Equal("film", args[tuneIndex + 1]);
+    }
 }

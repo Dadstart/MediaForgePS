@@ -18,6 +18,32 @@ public class FfmpegArgumentBuilderTests
     }
 
     [Fact]
+    public void AddProfile_AndAddTune_EmitFfmpegOptions()
+    {
+        var args = new FfmpegArgumentBuilder()
+            .AddProfile("high")
+            .AddTune("film")
+            .ToArguments()
+            .ToArray();
+
+        Assert.Equal(["-profile:v", "high", "-tune", "film"], args);
+    }
+
+    [Fact]
+    public void AddProfile_AndAddTune_WithNullOrWhitespace_OmitArguments()
+    {
+        var args = new FfmpegArgumentBuilder()
+            .AddProfile(null)
+            .AddProfile("   ")
+            .AddTune(null)
+            .AddTune(" ")
+            .ToArguments()
+            .ToArray();
+
+        Assert.Empty(args);
+    }
+
+    [Fact]
     public void AddTitleMetadata_EscapesEqualsSemicolonHashBackslashAndNewline()
     {
         var args = new FfmpegArgumentBuilder()
