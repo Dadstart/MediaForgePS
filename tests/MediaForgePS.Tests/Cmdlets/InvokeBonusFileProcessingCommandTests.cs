@@ -9,6 +9,7 @@ using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,11 +38,16 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             .Returns(_loggerMock.Object);
         _debuggerServiceMock.Setup(debugger => debugger.BreakIfDebugging(It.IsAny<bool>()));
 
+        var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
+        ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
+
         var services = new ServiceCollection();
         services.AddSingleton(_pathResolverMock.Object);
         services.AddSingleton(_mediaReaderServiceMock.Object);
         services.AddSingleton(_mediaConversionServiceMock.Object);
         services.AddSingleton(_executableServiceMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
 

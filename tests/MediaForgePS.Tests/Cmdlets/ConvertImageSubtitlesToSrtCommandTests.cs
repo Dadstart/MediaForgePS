@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -8,6 +7,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,7 +20,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
 {
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<IDebuggerService> _debuggerServiceMock;
-    private readonly Mock<IExecutableService> _executableServiceMock;
+    private readonly Mock<IImageSubtitleOcrConverter> _ocrConverterMock;
     private readonly IServiceProvider _serviceProvider;
     private readonly System.Reflection.FieldInfo? _providerField;
     private readonly System.Reflection.FieldInfo? _initializedField;
@@ -31,7 +31,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
         var loggerMock = new Mock<ILogger<ConvertImageSubtitlesToSrtCommand>>();
         var pathResolverLoggerMock = new Mock<ILogger<PathResolver>>();
         _debuggerServiceMock = new Mock<IDebuggerService>();
-        _executableServiceMock = new Mock<IExecutableService>();
+        _ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
 
         _loggerFactoryMock.Setup(f => f.CreateLogger(It.IsAny<string>()))
             .Returns((string name) =>
@@ -41,27 +41,25 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
                 return loggerMock.Object;
             });
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
+        _ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
+        _ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
+        _ocrConverterMock
+            .Setup(c => c.ConvertToSrt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, outputPath, _) =>
             {
-                var argList = args as IList<string> ?? args.ToList();
-                if (argList.Count >= 2)
-                {
-                    var inputPath = argList[1];
-                    var defaultSrt = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
-                    if (!File.Exists(defaultSrt))
-                        File.WriteAllText(defaultSrt, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-                }
-            })
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+                var dir = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                if (!File.Exists(outputPath))
+                    File.WriteAllText(outputPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
+            });
 
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
-        services.AddSingleton<IExecutableService>(_executableServiceMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(_ocrConverterMock.Object);
         _serviceProvider = services.BuildServiceProvider();
 
         var moduleServicesType = typeof(ModuleServices);
@@ -90,17 +88,6 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
         initialSessionState.Commands.Add(new SessionStateCmdletEntry("Convert-ImageSubtitlesToSrt", typeof(ConvertImageSubtitlesToSrtCommand), null));
         initialSessionState.Commands.Add(new SessionStateAliasEntry("Convert-SupToSrt", "Convert-ImageSubtitlesToSrt"));
         return (initialSessionState, "Convert-ImageSubtitlesToSrt");
-    }
-
-    private static bool SubtitleEditExists()
-    {
-        if (!OperatingSystem.IsWindows())
-            return false;
-        var path = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "Subtitle Edit",
-            "SubtitleEdit.exe");
-        return File.Exists(path);
     }
 
     [Fact]
@@ -133,10 +120,9 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertImageSubtitlesToSrt_WhenSubtitleEditNotFound_WritesError()
+    public void ConvertImageSubtitlesToSrt_WhenTesseractDataNotFound_WritesError()
     {
-        if (OperatingSystem.IsWindows())
-            return;
+        _ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(false);
 
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         var supPath = Path.Combine(tempDir, "test.sup");
@@ -153,7 +139,8 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             var errors = ps.Streams.Error.ReadAll();
 
             Assert.NotEmpty(errors);
-            Assert.True(errors.Any(e => e.CategoryInfo.Category == ErrorCategory.ObjectNotFound), "Expected ObjectNotFound error.");
+            Assert.True(errors.Any(e => e.FullyQualifiedErrorId.Contains("TesseractDataNotFound", StringComparison.Ordinal)),
+                "Expected TesseractDataNotFound error.");
         }
         finally
         {
@@ -186,9 +173,6 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     [Fact]
     public void ConvertImageSubtitlesToSrt_WhenSingleFileSucceeds_OutputsSrtPath()
     {
-        if (!SubtitleEditExists())
-            return;
-
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         var supPath = Path.Combine(tempDir, "test.sup");
         try
@@ -224,52 +208,11 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertImageSubtitlesToSrt_WhenExecutableReturnsNonZero_WritesError()
+    public void ConvertImageSubtitlesToSrt_WhenOcrFails_WritesError()
     {
-        if (!SubtitleEditExists())
-            return;
-
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(null, "OCR failed", 1));
-
-        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
-        var supPath = Path.Combine(tempDir, "test.sup");
-        try
-        {
-            Directory.CreateDirectory(tempDir);
-            File.WriteAllBytes(supPath, Array.Empty<byte>());
-
-            var (initialSessionState, cmdletName) = CreateSessionState();
-            using var ps = PowerShell.Create(initialSessionState);
-            ps.AddCommand(cmdletName).AddParameter("InputPath", supPath);
-
-            var results = ps.Invoke().Select(p => p.BaseObject).ToList();
-            var errors = ps.Streams.Error.ReadAll();
-
-            Assert.NotEmpty(errors);
-            var result = Assert.IsType<SubtitleProcessingResult>(Assert.Single(results));
-            Assert.Equal(0, result.ConvertedCount);
-            Assert.True(File.Exists(supPath));
-        }
-        finally
-        {
-            if (File.Exists(supPath))
-                File.Delete(supPath);
-            if (Directory.Exists(tempDir))
-                Directory.Delete(tempDir, recursive: true);
-        }
-    }
-
-    [Fact]
-    public void ConvertImageSubtitlesToSrt_WhenExecutableThrows_WritesError()
-    {
-        if (!SubtitleEditExists())
-            return;
-
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Process failed to start."));
+        _ocrConverterMock
+            .Setup(c => c.ConvertToSrt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("OCR failed"));
 
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         var supPath = Path.Combine(tempDir, "test.sup");
@@ -302,9 +245,6 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     [Fact]
     public void ConvertImageSubtitlesToSrt_WhenOutputPathResolutionFails_WritesError()
     {
-        if (!SubtitleEditExists())
-            return;
-
         var pathResolverMock = new Mock<IPathResolver>();
         var resolvedPath = string.Empty;
         pathResolverMock
@@ -315,7 +255,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         services.AddSingleton(pathResolverMock.Object);
-        services.AddSingleton<IExecutableService>(_executableServiceMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(_ocrConverterMock.Object);
         var customProvider = services.BuildServiceProvider();
 
         var moduleServicesType = typeof(ModuleServices);
@@ -356,31 +296,8 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     }
 
     [Fact]
-    public void ConvertImageSubtitlesToSrt_WhenCustomOutputPath_MovesSrtToOutputPath()
+    public void ConvertImageSubtitlesToSrt_WhenCustomOutputPath_WritesSrtToOutputPath()
     {
-        if (!SubtitleEditExists())
-            return;
-
-        string? capturedInputPath = null;
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
-            {
-                var argList = args.ToList();
-                if (argList.Count >= 2)
-                    capturedInputPath = argList[1];
-            })
-            .ReturnsAsync(() =>
-            {
-                if (!string.IsNullOrEmpty(capturedInputPath))
-                {
-                    var defaultSrt = Path.ChangeExtension(capturedInputPath, "srt") ?? capturedInputPath + ".srt";
-                    if (!File.Exists(defaultSrt))
-                        File.WriteAllText(defaultSrt, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-                }
-                return new ExecutableResult(null, null, 0);
-            });
-
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         var supPath = Path.Combine(tempDir, "test.sup");
         var customOutput = Path.Combine(tempDir, "output", "custom.srt");
@@ -414,9 +331,6 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     [Fact]
     public void ConvertImageSubtitlesToSrt_WhenDirectoryHasNoSupFiles_OutputsEmptyResult()
     {
-        if (!SubtitleEditExists())
-            return;
-
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -446,9 +360,6 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     [Fact]
     public void ConvertImageSubtitlesToSrt_WithRecurse_FindsSupInSubdirectories()
     {
-        if (!SubtitleEditExists())
-            return;
-
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
         var subDir = Path.Combine(tempDir, "sub");
         var supPath = Path.Combine(subDir, "nested.sup");

@@ -4,6 +4,7 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -36,11 +37,14 @@ public class InvokeSubtitleOcrRepairCommandTests : IDisposable
             });
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
-        var executableMock = new Mock<IExecutableService>();
+        var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
+        ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
+
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
-        services.AddSingleton<IExecutableService>(executableMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();

@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -40,11 +41,15 @@ public class ExportSubtitlesCommandTests : IDisposable
 
         _mediaReaderMock = new Mock<IMediaReaderService>();
         _executableMock = new Mock<IExecutableService>();
+        var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
+        ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
         var services = new ServiceCollection();
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
         services.AddSingleton<IMediaReaderService>(_mediaReaderMock.Object);
         services.AddSingleton<IExecutableService>(_executableMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
         services.AddSingleton<ILogger<PathResolver>>(pathResolverLoggerMock.Object);
         services.AddSingleton<IPathResolver, PathResolver>();
         _serviceProvider = services.BuildServiceProvider();

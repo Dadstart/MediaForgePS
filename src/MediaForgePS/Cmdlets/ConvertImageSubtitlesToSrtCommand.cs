@@ -4,17 +4,18 @@ using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
+/// Converts image-based subtitle files (SUP, SUB) to SRT using libse with Tesseract OCR.
 /// </summary>
 /// <remarks>
 /// Alias: Convert-SupToSrt. Writes a <see cref="SubtitleProcessingResult"/> with conversion counts and SRT paths.
-/// Requires Subtitle Edit under %ProgramFiles%\Subtitle Edit and Tesseract OCR.
+/// Requires Tesseract language data (<c>eng.traineddata</c> by default; set <c>TESSDATA_PREFIX</c> or install under Program Files\Tesseract-OCR\tessdata).
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "ImageSubtitlesToSrt", SupportsShouldProcess = true)]
@@ -48,10 +49,10 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
     public SwitchParameter KeepSource { get; set; }
 
     private readonly List<string> _inputPaths = new();
-    private IExecutableService? _executableService;
+    private IImageSubtitleOcrConverter? _ocrConverter;
     private IPathResolver? _pathResolver;
 
-    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IImageSubtitleOcrConverter OcrConverter => _ocrConverter ??= ModuleServices.GetRequiredService<IImageSubtitleOcrConverter>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     protected override void Begin()
@@ -72,12 +73,11 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
             return;
         }
 
-        var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
-        if (string.IsNullOrEmpty(subtitleEditPath))
+        if (!OcrConverter.IsAvailable)
         {
             WriteError(CreateErrorRecord(
-                new FileNotFoundException($"Subtitle Edit not found. Expected: {WindowsExecutablePathHelper.GetSubtitleEditExpectedPath()}"),
-                "SubtitleEditNotFound",
+                new FileNotFoundException($"Tesseract language data not found. {OcrConverter.ExpectedTessDataDescription}"),
+                "TesseractDataNotFound",
                 ErrorCategory.ObjectNotFound,
                 null));
             return;
@@ -125,7 +125,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
                     MediaConversionHelper.WriteMainProgress(CmdletIO, "Converting image subtitles to SRT", mainStatus, mainPercent, recordType: ProgressRecordType.Processing);
                     MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Converting...", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Processing);
                     var srtPath = Path.ChangeExtension(filePath, "srt") ?? filePath + ".srt";
-                    if (ConvertFile(subtitleEditPath, filePath, srtPath))
+                    if (ConvertFile(filePath, srtPath))
                         writtenPaths.Add(srtPath);
                     MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", fileName, percentComplete: mainPercent, recordType: ProgressRecordType.Completed);
                 }
@@ -147,7 +147,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
                     outputPath = resolvedOutputPath;
                 }
 
-                if (outputPath != null && ConvertFile(subtitleEditPath, resolvedPath, outputPath))
+                if (outputPath != null && ConvertFile(resolvedPath, outputPath))
                     writtenPaths.Add(outputPath);
                 MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Completed", pathDisplayName, recordType: ProgressRecordType.Completed);
             }
@@ -162,7 +162,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
         WriteObject(result);
     }
 
-    private bool ConvertFile(string subtitleEditPath, string inputSubtitlePath, string outputSrtPath)
+    private bool ConvertFile(string inputSubtitlePath, string outputSrtPath)
     {
         var inputFileName = Path.GetFileName(inputSubtitlePath);
         var outputFileName = Path.GetFileName(outputSrtPath);
@@ -175,8 +175,7 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
         try
         {
             ImageSubtitleConversionHelper.ConvertToSrt(
-                ExecutableService,
-                subtitleEditPath,
+                OcrConverter,
                 inputSubtitlePath,
                 outputSrtPath,
                 Logger,

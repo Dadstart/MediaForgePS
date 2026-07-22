@@ -15,7 +15,7 @@ Splits a video file into episode files by chapter ranges and names them using TV
 ```
 Split-SeriesChapters -Title <String> -Season <Int32> [-EpisodeStart <Int32>] [-InputFile] <String>
  [-ChapterRanges] <Object[]> [-OutputPath <String>] [-TvDbSeriesUrl <String>] [-TvDbSeasonUrl <String>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -175,6 +175,36 @@ Specifies how the cmdlet responds to progress updates. Use SilentlyContinue to h
 Type: ActionPreference
 Parameter Sets: (All)
 Aliases: proga
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs. The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
 
 Required: False
 Position: Named

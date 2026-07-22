@@ -5,6 +5,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Module;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -30,12 +31,12 @@ public static class SubtitleOcrRepairWorkflow
 
     /// <summary>
     /// Runs optional OCR conversion and optional repair of OCR-produced SRT files.
-    /// Returns null when workflow cannot continue (for example, Subtitle Edit missing when OCR is required).
+    /// Returns null when workflow cannot continue (for example, Tesseract language data missing when OCR is required).
     /// </summary>
     public static Result? Run(
         ICmdletIO io,
         ILogger logger,
-        IExecutableService executableService,
+        IImageSubtitleOcrConverter ocrConverter,
         IPathResolver pathResolver,
         IReadOnlyList<string> imagePaths,
         IReadOnlyList<string> srtPaths,
@@ -49,12 +50,11 @@ public static class SubtitleOcrRepairWorkflow
         IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (performOcr && imagePaths.Count > 0)
         {
-            var subtitleEditPath = WindowsExecutablePathHelper.GetSubtitleEditPath();
-            if (string.IsNullOrEmpty(subtitleEditPath))
+            if (!ocrConverter.IsAvailable)
             {
                 io.WriteError(new ErrorRecord(
-                    new FileNotFoundException($"Subtitle Edit not found (required to convert {imagePaths.Count} image subtitle(s)). Expected: {WindowsExecutablePathHelper.GetSubtitleEditExpectedPath()}"),
-                    "SubtitleEditNotFound",
+                    new FileNotFoundException($"Tesseract language data not found (required to convert {imagePaths.Count} image subtitle(s)). {ocrConverter.ExpectedTessDataDescription}"),
+                    "TesseractDataNotFound",
                     ErrorCategory.ObjectNotFound,
                     null));
                 return null;
@@ -62,9 +62,8 @@ public static class SubtitleOcrRepairWorkflow
 
             convertedSrtPaths = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
                 io,
-                executableService,
+                ocrConverter,
                 logger,
-                subtitleEditPath,
                 imagePaths,
                 Math.Max(1, throttleLimit),
                 io.WriteError,

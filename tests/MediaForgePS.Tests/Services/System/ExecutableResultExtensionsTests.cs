@@ -55,7 +55,7 @@ public class ExecutableResultExtensionsTests
         var result = new ExecutableResult(null, "ignored", 1, inner);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            result.EnsureProcessSuccess("Subtitle Edit"));
+            result.EnsureProcessSuccess("OCR"));
 
         Assert.Same(inner, ex.InnerException);
         Assert.DoesNotContain("exit code", ex.Message, StringComparison.Ordinal);

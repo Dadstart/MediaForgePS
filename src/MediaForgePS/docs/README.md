@@ -134,7 +134,7 @@ Invoke-VideoCopy -Title "My Show" -Season 1 -Path "C:\Source" -FilePatterns "*.m
 |------|-------------|
 | `ffmpeg`, `ffprobe` | Most cmdlets |
 | `mkvextract` (mkvtoolnix) | Matroska VobSub extraction |
-| Subtitle Edit + Tesseract | Image subtitle OCR (`-Ocr Auto` or `Force`) |
+| Tesseract language data | Image subtitle OCR (`-Ocr Auto` or `Force`) |
 | TVDb (network) | `Invoke-SeasonScan`, TV naming cmdlets |
 
 ## Maintaining help

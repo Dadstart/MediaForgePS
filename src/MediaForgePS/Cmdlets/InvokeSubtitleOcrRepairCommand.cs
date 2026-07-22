@@ -5,6 +5,7 @@ using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// For subtitles already on disk. Equivalent to running <see cref="ConvertImageSubtitlesToSrtCommand"/> on image paths,
 /// then <see cref="RepairSubtitlesCommand"/> on OCR-produced SRT paths only. Pre-existing SRT files in the input are not repaired.
-/// Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
+/// Requires Tesseract language data when any input is SUP or SUB.
 /// Writes a <see cref="SubtitleProcessingResult"/> with conversion counts to the pipeline.
 /// Supports -WhatIf and -Confirm.
 /// </remarks>
@@ -64,10 +65,10 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
     public SwitchParameter Recurse { get; set; }
 
     private readonly List<string> _inputPaths = new();
-    private IExecutableService? _executableService;
+    private IImageSubtitleOcrConverter? _ocrConverter;
     private IPathResolver? _pathResolver;
 
-    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IImageSubtitleOcrConverter OcrConverter => _ocrConverter ??= ModuleServices.GetRequiredService<IImageSubtitleOcrConverter>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     protected override void Begin()
@@ -130,7 +131,7 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
         var ocrResult = SubtitleOcrRepairWorkflow.Run(
             CmdletIO,
             Logger,
-            ExecutableService,
+            OcrConverter,
             PathResolver,
             approvedImagePaths,
             srtPathsFromInput,
