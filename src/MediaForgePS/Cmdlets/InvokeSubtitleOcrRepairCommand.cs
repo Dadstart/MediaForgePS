@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -16,8 +18,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// then <see cref="RepairSubtitlesCommand"/> on OCR-produced SRT paths only. Pre-existing SRT files in the input are not repaired.
 /// Requires Subtitle Edit and Tesseract when any input is SUP or SUB.
 /// Writes a <see cref="SubtitleProcessingResult"/> with conversion counts to the pipeline.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsLifecycle.Invoke, "SubtitleOcrRepair")]
+[Cmdlet(VerbsLifecycle.Invoke, "SubtitleOcrRepair", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 [OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
 {
@@ -108,14 +111,28 @@ public class InvokeSubtitleOcrRepairCommand : ProgressCmdletBase
             return;
         }
 
-        WriteHostMessage($"Processing {imagePaths.Count} image subtitle(s) and {srtPathsFromInput.Count} SRT file(s).", ConsoleColor.Cyan);
+        var actionDescription = SkipRepair.IsPresent
+            ? "Convert image subtitles to SRT"
+            : "Convert image subtitles to SRT and repair";
+        var approvedImagePaths = imagePaths
+            .Where(path => ShouldProcess(path, $"{actionDescription} '{Path.GetFileName(path)}'"))
+            .ToList();
+
+        if (imagePaths.Count > 0 && approvedImagePaths.Count == 0)
+        {
+            WriteHostMessage("No image subtitle files approved for processing.", ConsoleColor.Green);
+            WriteObject(SubtitleProcessingResult.Empty);
+            return;
+        }
+
+        WriteHostMessage($"Processing {approvedImagePaths.Count} image subtitle(s) and {srtPathsFromInput.Count} SRT file(s).", ConsoleColor.Cyan);
 
         var ocrResult = SubtitleOcrRepairWorkflow.Run(
             CmdletIO,
             Logger,
             ExecutableService,
             PathResolver,
-            imagePaths,
+            approvedImagePaths,
             srtPathsFromInput,
             performOcr: true,
             ThrottleLimit,

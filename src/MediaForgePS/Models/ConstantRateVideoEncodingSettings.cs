@@ -36,6 +36,8 @@ public record ConstantRateVideoEncodingSettings(
             .AddSourceMap(0, StreamType, 0)
             .AddDestinationCodec(StreamType, FfmpegCodecName)
             .AddPreset(Preset)
+            .AddProfile(CodecProfile)
+            .AddTune(Tune)
             .AddCrf(CRF)
             .AddPixelFormat(PixelFormat)
             .AddMapMetadata(0)

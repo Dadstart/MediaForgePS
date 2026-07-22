@@ -546,5 +546,41 @@
         </TableRowEntries>
       </TableControl>
     </View>
+    <View>
+      <Name>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult-List</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.SubtitleProcessingResult</TypeName>
+      </ViewSelectedBy>
+      <ListControl>
+        <ListEntries>
+          <ListEntry>
+            <ListItems>
+              <ListItem>
+                <Label>ExtractedCount</Label>
+                <PropertyName>ExtractedCount</PropertyName>
+              </ListItem>
+              <ListItem>
+                <Label>ConvertedCount</Label>
+                <PropertyName>ConvertedCount</PropertyName>
+              </ListItem>
+              <ListItem>
+                <Label>ExtractedPaths</Label>
+                <ScriptBlock>
+                  if ($null -eq $_.ExtractedPaths -or $_.ExtractedPaths.Count -eq 0) { '' }
+                  else { ($_.ExtractedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>ConvertedPaths</Label>
+                <ScriptBlock>
+                  if ($null -eq $_.ConvertedPaths -or $_.ConvertedPaths.Count -eq 0) { '' }
+                  else { ($_.ConvertedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
+                </ScriptBlock>
+              </ListItem>
+            </ListItems>
+          </ListEntry>
+        </ListEntries>
+      </ListControl>
+    </View>
   </ViewDefinitions>
 </Configuration>

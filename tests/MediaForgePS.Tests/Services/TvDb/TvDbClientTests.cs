@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -81,6 +82,36 @@ public class TvDbClientTests
     }
 
     [Fact]
+    public async Task GetSeasonEpisodesAsync_WhenNextLinkNeverEnds_ThrowsAfterPageCap()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            return JsonResponse(
+                """
+                {
+                  "status":"success",
+                  "data":{
+                    "episodes":[
+                      {"id":1,"name":"Pilot","number":1,"seasonNumber":1}
+                    ]
+                  },
+                  "links":{"next":"https://api4.thetvdb.com/v4/series/1/episodes/official?page=1"}
+                }
+                """);
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key");
+        var ex = await Assert.ThrowsAsync<TvDbApiException>(
+            () => client.GetSeasonEpisodesAsync(1, 1, "official", TestContext.Current.CancellationToken));
+
+        Assert.Equal("TvDbPaginationLimitExceeded", ex.ErrorId);
+        Assert.Equal(1 + TvDbClient.MaxSeasonEpisodePages, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task GetSeasonEpisodesAsync_WhenApiKeyMissing_ThrowsTvDbApiException()
     {
         var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("HTTP should not be called."));
@@ -140,12 +171,133 @@ public class TvDbClientTests
         Assert.Equal($"MediaForgePS/{expectedVersion}", userAgent);
     }
 
-    private static TvDbClient CreateClient(HttpMessageHandler handler, string? apiKey, string? pin = null) =>
+    [Fact]
+    public async Task SendAuthenticated_RetriesTransient5xxThenSucceeds()
+    {
+        var delays = new List<TimeSpan>();
+        var seriesAttempts = 0;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            seriesAttempts++;
+            if (seriesAttempts < 3)
+                return JsonResponse("""{"status":"error"}""", HttpStatusCode.ServiceUnavailable);
+
+            return JsonResponse("""{"status":"success","data":{"id":42,"name":"Show","slug":"show"}}""");
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key", delayAsync: (delay, _) =>
+        {
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var seriesId = await client.ResolveSeriesIdAsync("show", TestContext.Current.CancellationToken);
+
+        Assert.Equal(42, seriesId);
+        Assert.Equal(3, seriesAttempts);
+        Assert.Equal(2, delays.Count);
+        Assert.Equal(TimeSpan.FromMilliseconds(200), delays[0]);
+        Assert.Equal(TimeSpan.FromMilliseconds(400), delays[1]);
+    }
+
+    [Fact]
+    public async Task Login_RetriesTransient5xxThenSucceeds()
+    {
+        var loginAttempts = 0;
+        var delays = new List<TimeSpan>();
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+            {
+                loginAttempts++;
+                if (loginAttempts < 2)
+                    return JsonResponse("""{"status":"error"}""", HttpStatusCode.InternalServerError);
+
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+            }
+
+            return JsonResponse("""{"status":"success","data":{"id":7,"name":"Show","slug":"show"}}""");
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key", delayAsync: (delay, _) =>
+        {
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var seriesId = await client.ResolveSeriesIdAsync("show", TestContext.Current.CancellationToken);
+
+        Assert.Equal(7, seriesId);
+        Assert.Equal(2, loginAttempts);
+        Assert.Equal([TimeSpan.FromMilliseconds(200)], delays);
+    }
+
+    [Fact]
+    public async Task SendAuthenticated_RetriesTimeoutThenSucceeds()
+    {
+        var seriesAttempts = 0;
+        var delays = new List<TimeSpan>();
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            seriesAttempts++;
+            if (seriesAttempts == 1)
+                throw new TaskCanceledException("Simulated HttpClient timeout");
+
+            return JsonResponse("""{"status":"success","data":{"id":99,"name":"Show","slug":"show"}}""");
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key", delayAsync: (delay, _) =>
+        {
+            delays.Add(delay);
+            return Task.CompletedTask;
+        });
+
+        var seriesId = await client.ResolveSeriesIdAsync("show", TestContext.Current.CancellationToken);
+
+        Assert.Equal(99, seriesId);
+        Assert.Equal(2, seriesAttempts);
+        Assert.Equal([TimeSpan.FromMilliseconds(200)], delays);
+    }
+
+    [Fact]
+    public async Task SendAuthenticated_WhenTransient5xxExhausted_ThrowsTvDbApiException()
+    {
+        var seriesAttempts = 0;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            seriesAttempts++;
+            return JsonResponse("""{"status":"error"}""", HttpStatusCode.BadGateway);
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key", delayAsync: (_, _) => Task.CompletedTask);
+
+        var ex = await Assert.ThrowsAsync<TvDbApiException>(
+            () => client.ResolveSeriesIdAsync("show", TestContext.Current.CancellationToken));
+
+        Assert.Equal("TvDbRequestFailed", ex.ErrorId);
+        Assert.Equal(TvDbClient.MaxTransientAttempts, seriesAttempts);
+    }
+
+    private static TvDbClient CreateClient(
+        HttpMessageHandler handler,
+        string? apiKey,
+        string? pin = null,
+        Func<TimeSpan, CancellationToken, Task>? delayAsync = null) =>
         new(
             new StubCredentialProvider(apiKey, pin),
             NullLogger<TvDbClient>.Instance,
             handler,
-            disposeHandler: true);
+            disposeHandler: true,
+            delayAsync: delayAsync);
 
     private static HttpResponseMessage JsonResponse(string json, HttpStatusCode statusCode = HttpStatusCode.OK) =>
         new(statusCode)
@@ -166,7 +318,14 @@ public class TvDbClientTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestCount++;
-            return Task.FromResult(responder(request));
+            try
+            {
+                return Task.FromResult(responder(request));
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<HttpResponseMessage>(ex);
+            }
         }
     }
 }

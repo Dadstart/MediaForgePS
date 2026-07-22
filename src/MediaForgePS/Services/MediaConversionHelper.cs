@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
@@ -333,7 +334,8 @@ public static class MediaConversionHelper
         var hours = (int)Math.Floor(seconds / 3600);
         var minutes = (int)Math.Floor((seconds % 3600) / 60);
         var secs = seconds % 60;
-        return $"{hours:D2}:{minutes:D2}:{secs:00.000}";
+        // Always use invariant culture: ffmpeg -ss/-t reject culture decimal separators (e.g. de-DE ',').
+        return string.Create(CultureInfo.InvariantCulture, $"{hours:D2}:{minutes:D2}:{secs:00.000}");
     }
 
     /// <summary>

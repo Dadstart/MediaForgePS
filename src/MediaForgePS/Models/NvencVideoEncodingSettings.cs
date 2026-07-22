@@ -32,6 +32,8 @@ public record NvencVideoEncodingSettings(
             .AddSourceMap(0, StreamType, 0)
             .AddDestinationCodec(StreamType, Codec)
             .AddPreset(Preset)
+            .AddProfile(CodecProfile)
+            .AddTune(Tune)
             .AddCq(Cq)
             .AddPixelFormat(PixelFormat)
             .AddMapMetadata(0)

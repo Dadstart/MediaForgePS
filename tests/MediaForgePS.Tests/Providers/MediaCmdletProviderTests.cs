@@ -165,6 +165,62 @@ public class MediaCmdletProviderTests : IDisposable
         Assert.Equal(1, stream.Index);
     }
 
+    [Fact]
+    public void Provider_TestPath_DoesNotProbeMediaOrValidateIndexBounds()
+    {
+        using var ps = CreatePowerShell();
+        ps.AddCommand("New-PSDrive")
+            .AddParameter("Name", "mf")
+            .AddParameter("PSProvider", "Media")
+            .AddParameter("Root", _mediaPath);
+        ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+        ps.Commands.Clear();
+
+        // Out-of-range indexes still "exist" for Test-Path: existence is path-shape + file presence only.
+        ps.AddCommand("Test-Path").AddParameter("Path", @"mf:\chapters\99");
+        var chapterExists = Assert.IsType<bool>(Assert.Single(ps.Invoke()).BaseObject);
+        Assert.True(chapterExists);
+        Assert.Empty(ps.Streams.Error);
+        ps.Commands.Clear();
+
+        ps.AddCommand("Test-Path").AddParameter("Path", @"mf:\streams\audio\99");
+        var streamExists = Assert.IsType<bool>(Assert.Single(ps.Invoke()).BaseObject);
+        Assert.True(streamExists);
+        Assert.Empty(ps.Streams.Error);
+
+        _mediaReaderServiceMock.Verify(
+            m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void Provider_TestPath_MissingMediaFile_ReturnsFalseWithoutError()
+    {
+        var missingMedia = Path.Combine(_tempRoot, "gone.mkv");
+        File.WriteAllBytes(missingMedia, [0]);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("New-PSDrive")
+            .AddParameter("Name", "mf")
+            .AddParameter("PSProvider", "Media")
+            .AddParameter("Root", missingMedia);
+        ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+        ps.Commands.Clear();
+
+        File.Delete(missingMedia);
+
+        ps.AddCommand("Test-Path").AddParameter("Path", @"mf:\streams\video\0");
+        var exists = Assert.IsType<bool>(Assert.Single(ps.Invoke()).BaseObject);
+        Assert.False(exists);
+        Assert.Empty(ps.Streams.Error);
+
+        _mediaReaderServiceMock.Verify(
+            m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private static PowerShell CreatePowerShell()
     {
         var asm = typeof(MediaCmdletProvider).Assembly;

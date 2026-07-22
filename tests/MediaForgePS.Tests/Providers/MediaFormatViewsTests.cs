@@ -52,12 +52,17 @@ public class MediaFormatViewsTests
             [@"C:\media\bonus\title.eng.srt", @"C:\media\bonus\title.eng.sup"],
             [@"C:\media\bonus\title.eng.ocr.srt"]);
 
-        var rendered = FormatObject(ps, result);
+        var table = FormatObject(ps, result);
+        Assert.Contains("title.eng.srt", table, StringComparison.Ordinal);
+        Assert.Contains("title.eng.sup", table, StringComparison.Ordinal);
+        Assert.Contains("title.eng.ocr.srt", table, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\media", table, StringComparison.Ordinal);
 
-        Assert.Contains("title.eng.srt", rendered, StringComparison.Ordinal);
-        Assert.Contains("title.eng.sup", rendered, StringComparison.Ordinal);
-        Assert.Contains("title.eng.ocr.srt", rendered, StringComparison.Ordinal);
-        Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
+        var list = FormatObject(ps, result, useFormatList: true);
+        Assert.Contains("title.eng.srt", list, StringComparison.Ordinal);
+        Assert.Contains("title.eng.sup", list, StringComparison.Ordinal);
+        Assert.Contains("title.eng.ocr.srt", list, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\media", list, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -81,10 +86,17 @@ public class MediaFormatViewsTests
         Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
     }
 
-    private static string FormatObject(PowerShell ps, object value)
+    private static string FormatObject(PowerShell ps, object value, bool useFormatList = false)
     {
         ps.Commands.Clear();
-        ps.AddCommand("Out-String").AddParameter("InputObject", value);
+        if (useFormatList)
+        {
+            ps.AddCommand("Format-List").AddParameter("InputObject", value);
+            ps.AddCommand("Out-String");
+        }
+        else
+            ps.AddCommand("Out-String").AddParameter("InputObject", value);
+
         var rendered = string.Join(Environment.NewLine, ps.Invoke().Select(r => r.BaseObject?.ToString()));
         Assert.Empty(ps.Streams.Error);
         return rendered;

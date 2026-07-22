@@ -17,8 +17,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Output names follow: {Title} {tvdb Id} - s{season}e{episode}.{ext}.
 /// Requires at least (EpisodeStart - 1) + rangeCount episodes from the TVDb scan.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath")]
+[Cmdlet(VerbsCommon.Split, "SeriesChapters", DefaultParameterSetName = "ByPath", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(string[]))]
 public class SplitSeriesChaptersCommand : CmdletBase
 {
@@ -121,6 +122,21 @@ public class SplitSeriesChaptersCommand : CmdletBase
             return;
         }
 
+        var approvedInputPaths = new List<string>();
+        foreach (var inputPath in _inputFiles)
+        {
+            if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
+                continue;
+
+            if (!ShouldProcess(resolvedInputPath, $"Split series chapters from '{Path.GetFileName(resolvedInputPath)}'"))
+                continue;
+
+            approvedInputPaths.Add(resolvedInputPath);
+        }
+
+        if (approvedInputPaths.Count == 0)
+            return;
+
         var seasonUrl = InvokeSeriesProcessingCommand.EnsureSeasonUrl(TvDbSeasonUrl, Season);
         var episodes = SeriesProcessingService.InvokeSeasonScan(CmdletIO, Season, TvDbSeriesUrl, seasonUrl, StoppingToken)
             .OrderBy(e => e.EpisodeNumber)
@@ -147,27 +163,24 @@ public class SplitSeriesChaptersCommand : CmdletBase
             return;
         }
 
-        foreach (var inputPath in _inputFiles)
+        foreach (var resolvedInputPath in approvedInputPaths)
         {
             try
             {
-                SplitChaptersForFile(inputPath, normalizedRanges, episodes);
+                SplitChaptersForFile(resolvedInputPath, normalizedRanges, episodes);
             }
             catch (Exception ex)
             {
-                WriteError(new ErrorRecord(ex, "SplitSeriesChaptersFailed", ErrorCategory.OperationStopped, inputPath));
+                WriteError(new ErrorRecord(ex, "SplitSeriesChaptersFailed", ErrorCategory.OperationStopped, resolvedInputPath));
             }
         }
     }
 
     private void SplitChaptersForFile(
-        string inputPath,
+        string resolvedInputPath,
         List<(int Start, int End, string? OutputName)> ranges,
         IReadOnlyList<TvDbEpisodeInfo> episodes)
     {
-        if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
-            return;
-
         var inputExtension = Path.GetExtension(resolvedInputPath);
         if (string.IsNullOrWhiteSpace(inputExtension))
             inputExtension = ".mkv";

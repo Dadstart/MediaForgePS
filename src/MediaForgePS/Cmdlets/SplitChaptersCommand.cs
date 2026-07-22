@@ -14,8 +14,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Chapter indices are 1-based (Start=1, End=1 is the first chapter).
 /// Pipeline input is collected during Process and executed in End for batch splitting.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByRanges")]
+[Cmdlet(VerbsCommon.Split, "Chapters", DefaultParameterSetName = "ByRanges", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(string[]))]
 public class SplitChaptersCommand : CmdletBase
 {
@@ -122,6 +123,9 @@ public class SplitChaptersCommand : CmdletBase
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
             return;
 
+        if (!ShouldProcess(resolvedInputPath, $"Split all chapters from '{Path.GetFileName(resolvedInputPath)}'"))
+            return;
+
         WriteHostMessage($"Getting chapter information from: {resolvedInputPath}", ConsoleColor.Cyan);
         var mediaFile = ChapterSplitHelper.ReadMediaFile(MediaReaderService, resolvedInputPath, StoppingToken);
         if (!ChapterSplitHelper.TryGetChapters(CmdletIO, resolvedInputPath, mediaFile, out var chapters))
@@ -156,6 +160,9 @@ public class SplitChaptersCommand : CmdletBase
     private void SplitChaptersForFile(string inputPath, List<(int Start, int End, string? OutputName)> ranges)
     {
         if (!TryResolveInputPath(PathResolver, inputPath, out var resolvedInputPath))
+            return;
+
+        if (!ShouldProcess(resolvedInputPath, $"Split chapters from '{Path.GetFileName(resolvedInputPath)}'"))
             return;
 
         var inputExtension = GetInputExtensionOrDefault(resolvedInputPath);

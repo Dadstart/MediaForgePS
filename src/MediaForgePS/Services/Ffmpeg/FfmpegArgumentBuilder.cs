@@ -1,3 +1,4 @@
+using System.Text;
 using Dadstart.Labs.MediaForge.Services.System;
 
 namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
@@ -74,9 +75,48 @@ public class FfmpegArgumentBuilder
         if (string.IsNullOrWhiteSpace(title))
             return this;
 
-        _argumentBuilder.AddOption($"-metadata:s:{streamType}:{destinationIndex}", $"title={title}");
+        _argumentBuilder.AddOption(
+            $"-metadata:s:{streamType}:{destinationIndex}",
+            $"title={EscapeMetadataValue(title)}");
         return this;
     }
+
+    /// <summary>
+    /// Escapes a metadata value per FFmpeg metadata rules.
+    /// Characters <c>=</c>, <c>;</c>, <c>#</c>, <c>\</c>, and newline are prefixed with a backslash.
+    /// </summary>
+    /// <param name="value">Unescaped metadata value.</param>
+    /// <returns>Escaped value safe for FFmpeg metadata key=value forms.</returns>
+    internal static string EscapeMetadataValue(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var needsEscape = false;
+        foreach (var c in value)
+        {
+            if (IsMetadataSpecialCharacter(c))
+            {
+                needsEscape = true;
+                break;
+            }
+        }
+
+        if (!needsEscape)
+            return value;
+
+        var builder = new StringBuilder(value.Length * 2);
+        foreach (var c in value)
+        {
+            if (IsMetadataSpecialCharacter(c))
+                builder.Append('\\');
+            builder.Append(c);
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsMetadataSpecialCharacter(char c) =>
+        c is '=' or ';' or '#' or '\\' or '\n';
 
     /// <summary>
     /// Adds a preset argument for encoding.
@@ -86,6 +126,34 @@ public class FfmpegArgumentBuilder
     public FfmpegArgumentBuilder AddPreset(string preset)
     {
         _argumentBuilder.AddOption("-preset", preset);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a video codec profile argument (e.g. <c>-profile:v high</c>).
+    /// </summary>
+    /// <param name="profile">The codec profile (only added if not null or whitespace).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddProfile(string? profile)
+    {
+        if (string.IsNullOrWhiteSpace(profile))
+            return this;
+
+        _argumentBuilder.AddOption("-profile:v", profile);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a codec tune argument (e.g. <c>-tune film</c>).
+    /// </summary>
+    /// <param name="tune">The tune option (only added if not null or whitespace).</param>
+    /// <returns>The builder instance for method chaining.</returns>
+    public FfmpegArgumentBuilder AddTune(string? tune)
+    {
+        if (string.IsNullOrWhiteSpace(tune))
+            return this;
+
+        _argumentBuilder.AddOption("-tune", tune);
         return this;
     }
 

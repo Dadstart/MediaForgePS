@@ -14,8 +14,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Corrects music note (♪) misreads, pipe-as-I, unmatched brackets, and similar OCR artifacts.
 /// Does not write to the pipeline; files are repaired in place unless -OutputPath is used for a single file.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsDiagnostic.Repair, "Subtitles")]
+[Cmdlet(VerbsDiagnostic.Repair, "Subtitles", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 public class RepairSubtitlesCommand : ProgressCmdletBase
 {
     /// <summary>
@@ -123,11 +124,24 @@ public class RepairSubtitlesCommand : ProgressCmdletBase
             return;
         }
 
+        var approvedItems = new List<SrtRepairHelper.SrtRepairItem>();
+        foreach (var item in repairItems)
+        {
+            var displayName = Path.GetFileName(item.InputPath);
+            if (!ShouldProcess(item.OutputPath, $"Repair subtitles '{displayName}'"))
+                continue;
+
+            approvedItems.Add(item);
+        }
+
+        if (approvedItems.Count == 0)
+            return;
+
         SrtRepairHelper.RunRepairLoop(
             CmdletIO,
             Logger,
             PathResolver,
-            repairItems,
+            approvedItems,
             shouldRepair: true,
             BackupPath);
     }
