@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Management.Automation;
 using System.Threading;
@@ -73,6 +74,40 @@ public class MediaConversionHelperTests
         var result = MediaConversionHelper.FormatTimespan(time);
 
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(0, "00:00:00.000")]
+    [InlineData(1.5, "00:00:01.500")]
+    [InlineData(61.25, "00:01:01.250")]
+    [InlineData(3661.5, "01:01:01.500")]
+    public void FormatTimeCode_ReturnsFfmpegCompatibleTimecode(double seconds, string expected)
+    {
+        var result = MediaConversionHelper.FormatTimeCode(seconds);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FormatTimeCode_UnderGermanCulture_UsesDotDecimalSeparator()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+        var previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
+
+            var result = MediaConversionHelper.FormatTimeCode(3661.5);
+
+            Assert.Equal("01:01:01.500", result);
+            Assert.DoesNotContain(',', result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     [Theory]

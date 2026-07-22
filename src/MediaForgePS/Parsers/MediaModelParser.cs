@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using Dadstart.Labs.MediaForge.Models;
@@ -28,16 +29,15 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
             if (segments.Length == 2)
             {
                 // Format is "mm:ss" - parse as minutes:seconds
-                if (int.TryParse(segments[0], out var minutes) && int.TryParse(segments[1], out var seconds))
-                {
+                if (int.TryParse(segments[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes)
+                    && int.TryParse(segments[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
                     return new TimeSpan(0, minutes, seconds);
-                }
+
                 throw new FormatException($"Invalid time format: {timeStr}. Expected format: mm:ss");
             }
-            if (!TimeSpan.TryParse(timeStr, out var timeSpan))
-            {
+            if (!TimeSpan.TryParse(timeStr, CultureInfo.InvariantCulture, out var timeSpan))
                 throw new FormatException($"Invalid time format: {timeStr}. Expected format: hh:mm:ss");
-            }
+
             return timeSpan;
         }
 
@@ -68,62 +68,39 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
             if (parts[1].Length == 9)
             {
                 // Exactly 9 digits - treat as nanoseconds
-                if (!long.TryParse(parts[1], out nanoseconds))
-                {
-                    // If parsing fails, silently ignore
+                if (!long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out nanoseconds))
                     return timePart;
-                }
             }
             else if (parts[1].Length == 1)
             {
                 // Special case: 1 digit represents hundredths of a second
                 // "5" = 0.05 seconds = 50000000 nanoseconds
-                if (int.TryParse(parts[1], out var hundredths))
-                {
-                    nanoseconds = hundredths * 10_000_000; // 0.01 seconds = 10ms = 10000000 nanoseconds
-                }
-                else
-                {
-                    // If parsing fails, silently ignore
+                if (!int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var hundredths))
                     return timePart;
-                }
+
+                nanoseconds = hundredths * 10_000_000; // 0.01 seconds = 10ms = 10000000 nanoseconds
             }
             else if (parts[1].Length > 9)
             {
                 // More than 9 digits - take first 9
-                if (!long.TryParse(parts[1].Substring(0, 9), out nanoseconds))
-                {
-                    // If parsing fails, silently ignore
+                if (!long.TryParse(parts[1].AsSpan(0, 9), NumberStyles.Integer, CultureInfo.InvariantCulture, out nanoseconds))
                     return timePart;
-                }
             }
             else if (parts[1].Length >= 7)
             {
                 // 7-9 digits - treat as nanoseconds directly (based on test expectations)
-                if (long.TryParse(parts[1], out nanoseconds))
-                {
-                    // Already in nanoseconds, no conversion needed
-                }
-                else
-                {
-                    // If parsing fails, silently ignore
+                if (!long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out nanoseconds))
                     return timePart;
-                }
             }
             else
             {
                 // 2-6 digits - treat as fractional seconds (like TimeSpan.Parse)
                 // Parse as "0.XXXXXX" and convert to nanoseconds
                 // Example: "481875" = 0.481875 seconds = 481875000 nanoseconds
-                if (double.TryParse("0." + parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var fractionalSeconds))
-                {
-                    nanoseconds = (long)(fractionalSeconds * 1_000_000_000);
-                }
-                else
-                {
-                    // If parsing fails, silently ignore
+                if (!double.TryParse("0." + parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var fractionalSeconds))
                     return timePart;
-                }
+
+                nanoseconds = (long)(fractionalSeconds * 1_000_000_000);
             }
 
             // Convert nanoseconds to ticks: divide by 100 (1 tick = 100 nanoseconds)

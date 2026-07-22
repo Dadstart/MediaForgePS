@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Parsers;
@@ -330,7 +331,7 @@ public class MediaModelParserTests
         Assert.NotNull(result.Tags);
         Assert.Equal("eng", result.Tags["language"]);
         Assert.Equal("eng", result.Language);
-        Assert.Equal(TimeSpan.Parse("00:43:29.481875"), result.Duration);
+        Assert.Equal(TimeSpan.Parse("00:43:29.481875", CultureInfo.InvariantCulture), result.Duration);
         Assert.Equal(json, result.Raw);
     }
 
@@ -821,6 +822,30 @@ public class MediaModelParserTests
         Assert.Equal(1, result.Seconds);
         // 1234567 nanoseconds / 100 = 12345 ticks = 1.2345 milliseconds, so 1 millisecond
         Assert.Equal(1, result.Milliseconds);
+    }
+
+    [Fact]
+    public void ParseDuration_UnderGermanCulture_ParsesFfprobeDurationWithDotFraction()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+        var previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
+
+            var result = MediaModelParser.ParseDuration("01:02:03.481875000");
+
+            Assert.Equal(1, result.Hours);
+            Assert.Equal(2, result.Minutes);
+            Assert.Equal(3, result.Seconds);
+            Assert.Equal(481, result.Milliseconds);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 
     #endregion
