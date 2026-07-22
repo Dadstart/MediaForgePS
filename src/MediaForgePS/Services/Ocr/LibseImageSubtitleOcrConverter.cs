@@ -40,7 +40,10 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
     }
 
     /// <inheritdoc />
-    public bool IsAvailable => !string.IsNullOrEmpty(_tessDataPath);
+    public bool IsSupportedOnCurrentPlatform => OperatingSystem.IsWindows();
+
+    /// <inheritdoc />
+    public bool IsAvailable => IsSupportedOnCurrentPlatform && !string.IsNullOrEmpty(_tessDataPath);
 
     /// <inheritdoc />
     public string ExpectedTessDataDescription =>

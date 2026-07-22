@@ -39,6 +39,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         _debuggerServiceMock.Setup(debugger => debugger.BreakIfDebugging(It.IsAny<bool>()));
 
         var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
         ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
 

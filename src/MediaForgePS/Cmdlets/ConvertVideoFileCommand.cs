@@ -701,7 +701,16 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 return null;
             },
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
-            onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath),
+            onExtractFailed: (_, ex) =>
+            {
+                if (ex is PlatformNotSupportedException pns)
+                {
+                    WriteWarning(pns.Message);
+                    return;
+                }
+
+                WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath);
+            },
             onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
             Logger,
             StoppingToken);

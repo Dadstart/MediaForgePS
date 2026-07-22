@@ -217,7 +217,16 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             },
             finalizeOutputPath: candidate => TryResolveOutputPath(PathResolver, candidate, out var resolved) ? resolved : null,
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
-            onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
+            onExtractFailed: (_, ex) =>
+            {
+                if (ex is PlatformNotSupportedException pns)
+                {
+                    WriteWarning(pns.Message);
+                    return;
+                }
+
+                WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path);
+            },
             onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
             Logger,
             StoppingToken);

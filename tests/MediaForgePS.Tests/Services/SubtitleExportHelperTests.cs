@@ -90,14 +90,59 @@ public class SubtitleExportHelperTests
         var (mock, _) = CreateExecutableMock();
         var stream = CreateStream("dvd_subtitle");
 
-        Assert.Throws<FileNotFoundException>(() =>
-            SubtitleExportHelper.ExtractSubtitle(
-                mock.Object,
-                stream,
-                @"C:\media\movie.mkv",
-                @"C:\out\movie.eng.sdh.sub",
-                mkvextractPath: null,
-            cancellationToken: TestContext.Current.CancellationToken));
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Throws<FileNotFoundException>(() =>
+                SubtitleExportHelper.ExtractSubtitle(
+                    mock.Object,
+                    stream,
+                    @"C:\media\movie.mkv",
+                    @"C:\out\movie.eng.sdh.sub",
+                    mkvextractPath: null,
+                    cancellationToken: TestContext.Current.CancellationToken));
+        }
+        else
+        {
+            var ex = Assert.Throws<PlatformNotSupportedException>(() =>
+                SubtitleExportHelper.ExtractSubtitle(
+                    mock.Object,
+                    stream,
+                    @"C:\media\movie.mkv",
+                    @"C:\out\movie.eng.sdh.sub",
+                    mkvextractPath: null,
+                    cancellationToken: TestContext.Current.CancellationToken));
+            Assert.Equal(WindowsExecutablePathHelper.MkvextractUnsupportedPlatformMessage, ex.Message);
+        }
+    }
+
+    [Fact]
+    public void ExtractEnglishSubtitles_WhenMkvextractUnsupported_WritesWarningViaCallback()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var (mock, calls) = CreateExecutableMock();
+        var media = CreateMediaFile(@"C:\media\movie.mkv", CreateStream("dvd_subtitle"));
+        var warnings = new List<string>();
+        Exception? failed = null;
+
+        var result = SubtitleExportHelper.ExtractEnglishSubtitles(
+            mock.Object,
+            media,
+            mkvextractPath: null,
+            buildOutputPath: _ => @"C:\out\movie.eng.sub",
+            onExtractFailed: (_, ex) =>
+            {
+                failed = ex;
+                if (ex is PlatformNotSupportedException pns)
+                    warnings.Add(pns.Message);
+            },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Empty(result);
+        Assert.Empty(calls);
+        Assert.IsType<PlatformNotSupportedException>(failed);
+        Assert.Equal(WindowsExecutablePathHelper.MkvextractUnsupportedPlatformMessage, Assert.Single(warnings));
     }
 
     [Fact]

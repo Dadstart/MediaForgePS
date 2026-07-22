@@ -38,6 +38,7 @@ public class InvokeSubtitleOcrRepairCommandTests : IDisposable
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
         var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
         ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
 

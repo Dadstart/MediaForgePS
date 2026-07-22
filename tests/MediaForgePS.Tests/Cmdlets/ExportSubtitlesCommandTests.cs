@@ -42,6 +42,7 @@ public class ExportSubtitlesCommandTests : IDisposable
         _mediaReaderMock = new Mock<IMediaReaderService>();
         _executableMock = new Mock<IExecutableService>();
         var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
         ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
         var services = new ServiceCollection();

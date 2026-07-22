@@ -41,6 +41,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
                 return loggerMock.Object;
             });
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
+        _ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         _ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(true);
         _ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
         _ocrConverterMock
@@ -122,6 +123,7 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
     [Fact]
     public void ConvertImageSubtitlesToSrt_WhenTesseractDataNotFound_WritesError()
     {
+        _ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         _ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(false);
 
         var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
@@ -141,6 +143,41 @@ public class ConvertImageSubtitlesToSrtCommandTests : IDisposable
             Assert.NotEmpty(errors);
             Assert.True(errors.Any(e => e.FullyQualifiedErrorId.Contains("TesseractDataNotFound", StringComparison.Ordinal)),
                 "Expected TesseractDataNotFound error.");
+        }
+        finally
+        {
+            if (File.Exists(supPath))
+                File.Delete(supPath);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ConvertImageSubtitlesToSrt_WhenPlatformUnsupported_WritesWarningAndError()
+    {
+        _ocrConverterMock.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(false);
+        _ocrConverterMock.SetupGet(c => c.IsAvailable).Returns(false);
+        _ocrConverterMock.SetupGet(c => c.ExpectedTessDataDescription).Returns("OCR is Windows only.");
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_ConvertImageSubtitlesToSrt_" + Guid.NewGuid().ToString("N"));
+        var supPath = Path.Combine(tempDir, "test.sup");
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            File.WriteAllBytes(supPath, Array.Empty<byte>());
+
+            var (initialSessionState, cmdletName) = CreateSessionState();
+            using var ps = PowerShell.Create(initialSessionState);
+            ps.AddCommand(cmdletName).AddParameter("InputPath", supPath);
+
+            ps.Invoke();
+            var warnings = ps.Streams.Warning.ReadAll();
+            var errors = ps.Streams.Error.ReadAll();
+
+            Assert.Contains(warnings, w => w.Message.Contains("OCR is Windows only.", StringComparison.Ordinal));
+            Assert.True(errors.Any(e => e.FullyQualifiedErrorId.Contains("ImageSubtitleOcrUnsupportedPlatform", StringComparison.Ordinal)),
+                "Expected ImageSubtitleOcrUnsupportedPlatform error.");
         }
         finally
         {

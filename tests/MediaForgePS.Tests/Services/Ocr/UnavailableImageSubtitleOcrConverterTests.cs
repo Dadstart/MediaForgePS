@@ -14,6 +14,13 @@ public class UnavailableImageSubtitleOcrConverterTests
     }
 
     [Fact]
+    public void IsSupportedOnCurrentPlatform_IsFalse()
+    {
+        var converter = new UnavailableImageSubtitleOcrConverter();
+        Assert.False(converter.IsSupportedOnCurrentPlatform);
+    }
+
+    [Fact]
     public void ExpectedTessDataDescription_MentionsWindowsOnly()
     {
         var converter = new UnavailableImageSubtitleOcrConverter();

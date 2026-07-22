@@ -73,6 +73,17 @@ public class ConvertImageSubtitlesToSrtCommand : ProgressCmdletBase
             return;
         }
 
+        if (!OcrConverter.IsSupportedOnCurrentPlatform)
+        {
+            WriteWarning(OcrConverter.ExpectedTessDataDescription);
+            WriteError(CreateErrorRecord(
+                new PlatformNotSupportedException(OcrConverter.ExpectedTessDataDescription),
+                "ImageSubtitleOcrUnsupportedPlatform",
+                ErrorCategory.NotImplemented,
+                null));
+            return;
+        }
+
         if (!OcrConverter.IsAvailable)
         {
             WriteError(CreateErrorRecord(

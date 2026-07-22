@@ -9,6 +9,9 @@ namespace Dadstart.Labs.MediaForge.Services.Ocr;
 public sealed class UnavailableImageSubtitleOcrConverter : IImageSubtitleOcrConverter
 {
     /// <inheritdoc />
+    public bool IsSupportedOnCurrentPlatform => false;
+
+    /// <inheritdoc />
     public bool IsAvailable => false;
 
     /// <inheritdoc />

@@ -38,6 +38,14 @@ public class ExecutableService : IExecutableService
         // Materialize once so ArgumentList and logs share the same argv values (no shell quoting).
         var argumentList = arguments as IReadOnlyList<string> ?? arguments.ToList();
         var argumentsForLog = string.Join(' ', argumentList);
+
+        if (!OperatingSystem.IsWindows() && WindowsExecutablePathHelper.IsWindowsExecutableCommand(command))
+        {
+            var message = WindowsExecutablePathHelper.FormatWindowsExecutableUnsupportedMessage(command);
+            _logger.LogWarning("{Message}", message);
+            return new ExecutableResult(null, null, null, new PlatformNotSupportedException(message));
+        }
+
         var logMessage = stdoutCallback != null
             ? "Executing command with streaming stdout: {Command} with arguments: {Arguments}"
             : "Executing command: {Command} with arguments: {Arguments}";

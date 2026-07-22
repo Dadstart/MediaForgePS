@@ -171,6 +171,15 @@ public static class SubtitleExportHelper
             {
                 throw;
             }
+            catch (PlatformNotSupportedException ex)
+            {
+                // Prefer the caller's extract-failed handler (typically WriteWarning) so the
+                // message is not prefixed by the PowerShell logger category.
+                if (onExtractFailed != null)
+                    onExtractFailed(stream, ex);
+                else
+                    logger?.LogWarning("{Message}", ex.Message);
+            }
             catch (Exception ex)
             {
                 logger?.LogError(ex, "Failed to extract subtitle stream {Index} from {Path}", stream.Index, media.Path);
@@ -266,7 +275,12 @@ public static class SubtitleExportHelper
         if (isMatroskaSource && isVobSub)
         {
             if (string.IsNullOrEmpty(mkvextractPath))
+            {
+                if (!OperatingSystem.IsWindows())
+                    throw new PlatformNotSupportedException(WindowsExecutablePathHelper.MkvextractUnsupportedPlatformMessage);
+
                 throw new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec.");
+            }
 
             var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{resolvedOutputPath}" };
             var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();

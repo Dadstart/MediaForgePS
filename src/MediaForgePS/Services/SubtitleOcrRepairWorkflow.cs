@@ -50,6 +50,17 @@ public static class SubtitleOcrRepairWorkflow
         IReadOnlyList<string> convertedSrtPaths = Array.Empty<string>();
         if (performOcr && imagePaths.Count > 0)
         {
+            if (!ocrConverter.IsSupportedOnCurrentPlatform)
+            {
+                io.WriteWarning(ocrConverter.ExpectedTessDataDescription);
+                io.WriteError(new ErrorRecord(
+                    new PlatformNotSupportedException(ocrConverter.ExpectedTessDataDescription),
+                    "ImageSubtitleOcrUnsupportedPlatform",
+                    ErrorCategory.NotImplemented,
+                    null));
+                return null;
+            }
+
             if (!ocrConverter.IsAvailable)
             {
                 io.WriteError(new ErrorRecord(

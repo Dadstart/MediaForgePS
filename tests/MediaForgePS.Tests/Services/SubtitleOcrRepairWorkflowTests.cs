@@ -33,6 +33,7 @@ public class SubtitleOcrRepairWorkflowTests : IDisposable
     {
         var io = new FakeCmdletIO();
         var converter = new Mock<IImageSubtitleOcrConverter>();
+        converter.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         converter.SetupGet(c => c.IsAvailable).Returns(false);
         converter.SetupGet(c => c.ExpectedTessDataDescription).Returns("tessdata expected");
         var pathResolver = new Mock<IPathResolver>();
@@ -59,10 +60,43 @@ public class SubtitleOcrRepairWorkflowTests : IDisposable
     }
 
     [Fact]
+    public void Run_WhenOcrRequiredButPlatformUnsupported_ReturnsNullAndWritesWarning()
+    {
+        var io = new FakeCmdletIO();
+        var converter = new Mock<IImageSubtitleOcrConverter>();
+        converter.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(false);
+        converter.SetupGet(c => c.IsAvailable).Returns(false);
+        converter.SetupGet(c => c.ExpectedTessDataDescription).Returns("OCR is Windows only.");
+        var pathResolver = new Mock<IPathResolver>();
+
+        var imagePath = Path.Combine(_tempDir, "movie.sup");
+        File.WriteAllBytes(imagePath, Array.Empty<byte>());
+
+        var result = SubtitleOcrRepairWorkflow.Run(
+            io,
+            NullLogger.Instance,
+            converter.Object,
+            pathResolver.Object,
+            [imagePath],
+            Array.Empty<string>(),
+            performOcr: true,
+            throttleLimit: 1,
+            shouldRepair: false,
+            backupPath: null,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(result);
+        Assert.Contains("OCR is Windows only.", Assert.Single(io.Warnings), StringComparison.Ordinal);
+        Assert.Single(io.Errors);
+        Assert.Contains("ImageSubtitleOcrUnsupportedPlatform", io.Errors[0].FullyQualifiedErrorId, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Run_WhenNoOcrNeeded_ReturnsExistingSrtPaths()
     {
         var io = new FakeCmdletIO();
         var converter = new Mock<IImageSubtitleOcrConverter>();
+        converter.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         converter.SetupGet(c => c.IsAvailable).Returns(true);
         var pathResolver = new Mock<IPathResolver>();
         var srtPath = Path.Combine(_tempDir, "movie.srt");
@@ -92,6 +126,7 @@ public class SubtitleOcrRepairWorkflowTests : IDisposable
     {
         var io = new FakeCmdletIO();
         var converter = new Mock<IImageSubtitleOcrConverter>();
+        converter.SetupGet(c => c.IsSupportedOnCurrentPlatform).Returns(true);
         converter.SetupGet(c => c.IsAvailable).Returns(true);
         converter
             .Setup(c => c.ConvertToSrt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

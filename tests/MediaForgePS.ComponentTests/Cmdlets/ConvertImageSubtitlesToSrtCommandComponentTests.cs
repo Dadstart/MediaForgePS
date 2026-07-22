@@ -48,6 +48,9 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
     [Fact(Timeout = 30_000)]
     public void ConvertImageSubtitlesToSrt_WhenTesseractDataMissing_WritesObjectNotFound()
     {
+        if (!OperatingSystem.IsWindows())
+            throw SkipException.ForSkip("On non-Windows the unavailable converter reports platform unsupported, not missing tessdata.");
+
         if (TesseractDataPathResolver.ResolveTessDataPath() is not null)
             throw SkipException.ForSkip("Tesseract language data is present; cannot assert missing-data error path.");
 
@@ -65,6 +68,29 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
         Assert.Contains(
             errors,
             error => error.FullyQualifiedErrorId.Contains("TesseractDataNotFound", StringComparison.Ordinal));
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void ConvertImageSubtitlesToSrt_WhenPlatformUnsupported_WritesWarning()
+    {
+        if (OperatingSystem.IsWindows())
+            throw SkipException.ForSkip("Platform-unsupported OCR path is exercised on non-Windows hosts.");
+
+        var directory = CreateTempDirectory();
+        var fakeSup = Path.Combine(directory, "unsupported.sup");
+        File.WriteAllBytes(fakeSup, Array.Empty<byte>());
+
+        using var ps = CreatePowerShellFor<ConvertImageSubtitlesToSrtCommand>("Convert-ImageSubtitlesToSrt");
+        ps.AddCommand("Convert-ImageSubtitlesToSrt").AddParameter("InputPath", fakeSup);
+
+        ps.Invoke();
+        var warnings = ps.Streams.Warning.ReadAll();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Contains(warnings, w => w.Message.Contains("Windows only", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            errors,
+            error => error.FullyQualifiedErrorId.Contains("ImageSubtitleOcrUnsupportedPlatform", StringComparison.Ordinal));
     }
 
     private static void SkipIfTesseractDataMissing()
