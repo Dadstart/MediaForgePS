@@ -167,16 +167,16 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
-    /// Formats a conversion result for host summaries (output path, size change, and duration).
+    /// Formats a conversion result for host summaries (file name, size change, and duration).
     /// </summary>
     public static string FormatConversionResultLine(MediaConversionResult result)
     {
         if (!IsCompletedConversion(result))
-            return $"{result.InputPath} — {result.Status}";
+            return $"{PathHelper.GetFileName(result.InputPath)} — {result.Status}";
 
         var sizeChange = FormatSizeReduction(result.SizeReductionPercent);
         var sizes = $"{FormatMegabytes(result.InputSizeMegabytes)} → {FormatMegabytes(result.OutputSizeMegabytes)}";
-        return $"{result.OutputPath} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
+        return $"{PathHelper.GetFileName(result.OutputPath)} — {sizeChange} ({sizes}) in {FormatTimespan(result.ProcessingTime)}";
     }
 
     /// <summary>

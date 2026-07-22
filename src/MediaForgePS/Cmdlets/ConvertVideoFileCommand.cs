@@ -650,14 +650,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         }
     }
 
-    private static string GetFileName(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return path;
-
-        var separatorIndex = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
-        return separatorIndex >= 0 ? path[(separatorIndex + 1)..] : path;
-    }
+    private static string GetFileName(string path) => PathHelper.GetFileName(path);
 
     private static string BuildOutputPath(string inputRoot, string outputRoot, string inputPath)
     {

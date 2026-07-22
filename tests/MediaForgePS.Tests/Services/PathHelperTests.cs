@@ -7,6 +7,18 @@ namespace Dadstart.Labs.MediaForge.Tests.Services;
 
 public class PathHelperTests
 {
+    [Theory]
+    [InlineData(@"C:\media\out.mp4", "out.mp4")]
+    [InlineData(@"C:\out.mp4", "out.mp4")]
+    [InlineData("/home/user/out.mp4", "out.mp4")]
+    [InlineData("out.mp4", "out.mp4")]
+    [InlineData(@"mixed/path\file.mkv", "file.mkv")]
+    [InlineData("", "")]
+    public void GetFileName_TreatsBothSeparatorsAsDirectoryBoundaries(string path, string expected)
+    {
+        Assert.Equal(expected, PathHelper.GetFileName(path));
+    }
+
     [Fact]
     public void ResolveAbsolutePath_WithRootedPath_ReturnsFullPath()
     {

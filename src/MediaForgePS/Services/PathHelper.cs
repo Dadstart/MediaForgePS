@@ -9,6 +9,21 @@ namespace Dadstart.Labs.MediaForge.Services;
 public static class PathHelper
 {
     /// <summary>
+    /// Returns the file name portion of a path, treating both <c>/</c> and <c>\</c> as separators
+    /// so Windows-style paths display correctly on Unix hosts.
+    /// </summary>
+    /// <param name="path">Full or relative path.</param>
+    /// <returns>The leaf file name, or <paramref name="path"/> when empty or separator-free.</returns>
+    public static string GetFileName(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return path;
+
+        var separatorIndex = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+        return separatorIndex >= 0 ? path[(separatorIndex + 1)..] : path;
+    }
+
+    /// <summary>
     /// Resolves a path to an absolute path. If the path is already rooted, returns its full form;
     /// otherwise combines it with the current location and returns the full path.
     /// </summary>
