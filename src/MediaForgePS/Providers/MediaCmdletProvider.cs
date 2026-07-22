@@ -75,14 +75,15 @@ public sealed class MediaCmdletProvider : NavigationCmdletProvider
         if (info is null)
             return false;
 
+        // Existence must stay silent and cheap: no ffprobe, no WriteError, no index-bound checks.
+        // Chapter/stream index validity is enforced later by Get-Item / Get-ChildItem.
         return info.Kind switch
         {
             MediaPathKind.FileSystemDirectory => Directory.Exists(info.PhysicalPath),
-            MediaPathKind.FileSystemFile or MediaPathKind.MediaFile => File.Exists(info.PhysicalPath),
-            MediaPathKind.Format or MediaPathKind.Chapters or MediaPathKind.Streams
-                or MediaPathKind.StreamType => File.Exists(info.PhysicalPath),
-            MediaPathKind.Chapter => TryGetChapter(info, out _),
-            MediaPathKind.Stream => TryGetStream(info, out _),
+            MediaPathKind.FileSystemFile or MediaPathKind.MediaFile
+                or MediaPathKind.Format or MediaPathKind.Chapters or MediaPathKind.Streams
+                or MediaPathKind.StreamType or MediaPathKind.Chapter or MediaPathKind.Stream
+                => File.Exists(info.PhysicalPath),
             _ => false,
         };
     }
