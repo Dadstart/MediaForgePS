@@ -22,10 +22,22 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
 {
     private const string ApiBaseAddress = "https://api4.thetvdb.com/v4/";
     private static readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan _initialRetryDelay = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// Maximum number of episode pages fetched for a single season request.
+    /// </summary>
+    internal const int MaxSeasonEpisodePages = 50;
+
+    /// <summary>
+    /// Maximum attempts (including the first) for transient HTTP failures.
+    /// </summary>
+    internal const int MaxTransientAttempts = 3;
 
     private readonly ITvDbCredentialProvider _credentials;
     private readonly ILogger<TvDbClient> _logger;
     private readonly HttpClient _httpClient;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
     private readonly SemaphoreSlim _authLock = new(1, 1);
     private string? _bearerToken;
     private bool _disposed;
@@ -39,7 +51,8 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
         ITvDbCredentialProvider credentials,
         ILogger<TvDbClient> logger,
         HttpMessageHandler handler,
-        bool disposeHandler)
+        bool disposeHandler,
+        Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
     {
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(logger);
@@ -47,6 +60,7 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
 
         _credentials = credentials;
         _logger = logger;
+        _delayAsync = delayAsync ?? ((delay, ct) => Task.Delay(delay, ct));
         _httpClient = new HttpClient(handler, disposeHandler)
         {
             BaseAddress = new Uri(ApiBaseAddress),
@@ -121,7 +135,7 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
         var episodes = new List<TvDbEpisodeInfo>();
         var page = 0;
 
-        while (true)
+        while (page < MaxSeasonEpisodePages)
         {
             var relativeUri =
                 $"series/{seriesId}/episodes/{Uri.EscapeDataString(normalizedSeasonType)}" +
@@ -181,6 +195,13 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
             page++;
         }
 
+        if (page >= MaxSeasonEpisodePages)
+        {
+            throw new TvDbApiException(
+                "TvDbPaginationLimitExceeded",
+                $"TVDb episode pagination exceeded the maximum of {MaxSeasonEpisodePages} pages for series '{seriesId}' season {season}.");
+        }
+
         return episodes
             .OrderBy(episode => episode.EpisodeNumber)
             .ThenBy(episode => episode.Id, StringComparer.Ordinal)
@@ -204,8 +225,9 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
     {
         await EnsureAuthenticatedAsync(cancellationToken).ConfigureAwait(false);
 
-        using var request = CreateRequest(method, relativeUri);
-        var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var response = await SendWithTransientRetryAsync(
+            () => CreateRequest(method, relativeUri),
+            cancellationToken).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
 
@@ -213,8 +235,9 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
         _logger.LogDebug("TVDb token rejected; re-authenticating");
         await EnsureAuthenticatedAsync(cancellationToken, forceRefresh: true).ConfigureAwait(false);
 
-        using var retryRequest = CreateRequest(method, relativeUri);
-        return await _httpClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+        return await SendWithTransientRetryAsync(
+            () => CreateRequest(method, relativeUri),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string relativeUri)
@@ -250,11 +273,15 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
             };
 
             var json = JsonSerializer.Serialize(loginPayload, TvDbJsonContext.Default.TvDbLoginRequest);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var request = new HttpRequestMessage(HttpMethod.Post, "login") { Content = content };
 
             _logger.LogDebug("Authenticating with TheTVDB API");
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await SendWithTransientRetryAsync(
+                () =>
+                {
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    return new HttpRequestMessage(HttpMethod.Post, "login") { Content = content };
+                },
+                cancellationToken).ConfigureAwait(false);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 throw new TvDbApiException(
@@ -279,6 +306,58 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
             _authLock.Release();
         }
     }
+
+    private async Task<HttpResponseMessage> SendWithTransientRetryAsync(
+        Func<HttpRequestMessage> createRequest,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            using var request = createRequest();
+            HttpResponseMessage? response = null;
+            try
+            {
+                response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (!IsTransientStatusCode(response.StatusCode) || attempt >= MaxTransientAttempts)
+                    return response;
+
+                _logger.LogWarning(
+                    "Transient TVDb HTTP {StatusCode} on attempt {Attempt}/{MaxAttempts}; retrying after backoff",
+                    (int)response.StatusCode,
+                    attempt,
+                    MaxTransientAttempts);
+                response.Dispose();
+                response = null;
+            }
+            catch (HttpRequestException ex) when (attempt < MaxTransientAttempts)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Transient TVDb network error on attempt {Attempt}/{MaxAttempts}; retrying after backoff",
+                    attempt,
+                    MaxTransientAttempts);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested && attempt < MaxTransientAttempts)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "TVDb request timed out on attempt {Attempt}/{MaxAttempts}; retrying after backoff",
+                    attempt,
+                    MaxTransientAttempts);
+            }
+
+            await _delayAsync(GetRetryDelay(attempt), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static bool IsTransientStatusCode(HttpStatusCode statusCode)
+    {
+        var code = (int)statusCode;
+        return code is >= 500 and <= 599;
+    }
+
+    private static TimeSpan GetRetryDelay(int attempt) =>
+        TimeSpan.FromMilliseconds(_initialRetryDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, string errorId, string message)
     {
