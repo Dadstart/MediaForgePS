@@ -26,4 +26,16 @@ public class TesseractDataPathResolverTests
         Assert.True(Directory.Exists(path));
         Assert.True(File.Exists(Path.Combine(path, "eng.traineddata")));
     }
+
+    [Fact]
+    public void ResolveTessDataPath_WhenLanguageMissing_ReturnsNull()
+    {
+        Assert.Null(TesseractDataPathResolver.ResolveTessDataPath("zz_missing_lang"));
+    }
+
+    [Fact]
+    public void DefaultLanguage_IsEnglish()
+    {
+        Assert.Equal("eng", TesseractDataPathResolver.DefaultLanguage);
+    }
 }

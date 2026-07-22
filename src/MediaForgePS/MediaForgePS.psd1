@@ -35,7 +35,10 @@
     )
     FunctionsToExport    = @()
     VariablesToExport    = @()
-    AliasesToExport      = @()
+    AliasesToExport      = @(
+        'Convert-SupToSrt'
+        'Export-RepairedSubtitles'
+    )
 
     FileList             = @(
         'MediaForgePS.psd1'
