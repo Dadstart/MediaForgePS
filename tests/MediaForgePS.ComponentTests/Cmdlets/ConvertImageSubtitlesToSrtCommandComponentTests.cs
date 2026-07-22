@@ -103,17 +103,6 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
             TesseractDataPathResolver.GetExpectedLocationsDescription());
     }
 
-    private static void FailOrSkip(string message)
-    {
-        if (string.Equals(
-                Environment.GetEnvironmentVariable("MEDIAFORGE_REQUIRE_COMPONENT_TESTS"),
-                "1",
-                StringComparison.Ordinal))
-            throw new InvalidOperationException(message);
-
-        throw SkipException.ForSkip(message);
-    }
-
     [SupportedOSPlatform("windows")]
     private static string CreateVobSubWithText(string directory, string baseName, string text)
     {

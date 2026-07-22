@@ -115,6 +115,23 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ffmpeg -y --no-progress
 
+      # Image subtitle OCR (libse/Tesseract) is Windows-only; component tests need eng.traineddata.
+      - name: Install Tesseract eng.traineddata (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $tessDataDir = Join-Path $env:LOCALAPPDATA 'Tesseract-OCR\tessdata'
+          New-Item -ItemType Directory -Force -Path $tessDataDir | Out-Null
+          $trainedData = Join-Path $tessDataDir 'eng.traineddata'
+          if (-not (Test-Path $trainedData)) {
+            $uri = 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata'
+            Write-Host "Downloading eng.traineddata to $trainedData"
+            Invoke-WebRequest -Uri $uri -OutFile $trainedData -UseBasicParsing
+          }
+          if (-not (Test-Path $trainedData) -or (Get-Item $trainedData).Length -lt 1KB) {
+            throw "Failed to install eng.traineddata at $trainedData"
+          }
+          Write-Host "Tesseract language data ready: $trainedData ($((Get-Item $trainedData).Length) bytes)"
+
       - name: Verify ffmpeg and ffprobe
         run: |
           foreach ($tool in @('ffmpeg', 'ffprobe')) {

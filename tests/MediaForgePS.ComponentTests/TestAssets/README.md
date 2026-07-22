@@ -18,7 +18,7 @@ Requirements
 
 Component tests require `ffmpeg` and `ffprobe` on `PATH`. If either tool or these assets is missing, tests skip via `SkipException` locally.
 
-In CI, set `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1` so missing tools or assets fail the run instead of skipping. The GitHub Actions workflow installs ffmpeg on Linux, macOS, and Windows and sets that variable.
+In CI, set `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1` so missing tools or assets fail the run instead of skipping. The GitHub Actions workflow installs ffmpeg on Linux, macOS, and Windows, installs Tesseract `eng.traineddata` on Windows (for OCR component tests), and sets that variable.
 
 Regenerating assets
 -------------------
