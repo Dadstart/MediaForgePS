@@ -195,7 +195,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         "InvalidInputPath",
                         ErrorCategory.InvalidArgument,
                         resolvedInputPath));
-                    return;
+                    continue;
                 }
 
                 var inputRoot = Path.GetDirectoryName(resolvedInputPath) ?? string.Empty;

@@ -780,6 +780,49 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     }
 
     [Fact]
+    public void ConvertVideoFile_WithMixedSupportedAndUnsupportedFiles_ConvertsSupportedAndWritesErrorForUnsupported()
+    {
+        var root = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var unsupportedPath = Path.Combine(root, "notes.txt");
+        var mkvPath = Path.Combine(root, "clip.mkv");
+        File.WriteAllText(unsupportedPath, "x");
+        File.WriteAllText(mkvPath, "x");
+
+        var mapping = new AudioTrackMapping[]
+        {
+            new EncodeAudioTrackMapping("Stereo", 0, 0, 0, "aac", 160, 2)
+        };
+
+        _audioTrackMappingServiceMock.Setup(service => service.CreateDirectoryEncodeMappings(It.IsAny<MediaFile>()))
+            .Returns(mapping);
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+
+        var expectedOutput = Path.Combine(output, "clip.mp4");
+        SetupOutputPathResolution(expectedOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Convert-VideoFile")
+            .AddParameter("InputPath", new[] { unsupportedPath, mkvPath })
+            .AddParameter("OutputDirectory", output)
+            .AddParameter("SkipSubtitles");
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        var error = Assert.Single(errors);
+        Assert.Equal("InvalidInputPath", error.FullyQualifiedErrorId.Split(',')[0]);
+        Assert.Contains("not a supported video format", error.Exception.Message, StringComparison.OrdinalIgnoreCase);
+        _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
+            mkvPath,
+            expectedOutput,
+            It.IsAny<VideoEncodingSettings>(),
+            mapping,
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public void ConvertVideoFile_DirectoryWithOnlyNonVideoFiles_WritesNoSupportedVideoFilesWarning()
     {
         var root = CreateTempDirectory();
