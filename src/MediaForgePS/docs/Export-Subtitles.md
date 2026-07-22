@@ -14,7 +14,8 @@ Exports English subtitle streams from media files. Use -Ocr Auto, Skip, or Force
 
 ```
 Export-Subtitles [-InputPath] <Object[]> [-BackupPath <String>] [-ThrottleLimit <Int32>] [-Ocr <String>]
- [-SkipRepair] [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+ [-SkipRepair] [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -175,6 +176,36 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Confirm
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: cf
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -WhatIf
+Shows what would happen if the cmdlet runs. The cmdlet is not run.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases: wi
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### CommonParameters
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
@@ -189,7 +220,7 @@ Path strings, folder paths, or MediaFile objects (e.g. from Get-MediaFile). For 
 ExtractedCount, ConvertedCount, ExtractedPaths, and ConvertedPaths. ConvertedCount is the number of image subtitle files successfully OCR'd to SRT (0 when `-Ocr Skip` or no image tracks were converted).
 
 ## NOTES
-Alias: **Export-RepairedSubtitles**. Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit). Folder input processes `*.mkv` files only.
+Alias: **Export-RepairedSubtitles**. Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Tesseract language data must be installed (`eng.traineddata`; set `TESSDATA_PREFIX` or install under Program Files\Tesseract-OCR\tessdata). Folder input processes `*.mkv` files only.
 
 ## RELATED LINKS
 

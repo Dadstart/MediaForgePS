@@ -263,7 +263,7 @@ public abstract class ComponentTestBase : IDisposable
     /// When <c>MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1</c> (set in CI), missing tools/assets fail the test
     /// instead of skipping so coverage cannot silently degrade.
     /// </summary>
-    private static void FailOrSkip(string message)
+    protected static void FailOrSkip(string message)
     {
         if (RequiresComponentTests)
             throw new InvalidOperationException(message);

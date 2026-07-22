@@ -7,6 +7,7 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -128,6 +129,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     };
 
     private IExecutableService? _executableService;
+    private IImageSubtitleOcrConverter? _ocrConverter;
 
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
@@ -138,6 +140,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     private IMediaConversionService MediaConversionService => _mediaConversionService ??= ModuleServices.GetRequiredService<IMediaConversionService>();
 
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+
+    private IImageSubtitleOcrConverter OcrConverter => _ocrConverter ??= ModuleServices.GetRequiredService<IImageSubtitleOcrConverter>();
 
     protected override void Process()
     {
@@ -323,7 +327,7 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                         var ocrResult = SubtitleOcrRepairWorkflow.Run(
                             CmdletIO,
                             Logger,
-                            ExecutableService,
+                            OcrConverter,
                             PathResolver,
                             imagePaths,
                             srtPathsFromCaptions,
@@ -697,7 +701,16 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 return null;
             },
             onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
-            onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath),
+            onExtractFailed: (_, ex) =>
+            {
+                if (ex is PlatformNotSupportedException pns)
+                {
+                    WriteWarning(pns.Message);
+                    return;
+                }
+
+                WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, sourceMkvPath);
+            },
             onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
             Logger,
             StoppingToken);

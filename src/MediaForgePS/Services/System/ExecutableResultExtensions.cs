@@ -3,7 +3,7 @@ using System;
 namespace Dadstart.Labs.MediaForge.Services.System;
 
 /// <summary>
-/// Interprets <see cref="ExecutableResult"/> consistently across FFmpeg and Subtitle Edit callers.
+/// Interprets <see cref="ExecutableResult"/> consistently across FFmpeg and other process callers.
 /// </summary>
 public static class ExecutableResultExtensions
 {

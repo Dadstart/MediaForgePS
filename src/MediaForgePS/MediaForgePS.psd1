@@ -1,6 +1,6 @@
 @{
     RootModule           = 'MediaForgePS.psm1'
-    ModuleVersion        = '0.26.0'
+    ModuleVersion        = '0.28.0'
     GUID                 = 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d'
     Author               = 'Dadstart LLC'
     CompanyName          = 'Dadstart LLC'
@@ -35,7 +35,10 @@
     )
     FunctionsToExport    = @()
     VariablesToExport    = @()
-    AliasesToExport      = @()
+    AliasesToExport      = @(
+        'Convert-SupToSrt'
+        'Export-RepairedSubtitles'
+    )
 
     FileList             = @(
         'MediaForgePS.psd1'

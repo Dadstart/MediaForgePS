@@ -8,7 +8,7 @@ schema: 2.0.0
 # Convert-ImageSubtitlesToSrt
 
 ## SYNOPSIS
-Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR. Alias: Convert-SupToSrt.
+Converts image-based subtitle files (SUP, SUB) to SRT using libse with Tesseract OCR. Alias: Convert-SupToSrt.
 
 ## SYNTAX
 
@@ -18,7 +18,7 @@ Convert-ImageSubtitlesToSrt [-InputPath] <String[]> [[-OutputPath] <String>] [-R
 ```
 
 ## DESCRIPTION
-Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Source image subtitle files are deleted after a successful conversion by default; use -KeepSource to preserve them. Writes a SubtitleProcessingResult (ConvertedCount and ConvertedPaths) to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit. Supports -WhatIf and -Confirm.
+Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using the libse library and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Source image subtitle files are deleted after a successful conversion by default; use -KeepSource to preserve them. Writes a SubtitleProcessingResult (ConvertedCount and ConvertedPaths) to the pipeline. Requires Tesseract language data (`eng.traineddata` by default; set `TESSDATA_PREFIX` or install under Program Files\Tesseract-OCR\tessdata). Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -181,7 +181,7 @@ Paths to .sup or .sub files, or directories containing them. Accepts pipeline in
 ExtractedCount (always 0 for this cmdlet), ConvertedCount, ExtractedPaths (empty), and ConvertedPaths (SRT files produced).
 
 ## NOTES
-Alias: **Convert-SupToSrt**. Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.
+Alias: **Convert-SupToSrt**. Requires Tesseract language data (`eng.traineddata`). Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.
 
 ## RELATED LINKS
 

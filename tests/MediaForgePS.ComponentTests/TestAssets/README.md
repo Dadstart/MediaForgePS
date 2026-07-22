@@ -11,12 +11,14 @@ Assets
 | `sample-1s.mkv` | Valid ~1 s video with a single audio track — used for happy-path cmdlet tests |
 | `invalid-media.mkv` | Small text file with an `.mkv` extension — exercises ffprobe error paths |
 
+Image subtitle OCR component tests generate ephemeral VobSub `.sub`/`.idx` fixtures at runtime (Windows + Tesseract `eng.traineddata`). They skip when tessdata is missing unless `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1`.
+
 Requirements
 ------------
 
 Component tests require `ffmpeg` and `ffprobe` on `PATH`. If either tool or these assets is missing, tests skip via `SkipException` locally.
 
-In CI, set `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1` so missing tools or assets fail the run instead of skipping. The GitHub Actions workflow installs ffmpeg on Linux, macOS, and Windows and sets that variable.
+In CI, set `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1` so missing tools or assets fail the run instead of skipping. The GitHub Actions workflow installs ffmpeg on Linux, macOS, and Windows, installs Tesseract `eng.traineddata` on Windows (for OCR component tests), and sets that variable.
 
 Regenerating assets
 -------------------

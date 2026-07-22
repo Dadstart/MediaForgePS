@@ -94,7 +94,7 @@ Exports English subtitle streams from media files and optionally converts image 
 ## SYNTAX
 ...
 ## DESCRIPTION
-Export-Subtitles extracts English subtitle tracks from MKV (or other) media files. When you use -Ocr, it also converts image-based formats (SUP, SUB) to SRT using Subtitle Edit and Tesseract, and can repair SRT text unless -SkipRepair is specified.
+Export-Subtitles extracts English subtitle tracks from MKV (or other) media files. When you use -Ocr, it also converts image-based formats (SUP, SUB) to SRT using libse and Tesseract, and can repair SRT text unless -SkipRepair is specified.
 ...
 ## EXAMPLES
 

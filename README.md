@@ -13,8 +13,7 @@ Optional tools used by specific workflows:
 | Tool | Used by |
 |------|---------|
 | [mkvtoolnix](https://mkvtoolnix.download/) (`mkvextract`) | Matroska VobSub extraction in `Convert-VideoFile`, `Export-Subtitles`, and related workflows |
-| [Subtitle Edit](https://www.nikse.dk/subtitleedit/) | OCR subtitle conversion (`Convert-ImageSubtitlesToSrt`, `Export-Subtitles`, `Invoke-SubtitleOcrRepair`) |
-| [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) | Image subtitle OCR (used with Subtitle Edit) |
+| [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) language data (`eng.traineddata`) | Image subtitle OCR via libse (`Convert-ImageSubtitlesToSrt`, `Export-Subtitles`, `Invoke-SubtitleOcrRepair`) |
 
 ## Building
 
@@ -194,7 +193,7 @@ Convert-MediaFileAdvanced -InputPath "C:\movie.mkv" -OutputPath "C:\Out\movie.mp
 | Cmdlet | Description |
 |--------|-------------|
 | `Export-Subtitles` | Extract English subtitles; `-Ocr Auto\|Skip\|Force` controls image subtitle OCR |
-| `Convert-ImageSubtitlesToSrt` | SUP/SUB → SRT via Subtitle Edit and Tesseract (alias: `Convert-SupToSrt`) |
+| `Convert-ImageSubtitlesToSrt` | SUP/SUB → SRT via libse and Tesseract (alias: `Convert-SupToSrt`) |
 | `Repair-Subtitles` | Fix common OCR errors in SRT files |
 | `Invoke-SubtitleOcrRepair` | OCR image subtitles then repair the converted SRT files |
 

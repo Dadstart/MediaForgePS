@@ -9,10 +9,11 @@ $importedModule = Import-Module $dllPath -PassThru
 # Initialize dependency injection container
 [Dadstart.Labs.MediaForge.Module.ModuleInitializer]::Initialize() | Out-Null
 
-# Export all cmdlets from the imported binary module
+# Export all cmdlets and aliases from the imported binary module
 $cmdlets = $importedModule.ExportedCmdlets.Values.Name
-if ($cmdlets) {
-    Export-ModuleMember -Cmdlet $cmdlets
+$aliases = $importedModule.ExportedAliases.Values.Name
+if ($cmdlets -or $aliases) {
+    Export-ModuleMember -Cmdlet $cmdlets -Alias $aliases
 }
 
 $ExecutionContext.SessionState.Module.OnRemove = {

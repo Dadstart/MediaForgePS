@@ -1,10 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
-using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services.Ocr;
+using Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 using Moq;
 using Xunit;
 
@@ -13,7 +13,7 @@ namespace Dadstart.Labs.MediaForge.Tests.Services;
 public class ImageSubtitleConversionHelperTests : IDisposable
 {
     private readonly string _tempDir;
-    private readonly Mock<IExecutableService> _executableServiceMock = new();
+    private readonly Mock<IImageSubtitleOcrConverter> _converterMock = new();
 
     public ImageSubtitleConversionHelperTests()
     {
@@ -132,17 +132,12 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         var srtPath = Path.Combine(_tempDir, "movie.srt");
         File.WriteAllBytes(supPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
-            {
-                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-            })
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(supPath, srtPath, It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n"));
 
         ImageSubtitleConversionHelper.ConvertToSrt(
-            _executableServiceMock.Object,
-            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            _converterMock.Object,
             supPath,
             srtPath,
             cancellationToken: TestContext.Current.CancellationToken);
@@ -158,17 +153,12 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         var srtPath = Path.Combine(_tempDir, "movie-keep.srt");
         File.WriteAllBytes(supPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
-            {
-                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-            })
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(supPath, srtPath, It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n"));
 
         ImageSubtitleConversionHelper.ConvertToSrt(
-            _executableServiceMock.Object,
-            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            _converterMock.Object,
             supPath,
             srtPath,
             keepSource: true,
@@ -187,17 +177,12 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         File.WriteAllBytes(subPath, Array.Empty<byte>());
         File.WriteAllBytes(idxPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
-            {
-                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-            })
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(subPath, srtPath, It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n"));
 
         ImageSubtitleConversionHelper.ConvertToSrt(
-            _executableServiceMock.Object,
-            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            _converterMock.Object,
             subPath,
             srtPath,
             cancellationToken: TestContext.Current.CancellationToken);
@@ -216,17 +201,12 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         File.WriteAllBytes(subPath, Array.Empty<byte>());
         File.WriteAllBytes(idxPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((_, args, _) =>
-            {
-                File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n");
-            })
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(subPath, srtPath, It.IsAny<CancellationToken>()))
+            .Callback(() => File.WriteAllText(srtPath, "1\n00:00:00,000 --> 00:00:01,000\n\n"));
 
         ImageSubtitleConversionHelper.ConvertToSrt(
-            _executableServiceMock.Object,
-            @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+            _converterMock.Object,
             subPath,
             srtPath,
             keepSource: true,
@@ -238,22 +218,21 @@ public class ImageSubtitleConversionHelperTests : IDisposable
     }
 
     [Fact]
-    public void ConvertToSrt_WhenSubtitleEditFails_DoesNotDeleteSourceFiles()
+    public void ConvertToSrt_WhenOcrFails_DoesNotDeleteSourceFiles()
     {
         var supPath = Path.Combine(_tempDir, "movie.sup");
         File.WriteAllBytes(supPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(null, "failed", 1));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("OCR failed"));
 
         Assert.Throws<InvalidOperationException>(() =>
             ImageSubtitleConversionHelper.ConvertToSrt(
-                _executableServiceMock.Object,
-                @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+                _converterMock.Object,
                 supPath,
                 Path.ChangeExtension(supPath, "srt")!,
-            cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.True(File.Exists(supPath));
     }
@@ -264,18 +243,49 @@ public class ImageSubtitleConversionHelperTests : IDisposable
         var supPath = Path.Combine(_tempDir, "movie.sup");
         File.WriteAllBytes(supPath, Array.Empty<byte>());
 
-        _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ExecutableResult(null, null, 0));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
 
         Assert.Throws<InvalidOperationException>(() =>
             ImageSubtitleConversionHelper.ConvertToSrt(
-                _executableServiceMock.Object,
-                @"C:\Program Files\Subtitle Edit\SubtitleEdit.exe",
+                _converterMock.Object,
                 supPath,
                 Path.ChangeExtension(supPath, "srt")!,
-            cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.True(File.Exists(supPath));
+    }
+
+    [Fact]
+    public void ConvertImagePathsToSrtParallel_ConvertsSuccessfulFilesAndReportsFailures()
+    {
+        var okSup = Path.Combine(_tempDir, "ok.sup");
+        var badSup = Path.Combine(_tempDir, "bad.sup");
+        File.WriteAllBytes(okSup, Array.Empty<byte>());
+        File.WriteAllBytes(badSup, Array.Empty<byte>());
+
+        _converterMock
+            .Setup(c => c.ConvertToSrt(okSup, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, output, _) =>
+                File.WriteAllText(output, "1\n00:00:00,000 --> 00:00:01,000\nOk\n"));
+        _converterMock
+            .Setup(c => c.ConvertToSrt(badSup, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("OCR failed"));
+
+        var io = new FakeCmdletIO();
+        var converted = ImageSubtitleConversionHelper.ConvertImagePathsToSrtParallel(
+            io,
+            _converterMock.Object,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
+            [okSup, badSup],
+            throttleLimit: 2,
+            io.WriteError,
+            keepSource: false,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(Path.ChangeExtension(okSup, "srt"), Assert.Single(converted));
+        Assert.Single(io.Errors);
+        Assert.False(File.Exists(okSup));
+        Assert.True(File.Exists(badSup));
     }
 }

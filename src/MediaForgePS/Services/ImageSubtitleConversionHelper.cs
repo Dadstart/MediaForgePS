@@ -8,13 +8,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Module;
-using Dadstart.Labs.MediaForge.Services.System;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
-/// Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR.
+/// Converts image-based subtitle files (SUP, SUB) to SRT using libse and Tesseract OCR.
 /// </summary>
 public static class ImageSubtitleConversionHelper
 {
@@ -64,36 +64,28 @@ public static class ImageSubtitleConversionHelper
     }
 
     /// <summary>
-    /// Converts a single image subtitle file to SRT. Runs Subtitle Edit; moves the default output to outputSrtPath if different.
-    /// Optionally keeps the source image subtitle file(s) when conversion succeeds; deletes them by default. Throws on failure.
+    /// Converts a single image subtitle file to SRT via <paramref name="converter"/>.
+    /// Optionally keeps the source image subtitle file(s) when conversion succeeds; deletes them by default.
+    /// Throws on failure.
     /// </summary>
     public static void ConvertToSrt(
-        IExecutableService executableService,
-        string subtitleEditPath,
+        IImageSubtitleOcrConverter converter,
         string inputPath,
         string outputSrtPath,
         ILogger? logger = null,
         bool keepSource = false,
         CancellationToken cancellationToken = default)
     {
-        var args = new[] { "/convert", inputPath, "srt", "/ocrengine:tesseract" };
-        var result = executableService.ExecuteAsync(subtitleEditPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-        result.EnsureProcessSuccess("Subtitle Edit");
-        var defaultSrt = Path.ChangeExtension(inputPath, "srt") ?? inputPath + ".srt";
-        if (!string.Equals(defaultSrt, outputSrtPath, StringComparison.OrdinalIgnoreCase) && File.Exists(defaultSrt))
-        {
-            var dir = Path.GetDirectoryName(outputSrtPath);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-            AtomicFileHelper.PromoteTempFile(defaultSrt, outputSrtPath);
-        }
+        ArgumentNullException.ThrowIfNull(converter);
+
+        converter.ConvertToSrt(inputPath, outputSrtPath, cancellationToken);
 
         if (!File.Exists(outputSrtPath))
-            throw new InvalidOperationException($"Subtitle Edit reported success but SRT output was not found: {outputSrtPath}");
+            throw new InvalidOperationException($"OCR reported success but SRT output was not found: {outputSrtPath}");
 
         var outputInfo = new FileInfo(outputSrtPath);
         if (outputInfo.Length <= 0)
-            throw new InvalidOperationException($"Subtitle Edit reported success but SRT output is empty: {outputSrtPath}");
+            throw new InvalidOperationException($"OCR reported success but SRT output is empty: {outputSrtPath}");
 
         if (!keepSource)
             DeleteImageSubtitleSourceFiles(inputPath, logger);
@@ -112,9 +104,8 @@ public static class ImageSubtitleConversionHelper
     /// Converts image subtitle paths to SRT in parallel with throttling, progress reporting, and error collection.
     /// </summary>
     /// <param name="progress">Progress sink for conversion status.</param>
-    /// <param name="executableService">Service used to run Subtitle Edit.</param>
+    /// <param name="converter">OCR converter used for each image subtitle file.</param>
     /// <param name="logger">Logger for debug/error.</param>
-    /// <param name="subtitleEditPath">Path to Subtitle Edit executable.</param>
     /// <param name="imagePaths">Paths to .sup or .sub files.</param>
     /// <param name="throttleLimit">Maximum concurrent conversions.</param>
     /// <param name="writeError">Callback to write error records for failed conversions.</param>
@@ -122,9 +113,8 @@ public static class ImageSubtitleConversionHelper
     /// <returns>Paths of successfully converted SRT files.</returns>
     public static IReadOnlyList<string> ConvertImagePathsToSrtParallel(
         ICmdletProgress progress,
-        IExecutableService executableService,
+        IImageSubtitleOcrConverter converter,
         ILogger logger,
-        string subtitleEditPath,
         IReadOnlyList<string> imagePaths,
         int throttleLimit,
         Action<ErrorRecord> writeError,
@@ -159,8 +149,7 @@ public static class ImageSubtitleConversionHelper
                     try
                     {
                         ConvertToSrt(
-                            executableService,
-                            subtitleEditPath,
+                            converter,
                             inputPath,
                             srtPath,
                             logger,

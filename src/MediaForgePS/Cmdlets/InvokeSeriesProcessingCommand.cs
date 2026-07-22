@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
 using Dadstart.Labs.MediaForge.Services.System;
 
@@ -123,10 +124,10 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
 
-    private IExecutableService? _executableService;
+    private IImageSubtitleOcrConverter? _ocrConverter;
     private IPathResolver? _pathResolver;
 
-    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IImageSubtitleOcrConverter OcrConverter => _ocrConverter ??= ModuleServices.GetRequiredService<IImageSubtitleOcrConverter>();
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
@@ -222,7 +223,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                     var ocrResult = SubtitleOcrRepairWorkflow.Run(
                         CmdletIO,
                         Logger,
-                        ExecutableService,
+                        OcrConverter,
                         PathResolver,
                         imagePaths,
                         srtPathsFromCaptions,

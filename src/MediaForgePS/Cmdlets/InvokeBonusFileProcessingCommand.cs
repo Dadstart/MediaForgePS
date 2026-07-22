@@ -7,6 +7,7 @@ using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
+using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +41,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     private IMediaConversionService? _mediaConversionService;
     private IPathResolver? _pathResolverService;
     private IExecutableService? _executableService;
+    private IImageSubtitleOcrConverter? _ocrConverter;
 
     private List<(string Path, long Size)>? _sizedBonusFiles;
     private Stopwatch? _conversionBatchStopwatch;
@@ -136,6 +138,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
 
     private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
 
+    private IImageSubtitleOcrConverter OcrConverter => _ocrConverter ??= ModuleServices.GetRequiredService<IImageSubtitleOcrConverter>();
+
     /// <summary>
     /// Executes the bonus file processing workflow.
     /// </summary>
@@ -211,7 +215,7 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                         var ocrResult = SubtitleOcrRepairWorkflow.Run(
                             CmdletIO,
                             Logger,
-                            ExecutableService,
+                            OcrConverter,
                             PathResolverService,
                             imagePaths,
                             srtPaths,
@@ -690,7 +694,16 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     mediaFile.Path, plan.Stream.Index, plan.SameExtensionCount, plan.Extension, plan.EnglishSubtitleCount),
                 finalizeOutputPath: candidate => TryResolveOutputPath(PathResolverService, candidate, out var resolved) ? resolved : null,
                 onUnknownCodec: stream => WriteWarning($"Unknown codec: {stream.Codec} - using .bin extension"),
-                onExtractFailed: (_, ex) => WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path),
+                onExtractFailed: (_, ex) =>
+                {
+                    if (ex is PlatformNotSupportedException pns)
+                    {
+                        WriteWarning(pns.Message);
+                        return;
+                    }
+
+                    WriteStandardError(ex, ErrorIds.SubtitleExportFailed, ErrorCategory.OperationStopped, mediaFile.Path);
+                },
                 onNoEnglishSubtitles: () => WriteVerbose($"No English subtitles in {fileName}"),
                 Logger,
                 StoppingToken);

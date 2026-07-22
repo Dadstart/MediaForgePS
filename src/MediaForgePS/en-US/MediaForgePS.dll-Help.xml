@@ -6,11 +6,11 @@
       <command:verb>Convert</command:verb>
       <command:noun>ImageSubtitlesToSrt</command:noun>
       <maml:description>
-        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT using Subtitle Edit with Tesseract OCR. Alias: Convert-SupToSrt.</maml:para>
+        <maml:para>Converts image-based subtitle files (SUP, SUB) to SRT using libse with Tesseract OCR. Alias: Convert-SupToSrt.</maml:para>
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using Subtitle Edit and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Source image subtitle files are deleted after a successful conversion by default; use -KeepSource to preserve them. Writes a SubtitleProcessingResult (ConvertedCount and ConvertedPaths) to the pipeline. Subtitle Edit must be installed in %ProgramFiles%\Subtitle Edit. Supports -WhatIf and -Confirm.</maml:para>
+      <maml:para>Convert-ImageSubtitlesToSrt turns SUP and SUB (image-based) subtitle files into SRT text files using the libse library and Tesseract OCR. Input can be a single file, multiple files, or a directory; with -Recurse, subdirectories are searched. For a single file you can specify -OutputPath to write the SRT elsewhere; otherwise the SRT is written next to each source file. Source image subtitle files are deleted after a successful conversion by default; use -KeepSource to preserve them. Writes a SubtitleProcessingResult (ConvertedCount and ConvertedPaths) to the pipeline. Requires Tesseract language data (`eng.traineddata` by default; set `TESSDATA_PREFIX` or install under Program Files\Tesseract-OCR\tessdata). Supports -WhatIf and -Confirm.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -228,7 +228,7 @@
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Alias: Convert-SupToSrt . Requires Subtitle Edit in %ProgramFiles%\Subtitle Edit and Tesseract OCR. Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.</maml:para>
+        <maml:para>Alias: Convert-SupToSrt . Requires Tesseract language data (`eng.traineddata`). Files are converted sequentially. Use `Repair-Subtitles` afterward to fix common OCR errors in the SRT.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -1369,7 +1369,7 @@ Convert-MediaFiles -InputPath "C:\movie.mkv" -OutputDirectory "C:\Out" -VideoEnc
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Subtitle Edit (under %ProgramFiles%\Subtitle Edit) and Tesseract when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.</maml:para>
+        <maml:para>Requires FFmpeg and ffprobe. Caption extraction from Matroska (.mkv) sources with VobSub (dvd_subtitle) tracks additionally requires `mkvextract` (mkvtoolnix); non-Matroska sources and all other subtitle codecs are extracted via FFmpeg and do not require mkvextract. OCR requires Tesseract language data when `-Ocr` is Auto or Force. `Launch.ps1` defines convenience aliases `convert` and `mkv` for this cmdlet in dev sessions.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -1823,6 +1823,28 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -1922,6 +1944,30 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -1945,7 +1991,7 @@ Export-MediaStream -InputPath "movie.mkv" -OutputPath "subs.srt" -Type Subtitle 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Alias: Export-RepairedSubtitles . Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Subtitle Edit and Tesseract must be installed (Subtitle Edit expected under %ProgramFiles%\Subtitle Edit). Folder input processes `*.mkv` files only.</maml:para>
+        <maml:para>Alias: Export-RepairedSubtitles . Requires mkvextract for extracting embedded subtitles from Matroska VobSub tracks. When OCR processing is enabled (`-Ocr Auto` or `Force`), Tesseract language data must be installed (`eng.traineddata`; set `TESSDATA_PREFIX` or install under Program Files\Tesseract-OCR\tessdata). Folder input processes `*.mkv` files only.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -2615,7 +2661,7 @@ $mf.Streams | Where-Object { $_.Type -eq "audio" } | Format-Table Index, Codec, 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Subtitle Edit and Tesseract are required on Windows.</maml:para>
+        <maml:para>Bonus suffixes: behindthescenes, deleted, featurette, interview, scene, short, trailer, other. Requires FFmpeg. Subtitle extraction uses FFmpeg (and mkvextract from mkvtoolnix for DVD subtitle streams). When OCR processing is enabled, Tesseract language data is required.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -3049,6 +3095,28 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -3244,6 +3312,30 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -3318,7 +3410,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using Subtitle Edit and Tesseract, then repairs only the OCR-produced SRT files unless `-SkipRepair` is specified. Source image subtitle files are deleted after a successful OCR conversion by default; use `-KeepSource` to preserve them. Pre-existing SRT files in the input are not repaired.</maml:para>
+      <maml:para>Invoke-SubtitleOcrRepair runs the OCR and repair workflow for subtitles already on disk: it converts SUP and SUB files to SRT using libse and Tesseract, then repairs only the OCR-produced SRT files unless `-SkipRepair` is specified. Source image subtitle files are deleted after a successful OCR conversion by default; use `-KeepSource` to preserve them. Pre-existing SRT files in the input are not repaired.</maml:para>
       <maml:para>Input can be file path(s) or directory/directories; `-Recurse` searches subdirectories. Use `-BackupPath` to copy SRT files to a backup location before repairing (structure preserved). OCR conversions run in parallel up to `-ThrottleLimit` (default 10). Writes a SubtitleProcessingResult with ConvertedCount to the pipeline.</maml:para>
     </maml:description>
     <command:syntax>
@@ -3409,6 +3501,28 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <maml:name>Alert</maml:name>
           <maml:description>
             <maml:para>Play a system beep when the cmdlet finishes.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
@@ -3515,6 +3629,30 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes>
       <command:inputType>
@@ -3538,7 +3676,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>Requires Subtitle Edit and Tesseract when any input is SUP or SUB.</maml:para>
+        <maml:para>Requires Tesseract language data when any input is SUP or SUB.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -4725,6 +4863,28 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -4792,6 +4952,30 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
         <maml:name>Alert</maml:name>
         <maml:description>
           <maml:para>Play a system beep when the cmdlet finishes.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -4928,6 +5112,28 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
       <command:syntaxItem>
         <maml:name>Split-Chapters</maml:name>
@@ -4978,6 +5184,28 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
             <maml:uri />
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -5041,6 +5269,30 @@ Convert-MediaFileAdvanced -InputPath "in.mkv" -OutputPath "out.mp4" -VideoEncodi
           <maml:uri />
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes>
@@ -5230,6 +5482,28 @@ Split-Chapters -InputFile "C:\movie.mkv" -ChapterRanges $ranges -OutputPath "C:\
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+          <maml:name>Confirm</maml:name>
+          <maml:description>
+            <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+          <maml:name>WhatIf</maml:name>
+          <maml:description>
+            <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+          </maml:description>
+          <dev:type>
+            <maml:name>SwitchParameter</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -5340,6 +5614,30 @@ Split-Chapters -InputFile "C:\movie.mkv" -ChapterRanges $ranges -OutputPath "C:\
           <maml:uri />
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="cf">
+        <maml:name>Confirm</maml:name>
+        <maml:description>
+          <maml:para>Prompts you for confirmation before running the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="wi">
+        <maml:name>WhatIf</maml:name>
+        <maml:description>
+          <maml:para>Shows what would happen if the cmdlet runs. The cmdlet is not run.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes>
