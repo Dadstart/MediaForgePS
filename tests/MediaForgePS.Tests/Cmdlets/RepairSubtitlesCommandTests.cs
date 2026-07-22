@@ -79,7 +79,9 @@ public class RepairSubtitlesCommandTests : IDisposable
             initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
 
             using var ps = PowerShell.Create(initialSessionState);
-            ps.AddCommand("Repair-Subtitles").AddParameter("InputPath", srtPath);
+            ps.AddCommand("Repair-Subtitles")
+                .AddParameter("InputPath", srtPath)
+                .AddParameter("Confirm", false);
 
             ps.Invoke();
             var errors = ps.Streams.Error.ReadAll();
@@ -89,6 +91,40 @@ public class RepairSubtitlesCommandTests : IDisposable
             var written = File.ReadAllText(srtPath);
             Assert.Contains("♪", written);
             Assert.Contains("Song ♪ plays.", written);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RepairSubtitles_WithWhatIf_DoesNotModifyFile()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_RepairSubtitles_" + Guid.NewGuid().ToString("N"));
+        var srtPath = Path.Combine(tempDir, "test.srt");
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nSong J plays.\n\n";
+            File.WriteAllText(srtPath, content);
+
+            var asm = typeof(RepairSubtitlesCommand).Assembly;
+            var initialSessionState = InitialSessionState.CreateDefault();
+            initialSessionState.Assemblies.Add(new SessionStateAssemblyEntry(asm.GetName().FullName, asm.Location));
+            initialSessionState.Commands.Add(new SessionStateCmdletEntry("Repair-Subtitles", typeof(RepairSubtitlesCommand), null));
+
+            using var ps = PowerShell.Create(initialSessionState);
+            ps.AddCommand("Repair-Subtitles")
+                .AddParameter("InputPath", srtPath)
+                .AddParameter("WhatIf");
+
+            ps.Invoke();
+            var errors = ps.Streams.Error.ReadAll();
+
+            Assert.Empty(errors);
+            Assert.Equal(content, File.ReadAllText(srtPath));
         }
         finally
         {
@@ -118,7 +154,8 @@ public class RepairSubtitlesCommandTests : IDisposable
             using var ps = PowerShell.Create(initialSessionState);
             ps.AddCommand("Repair-Subtitles")
                 .AddParameter("InputPath", inputPath)
-                .AddParameter("OutputPath", outputPath);
+                .AddParameter("OutputPath", outputPath)
+                .AddParameter("Confirm", false);
 
             ps.Invoke();
             var errors = ps.Streams.Error.ReadAll();

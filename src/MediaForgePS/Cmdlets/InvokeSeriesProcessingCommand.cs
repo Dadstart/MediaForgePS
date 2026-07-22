@@ -16,8 +16,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// (4) optionally extract chapters, (5) optionally extract captions with optional OCR (-Ocr Auto/Skip/Force).
 /// Terminates with an error when the TVDb scan returns no episodes or no files are copied.
 /// When caption extraction runs, writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing")]
+[Cmdlet(VerbsLifecycle.Invoke, "SeriesProcessing", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(SubtitleProcessingResult))]
 public class InvokeSeriesProcessingCommand : ProgressCmdletBase
 {
@@ -135,6 +136,10 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     {
         WriteHostMessage($"Starting series processing for '{Title}' Season {Season:D2}", ConsoleColor.Cyan);
         WriteVerbose($"Starting series processing for '{Title}' season {Season}.");
+
+        var shouldProcessTarget = string.IsNullOrWhiteSpace(OutputPath) ? Title : OutputPath;
+        if (!ShouldProcess(shouldProcessTarget, $"Process series '{Title}' season {Season}"))
+            return;
 
         var seasonUrl = EnsureSeasonUrl(TvDbSeasonUrl, Season);
         WriteHostMessage("Step 1: Creating directory structure...", ConsoleColor.Cyan);

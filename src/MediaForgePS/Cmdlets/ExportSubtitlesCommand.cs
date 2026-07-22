@@ -19,8 +19,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// When OCR runs, only OCR-produced SRT files are repaired; native exported SRT files are not repaired.
 /// Writes a <see cref="SubtitleProcessingResult"/> with extract and OCR conversion counts.
 /// Alias: Export-RepairedSubtitles.
+/// Supports -WhatIf and -Confirm.
 /// </remarks>
-[Cmdlet(VerbsData.Export, "Subtitles")]
+[Cmdlet(VerbsData.Export, "Subtitles", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [Alias("Export-RepairedSubtitles")]
 [OutputType(typeof(SubtitleProcessingResult))]
 public class ExportSubtitlesCommand : ProgressCmdletBase
@@ -123,7 +124,8 @@ public class ExportSubtitlesCommand : ProgressCmdletBase
             MediaConversionHelper.WriteMainProgress(CmdletIO, "Exporting subtitles", status, percent, recordType: ProgressRecordType.Processing);
             MediaConversionHelper.WriteCurrentItemProgress(CmdletIO, "Current file", "Exporting...", fileName, recordType: ProgressRecordType.Processing);
 
-            ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex, exportedPaths);
+            if (ShouldProcess(mf.Path, $"Export subtitles from '{fileName}'"))
+                ExportSubtitlesForMediaFile(mf, totalFiles, fileIndex, exportedPaths);
 
             completedBytes += fileSize;
             (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(fileIndex, totalFiles, fileName, completedBytes, totalBytes);
