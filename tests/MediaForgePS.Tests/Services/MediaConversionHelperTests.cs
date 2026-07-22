@@ -100,7 +100,7 @@ public class MediaConversionHelperTests
     }
 
     [Fact]
-    public void FormatConversionResultLine_WithSuccess_IncludesOutputPathSizeAndDuration()
+    public void FormatConversionResultLine_WithSuccess_IncludesOutputFileNameSizeAndDuration()
     {
         var result = new MediaConversionResult(
             @"C:\in.mkv",
@@ -113,14 +113,15 @@ public class MediaConversionHelperTests
 
         var line = MediaConversionHelper.FormatConversionResultLine(result);
 
-        Assert.Contains(@"C:\out.mp4", line, StringComparison.Ordinal);
+        Assert.Contains("out.mp4", line, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\", line, StringComparison.Ordinal);
         Assert.Contains("50% smaller", line, StringComparison.Ordinal);
         Assert.Contains("1.0 MB → 0.5 MB", line, StringComparison.Ordinal);
         Assert.Contains("01:35", line, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FormatConversionResultLine_WithFailure_IncludesInputPathAndStatus()
+    public void FormatConversionResultLine_WithFailure_IncludesInputFileNameAndStatus()
     {
         var result = new MediaConversionResult(
             @"C:\in.mkv",
@@ -133,7 +134,7 @@ public class MediaConversionHelperTests
 
         var line = MediaConversionHelper.FormatConversionResultLine(result);
 
-        Assert.Equal(@"C:\in.mkv — Failed to read media metadata.", line);
+        Assert.Equal("in.mkv — Failed to read media metadata.", line);
     }
 
     [Fact]

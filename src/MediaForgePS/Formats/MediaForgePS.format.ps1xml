@@ -395,7 +395,9 @@
           <TableRowEntry>
             <TableColumnItems>
               <TableColumnItem>
-                <PropertyName>OutputPath</PropertyName>
+                <ScriptBlock>
+                  [System.IO.Path]::GetFileName($_.OutputPath)
+                </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
@@ -511,11 +513,11 @@
           </TableColumnHeader>
           <TableColumnHeader>
             <Label>ExtractedPaths</Label>
-            <Width>16</Width>
+            <Width>36</Width>
           </TableColumnHeader>
           <TableColumnHeader>
             <Label>ConvertedPaths</Label>
-            <Width>16</Width>
+            <Width>36</Width>
           </TableColumnHeader>
         </TableHeaders>
         <TableRowEntries>
@@ -528,10 +530,16 @@
                 <PropertyName>ConvertedCount</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
-                <ScriptBlock>$_.ExtractedPaths.Count</ScriptBlock>
+                <ScriptBlock>
+                  if ($null -eq $_.ExtractedPaths -or $_.ExtractedPaths.Count -eq 0) { '' }
+                  else { ($_.ExtractedPaths | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ', ' }
+                </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
-                <ScriptBlock>$_.ConvertedPaths.Count</ScriptBlock>
+                <ScriptBlock>
+                  if ($null -eq $_.ConvertedPaths -or $_.ConvertedPaths.Count -eq 0) { '' }
+                  else { ($_.ConvertedPaths | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ', ' }
+                </ScriptBlock>
               </TableColumnItem>
             </TableColumnItems>
           </TableRowEntry>
