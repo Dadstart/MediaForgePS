@@ -263,7 +263,7 @@ public class ExecutableServiceArgumentListTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithStdoutCallback_InvokesCallbackForEachLine()
+    public async Task ExecuteAsync_WithStdoutCallback_InvokesCallbackAndDoesNotRetainStdout()
     {
         await using var script = await TempPwshScript.CreateAsync(
             "Write-Output 'line-one'\nWrite-Output 'line-two'",
@@ -280,8 +280,66 @@ public class ExecutableServiceArgumentListTests
         Assert.Null(result.Exception);
         Assert.Equal(0, result.ExitCode);
         Assert.Equal(["line-one", "line-two"], lines);
-        Assert.Contains("line-one", result.Output, StringComparison.Ordinal);
-        Assert.Contains("line-two", result.Output, StringComparison.Ordinal);
+        Assert.Null(result.Output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OnSuccess_CapsRetainedStderr()
+    {
+        var oversized = new string('e', ExecutableService.MaxSuccessErrorOutputChars + 2_000);
+        await using var script = await TempPwshScript.CreateAsync(
+            $"[Console]::Error.Write('{oversized}'); exit 0",
+            TestContext.Current.CancellationToken);
+
+        var service = new ExecutableService(NullLogger<ExecutableService>.Instance);
+        var result = await service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(result.Exception);
+        Assert.Equal(0, result.ExitCode);
+        Assert.NotNull(result.ErrorOutput);
+        Assert.True(result.ErrorOutput.Length <= ExecutableService.MaxSuccessErrorOutputChars);
+        Assert.EndsWith(new string('e', 32), result.ErrorOutput, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OnFailure_KeepsFullStderr()
+    {
+        var oversized = new string('f', ExecutableService.MaxSuccessErrorOutputChars + 2_000);
+        await using var script = await TempPwshScript.CreateAsync(
+            $"[Console]::Error.Write('{oversized}'); exit 7",
+            TestContext.Current.CancellationToken);
+
+        var service = new ExecutableService(NullLogger<ExecutableService>.Instance);
+        var result = await service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(result.Exception);
+        Assert.Equal(7, result.ExitCode);
+        Assert.Equal(oversized, result.ErrorOutput);
+    }
+
+    [Theory]
+    [InlineData(null, 10, null)]
+    [InlineData("short", 10, "short")]
+    [InlineData("abcdefghij", 10, "abcdefghij")]
+    public void TruncateTail_WhenWithinLimit_ReturnsOriginal(string? value, int maxChars, string? expected)
+        => Assert.Equal(expected, ExecutableService.TruncateTail(value, maxChars));
+
+    [Fact]
+    public void TruncateTail_WhenOverLimit_KeepsTrailingPortionWithPrefix()
+    {
+        var value = new string('a', 20) + "TAIL";
+        var truncated = ExecutableService.TruncateTail(value, 12);
+
+        Assert.NotNull(truncated);
+        Assert.Equal(12, truncated.Length);
+        Assert.StartsWith("...\n", truncated, StringComparison.Ordinal);
+        Assert.EndsWith("TAIL", truncated, StringComparison.Ordinal);
     }
 
     private sealed class TempPwshScript : IAsyncDisposable

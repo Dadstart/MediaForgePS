@@ -9,6 +9,12 @@ namespace Dadstart.Labs.MediaForge.Services.System;
 
 public class ExecutableService : IExecutableService
 {
+    /// <summary>
+    /// Maximum stderr characters retained on successful process exits.
+    /// Failure results keep full stderr for diagnostics.
+    /// </summary>
+    internal const int MaxSuccessErrorOutputChars = 64 * 1024;
+
     private readonly ILogger<ExecutableService> _logger;
 
     public ExecutableService(ILogger<ExecutableService> logger)
@@ -226,34 +232,17 @@ public class ExecutableService : IExecutableService
 
     private async Task<(string? stdout, string? stderr)> ReadProcessOutputAsync(Process process, Action<string>? stdoutCallback, CancellationToken cancellationToken)
     {
-        Task<string> stdoutTask;
+        Task<string?> stdoutTask;
         if (stdoutCallback != null)
         {
-            // Read stdout line-by-line with callback
-            var stdoutLines = new List<string>();
-            stdoutTask = Task.Run(async () =>
-            {
-                using var reader = process.StandardOutput;
-                string? line;
-                while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
-                {
-                    stdoutLines.Add(line);
-                    try
-                    {
-                        stdoutCallback(line);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Exception in stdout callback for command: {Command}", process.StartInfo.FileName);
-                    }
-                }
-                return string.Join(Environment.NewLine, stdoutLines);
-            }, cancellationToken);
+            // Stream lines to the callback without retaining them. Progress mode (e.g. FFmpeg
+            // -progress pipe:1) can emit unbounded stdout over long encodes.
+            stdoutTask = DrainStdoutWithCallbackAsync(process, stdoutCallback, cancellationToken);
         }
         else
         {
-            // Read stdout all at once
-            stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            // Retain full stdout (e.g. Ffprobe JSON).
+            stdoutTask = ReadStdoutFullyAsync(process.StandardOutput, cancellationToken);
         }
 
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -266,8 +255,38 @@ public class ExecutableService : IExecutableService
         return (stdout, stderr);
     }
 
+    private async Task<string?> DrainStdoutWithCallbackAsync(
+        Process process,
+        Action<string> stdoutCallback,
+        CancellationToken cancellationToken)
+    {
+        using var reader = process.StandardOutput;
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
+        {
+            try
+            {
+                stdoutCallback(line);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Exception in stdout callback for command: {Command}", process.StartInfo.FileName);
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> ReadStdoutFullyAsync(StreamReader reader, CancellationToken cancellationToken)
+        => await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+
     private ExecutableResult CreateResult(Process process, string? stdout, string? stderr, string command)
     {
+        // Successful runs do not need full stderr for callers; keep a capped tail for logs/debug.
+        // Failures retain full stderr so EnsureProcessSuccess / FfmpegConversionException stay useful.
+        if (process.ExitCode == 0)
+            stderr = TruncateTail(stderr, MaxSuccessErrorOutputChars);
+
         _logger.LogDebug(
             "Process completed. Exit code: {ExitCode}, StdOut length: {StdOutLength}, StdErr length: {StdErrLength}",
             process.ExitCode,
@@ -283,10 +302,23 @@ public class ExecutableService : IExecutableService
         }
 
         if (!string.IsNullOrEmpty(stderr))
-        {
             _logger.LogTrace("Process stderr output: {StdErr}", stderr);
-        }
 
         return new ExecutableResult(stdout, stderr, process.ExitCode);
+    }
+
+    /// <summary>
+    /// Keeps the trailing portion of <paramref name="value"/> when it exceeds <paramref name="maxChars"/>.
+    /// </summary>
+    internal static string? TruncateTail(string? value, int maxChars)
+    {
+        if (value is null || value.Length <= maxChars)
+            return value;
+
+        const string TruncationPrefix = "...\n";
+        if (maxChars <= TruncationPrefix.Length)
+            return value[^maxChars..];
+
+        return TruncationPrefix + value[^(maxChars - TruncationPrefix.Length)..];
     }
 }
