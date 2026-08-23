@@ -145,7 +145,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
             service.ConvertAsync(
                 inputPath,
                 outputPath,
-                cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.Current.CancellationToken,
+                overwrite: true));
 
         Assert.Equal(inputPath, ex.InputPath);
         Assert.Equal(outputPath, ex.OutputPath);
@@ -154,6 +155,30 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Equal("existing", File.ReadAllText(outputPath));
         Assert.NotNull(stagedDirectory);
         Assert.False(Directory.Exists(stagedDirectory));
+    }
+
+    [Fact]
+    public async Task ConvertAsync_WhenOutputExistsWithoutOverwrite_ThrowsIOException()
+    {
+        var inputPath = Path.Combine(_tempDir, "input-exists.mkv");
+        var outputPath = Path.Combine(_tempDir, "output-exists.mp4");
+        File.WriteAllText(inputPath, "input");
+        File.WriteAllText(outputPath, "existing");
+
+        var executableMock = new Mock<IExecutableService>();
+        var service = CreateService(executableMock.Object);
+
+        var ex = await Assert.ThrowsAsync<IOException>(() =>
+            service.ConvertAsync(
+                inputPath,
+                outputPath,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("-Force", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("existing", File.ReadAllText(outputPath));
+        executableMock.Verify(
+            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
+            Times.Never);
     }
 
     [Fact]

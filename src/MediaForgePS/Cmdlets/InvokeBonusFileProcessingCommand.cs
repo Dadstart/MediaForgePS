@@ -119,6 +119,12 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
     public SwitchParameter KeepSource { get; set; }
 
     /// <summary>
+    /// Overwrites converted output files when they already exist.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites converted output files when they already exist.")]
+    public SwitchParameter Force { get; set; }
+
+    /// <summary>
     /// Directory to copy all SRT files to before repairing. Only used when repair runs.
     /// </summary>
     [Parameter(HelpMessage = "Directory to copy SRT files to before repairing; preserves path structure.")]
@@ -466,6 +472,18 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             var outputFileName = Path.GetFileNameWithoutExtension(inputFilePath) + ".mp4";
             var outputFilePath = Path.Combine(inputDirectory, outputFileName);
 
+            if (!TryEnsureOutputCanBeWritten(outputFilePath, Force.IsPresent))
+            {
+                stopwatch.Stop();
+                UpdateFileProgress("Skipped (output exists)", fileName, recordType: ProgressRecordType.Completed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputFilePath,
+                    outputFilePath,
+                    false,
+                    "Output file already exists. Use -Force to overwrite.",
+                    stopwatch.Elapsed);
+            }
+
             try
             {
                 RunConversionWithProgress(
@@ -580,7 +598,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     audioMappings,
                     additionalArguments,
                     progress,
-                    cancellationToken),
+                    cancellationToken,
+                    overwrite: Force.IsPresent),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(

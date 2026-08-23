@@ -62,7 +62,11 @@ public static class AtomicFileHelper
     /// <summary>
     /// Writes text to a temporary sibling file, then replaces <paramref name="finalPath"/>.
     /// </summary>
-    public static void WriteTextAtomically(string finalPath, string contents, Encoding encoding)
+    /// <param name="finalPath">Destination path.</param>
+    /// <param name="contents">Text to write.</param>
+    /// <param name="encoding">Text encoding.</param>
+    /// <param name="overwrite">When false, throws if <paramref name="finalPath"/> already exists.</param>
+    public static void WriteTextAtomically(string finalPath, string contents, Encoding encoding, bool overwrite = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
         ArgumentNullException.ThrowIfNull(contents);
@@ -72,7 +76,7 @@ public static class AtomicFileHelper
         try
         {
             File.WriteAllText(tempPath, contents, encoding);
-            PromoteTempFile(tempPath, finalPath);
+            PromoteTempFile(tempPath, finalPath, overwrite);
         }
         finally
         {
@@ -81,9 +85,13 @@ public static class AtomicFileHelper
     }
 
     /// <summary>
-    /// Moves <paramref name="tempPath"/> onto <paramref name="finalPath"/>, replacing an existing file when present.
+    /// Moves <paramref name="tempPath"/> onto <paramref name="finalPath"/>.
     /// </summary>
-    public static void PromoteTempFile(string tempPath, string finalPath)
+    /// <param name="tempPath">Staged temporary file.</param>
+    /// <param name="finalPath">Final destination path.</param>
+    /// <param name="overwrite">When false, throws if <paramref name="finalPath"/> already exists.</param>
+    /// <exception cref="IOException">Thrown when the destination exists and <paramref name="overwrite"/> is false.</exception>
+    public static void PromoteTempFile(string tempPath, string finalPath, bool overwrite = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tempPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(finalPath);
@@ -92,7 +100,10 @@ public static class AtomicFileHelper
         if (!string.IsNullOrEmpty(destinationDirectory))
             Directory.CreateDirectory(destinationDirectory);
 
-        File.Move(tempPath, finalPath, overwrite: true);
+        if (!overwrite && File.Exists(finalPath))
+            throw new IOException($"Output file already exists: {finalPath}. Use -Force to overwrite.");
+
+        File.Move(tempPath, finalPath, overwrite: overwrite);
     }
 
     /// <summary>

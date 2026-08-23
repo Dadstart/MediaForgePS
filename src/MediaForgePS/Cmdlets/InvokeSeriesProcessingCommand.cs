@@ -119,6 +119,12 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
     public SwitchParameter KeepSource { get; set; }
 
+    /// <summary>
+    /// Overwrites existing episode files in the destination season folder when copying.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites existing episode files in the destination season folder when copying.")]
+    public SwitchParameter Force { get; set; }
+
     private const int DefaultOcrThrottleLimit = 10;
 
     private ISeriesProcessingService? _seriesProcessingService;
@@ -175,7 +181,8 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                 episodes,
                 FilePatterns,
                 EpisodeStart,
-                MinimumFileSize));
+                MinimumFileSize,
+                Force.IsPresent));
 
         if (copiedFiles.Count == 0)
         {

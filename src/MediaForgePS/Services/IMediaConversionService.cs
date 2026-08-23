@@ -33,6 +33,7 @@ public interface IMediaConversionService
     /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
     /// <param name="progress">Optional progress reporter for encode progress.</param>
     /// <param name="cancellationToken">Token used to cancel the conversion (and kill child processes).</param>
+    /// <param name="overwrite">When false, refuses to replace an existing output file.</param>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     void ExecuteConversion(
         string resolvedInputPath,
@@ -41,5 +42,6 @@ public interface IMediaConversionService
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments = null,
         IProgress<FfmpegProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool overwrite = false);
 }

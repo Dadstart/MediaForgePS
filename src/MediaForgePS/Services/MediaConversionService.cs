@@ -98,7 +98,8 @@ public class MediaConversionService : IMediaConversionService
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments = null,
         IProgress<FfmpegProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool overwrite = false)
     {
         if (videoSettings.IsSinglePass)
         {
@@ -107,7 +108,8 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
                 progress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                overwrite: overwrite).ConfigureAwait(false).GetAwaiter().GetResult();
             return;
         }
 
@@ -139,7 +141,8 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 2, passLogFile, additionalArguments),
                 secondPassProgress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                overwrite: overwrite).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         finally
         {

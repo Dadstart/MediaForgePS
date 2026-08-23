@@ -308,6 +308,31 @@ public abstract class CmdletBase : PSCmdlet
     }
 
     /// <summary>
+    /// Ensures an output path can be written. Existing files require <paramref name="force"/>.
+    /// </summary>
+    /// <returns>True when the path is writable; otherwise false after writing an error.</returns>
+    protected bool TryEnsureOutputCanBeWritten(string resolvedOutputPath, bool force)
+    {
+        if (!File.Exists(resolvedOutputPath))
+            return true;
+
+        if (force)
+        {
+            Logger.LogWarning("Output file exists and Force specified. Will overwrite: {ResolvedOutputPath}", resolvedOutputPath);
+            return true;
+        }
+
+        var errorMessage = $"Output file already exists: {resolvedOutputPath}. Use -Force to overwrite.";
+        Logger.LogError(errorMessage);
+        WriteError(CreateErrorRecord(
+            new IOException(errorMessage),
+            ErrorIds.OutputFileExists,
+            ErrorCategory.ResourceExists,
+            resolvedOutputPath));
+        return false;
+    }
+
+    /// <summary>
     /// Reads media metadata for a resolved path and writes standardized errors when reading fails.
     /// </summary>
     /// <param name="mediaReaderService">Media reader service.</param>

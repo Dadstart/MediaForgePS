@@ -32,12 +32,16 @@ public class FfmpegService : IFfmpegService
         IEnumerable<string>? arguments = null,
         IProgress<FfmpegProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        bool overwrite = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
         timeout ??= ProcessTimeouts.Encode;
+
+        if (!AtomicFileHelper.IsNullMuxerOutput(outputPath) && !overwrite && File.Exists(outputPath))
+            throw new IOException($"Output file already exists: {outputPath}. Use -Force to overwrite.");
 
         _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
@@ -63,7 +67,7 @@ public class FfmpegService : IFfmpegService
 
             var result = await ExecuteFfmpegAsync(allArguments, progress, totalDuration, cancellationToken, timeout).ConfigureAwait(false);
             HandleResult(result, inputPath, outputPath);
-            AtomicFileHelper.PromoteTempFile(tempOutputPath, outputPath);
+            AtomicFileHelper.PromoteTempFile(tempOutputPath, outputPath, overwrite);
         }
         finally
         {

@@ -267,7 +267,7 @@ public static class ChapterSplitHelper
                     .ConfigureAwait(false).GetAwaiter().GetResult();
 
                 result.EnsureProcessSuccess($"ffmpeg chapter split for '{outputFile}'");
-                AtomicFileHelper.PromoteTempFile(tempOutputFile, outputFile);
+                AtomicFileHelper.PromoteTempFile(tempOutputFile, outputFile, overwrite: false);
             }
             finally
             {

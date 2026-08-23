@@ -43,7 +43,7 @@ public class ExportMediaStreamCommandTests : IDisposable
                 It.IsAny<string>(),
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>(), It.IsAny<bool>()))
             .Returns(Task.CompletedTask);
 
         var services = new ServiceCollection();
@@ -182,7 +182,7 @@ public class ExportMediaStreamCommandTests : IDisposable
 
         Assert.Empty(results);
         Assert.Empty(errors);
-        VerifyConvertOnce(inputPath, outputFile.Path, ["-map", "0:a:0", "-c", "copy"]);
+        VerifyConvertOnce(inputPath, outputFile.Path, ["-map", "0:a:0", "-c", "copy"], overwrite: true);
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class ExportMediaStreamCommandTests : IDisposable
                 outputPath,
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>(), It.IsAny<bool>()))
             .ThrowsAsync(new FfmpegConversionException("conversion failed", inputPath, outputPath, 1, "ffmpeg error"));
 
         using var ps = CreatePowerShell();
@@ -250,7 +250,7 @@ public class ExportMediaStreamCommandTests : IDisposable
                 outputPath,
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>(), It.IsAny<bool>()))
             .ThrowsAsync(new FfmpegConversionException(
                 "conversion failed",
                 inputPath,
@@ -286,7 +286,7 @@ public class ExportMediaStreamCommandTests : IDisposable
                 outputPath,
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>(), It.IsAny<bool>()))
             .ThrowsAsync(new InvalidOperationException("unexpected"));
 
         using var ps = CreatePowerShell();
@@ -326,7 +326,7 @@ public class ExportMediaStreamCommandTests : IDisposable
             .Returns(true);
     }
 
-    private void VerifyConvertOnce(string inputPath, string outputPath, string[] expectedArguments)
+    private void VerifyConvertOnce(string inputPath, string outputPath, string[] expectedArguments, bool overwrite = false)
     {
         _ffmpegServiceMock.Verify(
             s => s.ConvertAsync(
@@ -335,7 +335,8 @@ public class ExportMediaStreamCommandTests : IDisposable
                 It.Is<IEnumerable<string>?>(args => args != null && args.SequenceEqual(expectedArguments)),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
                 It.IsAny<CancellationToken>(),
-                ProcessTimeouts.Extract),
+                ProcessTimeouts.Extract,
+                overwrite),
             Times.Once);
     }
 
@@ -347,7 +348,7 @@ public class ExportMediaStreamCommandTests : IDisposable
                 It.IsAny<string>(),
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>(), It.IsAny<bool>()),
             Times.Never);
     }
 

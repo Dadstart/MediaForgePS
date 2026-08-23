@@ -75,7 +75,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
             throw new InvalidOperationException($"OCR produced no subtitle lines for: {inputPath}");
 
         var srtText = new SubRip().ToText(subtitle, Path.GetFileNameWithoutExtension(outputSrtPath) ?? "untitled");
-        AtomicFileHelper.WriteTextAtomically(outputSrtPath, srtText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        AtomicFileHelper.WriteTextAtomically(outputSrtPath, srtText, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), overwrite: true);
         _logger.LogDebug("Wrote OCR SRT with {Count} lines: {Path}", subtitle.Paragraphs.Count, outputSrtPath);
     }
 

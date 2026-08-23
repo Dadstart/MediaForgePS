@@ -85,6 +85,12 @@ internal sealed class SeriesChapterExtractionPhase(
             var chapter = media.Chapters[chapterNumber - 1];
             var startTime = TimeSpan.FromSeconds((double)chapter.StartTime);
             var clipPath = Path.Combine(chapterDir, $"{Path.GetFileNameWithoutExtension(filePath)}.chapter{chapterNumber:D2}.mp4");
+            if (File.Exists(clipPath))
+            {
+                logger.LogInformation("Chapter clip already exists, skipping: {ClipPath}", clipPath);
+                return true;
+            }
+
             var tempClipPath = AtomicFileHelper.CreateTempOutputPath(clipPath);
             tempDirectory = Path.GetDirectoryName(tempClipPath);
 
@@ -101,7 +107,7 @@ internal sealed class SeriesChapterExtractionPhase(
                 .ConfigureAwait(false).GetAwaiter().GetResult();
 
             result.EnsureProcessSuccess($"ffmpeg chapter extraction for '{filePath}'");
-            AtomicFileHelper.PromoteTempFile(tempClipPath, clipPath);
+            AtomicFileHelper.PromoteTempFile(tempClipPath, clipPath, overwrite: false);
             return true;
         }
         catch (OperationCanceledException)

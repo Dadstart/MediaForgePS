@@ -105,25 +105,8 @@ public class ExportMediaStreamCommand : CmdletBase
         Logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedOutputPath);
 
         // Check if output file exists and handle Force parameter
-        if (File.Exists(resolvedOutputPath))
-        {
-            if (Force)
-            {
-                Logger.LogWarning("Output file exists and Force specified. Will overwrite: {ResolvedOutputPath}", resolvedOutputPath);
-            }
-            else
-            {
-                var errorMessage = $"Output file already exists: {resolvedOutputPath}. Use -Force to overwrite.";
-                Logger.LogError(errorMessage);
-                var errorRecord = new ErrorRecord(
-                    new IOException(errorMessage),
-                    ErrorIds.OutputFileExists,
-                    ErrorCategory.ResourceExists,
-                    resolvedOutputPath);
-                WriteError(errorRecord);
-                return;
-            }
-        }
+        if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+            return;
 
         var ffmpegArguments = BuildStreamCopyArguments();
         Logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", ffmpegArguments));
@@ -144,7 +127,8 @@ public class ExportMediaStreamCommand : CmdletBase
                 resolvedOutputPath,
                 ffmpegArguments,
                 cancellationToken: StoppingToken,
-                timeout: ProcessTimeouts.Extract).ConfigureAwait(false).GetAwaiter().GetResult();
+                timeout: ProcessTimeouts.Extract,
+                overwrite: Force.IsPresent).ConfigureAwait(false).GetAwaiter().GetResult();
 
             Logger.LogInformation("Successfully extracted stream to: {OutputFileName}", outputFileName);
         }

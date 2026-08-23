@@ -18,7 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <see cref="NewVideoEncodingSettingsCommand"/> and <see cref="AudioTrackMapping"/> objects from
 /// <see cref="GetAudioTrackMappingsCommand"/> or <see cref="NewAudioTrackMappingCommand"/>.
 /// Does not write to the pipeline on failure (errors via WriteError); on success writes a <see cref="MediaConversionResult"/>.
-/// Supports -WhatIf and -Confirm.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite an existing output file.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
@@ -82,6 +82,12 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         HelpMessage = "Additional x265 params (passed to ffmpeg via -x265-params)")]
     public string? X265Params { get; set; }
 
+    /// <summary>
+    /// Overwrites the output file if it already exists.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites the output file if it already exists")]
+    public SwitchParameter Force { get; set; }
+
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
 
@@ -109,6 +115,9 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         if (!TryResolveOutputPath(PathResolver, OutputPath, out var resolvedOutputPath))
             return;
 
+        if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+            return;
+
         var inputFileName = Path.GetFileName(resolvedInputPath);
         var outputFileName = Path.GetFileName(resolvedOutputPath);
         if (!ShouldProcess($"Convert '{inputFileName}' to '{outputFileName}'", "Convert media file"))
@@ -133,7 +142,8 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 VideoEncodingSettings,
                 AudioTrackMappings,
                 additionalArguments,
-                cancellationToken: StoppingToken);
+                cancellationToken: StoppingToken,
+                overwrite: Force.IsPresent);
             stopwatch.Stop();
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);

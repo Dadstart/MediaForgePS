@@ -15,7 +15,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Searches each -Path root (top directory only, not recursive) for files matching -FilePatterns
 /// larger than -MinimumFileSize. The Nth matched file maps to TVDb episode (EpisodeStart - 1) + N.
 /// Pipeline -Path values are collected during Process and executed in End.
-/// Supports -WhatIf and -Confirm.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite existing destination files.
 /// </remarks>
 [Cmdlet(VerbsLifecycle.Invoke, "VideoCopy", SupportsShouldProcess = true)]
 [OutputType(typeof(string))]
@@ -77,6 +77,12 @@ public class InvokeVideoCopyCommand : ProgressCmdletBase
     [ValidateNotNull]
     public TvDbEpisodeInfo[] Episodes { get; set; } = Array.Empty<TvDbEpisodeInfo>();
 
+    /// <summary>
+    /// Overwrites destination files when they already exist.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites destination files when they already exist.")]
+    public SwitchParameter Force { get; set; }
+
     private readonly List<string> _allPaths = new();
     private ISeriesProcessingService? _seriesProcessingService;
     private ISeriesProcessingService SeriesProcessingService => _seriesProcessingService ??= ModuleServices.GetRequiredService<ISeriesProcessingService>();
@@ -117,7 +123,8 @@ public class InvokeVideoCopyCommand : ProgressCmdletBase
                 Episodes,
                 FilePatterns,
                 EpisodeStart,
-                MinimumFileSize));
+                MinimumFileSize,
+                Force.IsPresent));
 
         WriteObject(copied, true);
     }

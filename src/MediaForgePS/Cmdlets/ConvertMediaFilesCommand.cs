@@ -21,7 +21,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Audio mappings are auto-detected per file when -AudioTrackMappings is not supplied (English audio preferred).
 /// Failed files are reported via <see cref="MediaConversionResult"/> and WriteError; the batch continues.
 /// After the result list, when more than one file completed, writes a <see cref="MediaConversionStatistics"/> with averages.
-/// Supports -WhatIf and -Confirm.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite existing output files.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFiles", DefaultParameterSetName = DefaultEncoderParameterSet, SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
@@ -121,6 +121,19 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         ParameterSetName = ExplicitSettingsParameterSet,
         HelpMessage = HelpMessages.X265Params)]
     public string? X265Params { get; set; }
+
+    /// <summary>
+    /// Overwrites output files when they already exist.
+    /// </summary>
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = DefaultEncoderParameterSet,
+        HelpMessage = "Overwrites output files when they already exist")]
+    [Parameter(
+        Mandatory = false,
+        ParameterSetName = ExplicitSettingsParameterSet,
+        HelpMessage = "Overwrites output files when they already exist")]
+    public SwitchParameter Force { get; set; }
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
@@ -381,6 +394,20 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
             return;
         }
 
+        if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+        {
+            _fileProcessingStopwatch.Stop();
+            var existsResult = MediaConversionHelper.CreateConversionResult(
+                inputPath,
+                resolvedOutputPath,
+                success: false,
+                "Output file already exists. Use -Force to overwrite.",
+                _fileProcessingStopwatch.Elapsed);
+            _conversionResults.Add(existsResult);
+            UpdateFileProgress("Skipped (output exists)", fileName, recordType: ProgressRecordType.Completed);
+            return;
+        }
+
         if (!ShouldProcess($"Convert '{fileName}' to '{outputFileName}'", "Convert media file"))
         {
             Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", fileName, outputFileName);
@@ -532,7 +559,8 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                     audioMappings,
                     additionalArguments,
                     progress,
-                    cancellationToken),
+                    cancellationToken,
+                    overwrite: Force.IsPresent),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(
