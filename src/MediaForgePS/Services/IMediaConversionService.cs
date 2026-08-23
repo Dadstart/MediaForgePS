@@ -15,8 +15,12 @@ public interface IMediaConversionService
     /// <param name="videoSettings">Video encoding settings.</param>
     /// <param name="audioMappings">Audio track mappings.</param>
     /// <param name="pass">The encoding pass number (1 or 2 for two-pass, null for single-pass).</param>
-    /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
+    /// <param name="additionalArguments">
+    /// Optional trusted-input-only FFmpeg argument tokens appended to the built command line.
+    /// Must not include extra <c>-i</c> inputs or <c>file:</c> protocol URLs.
+    /// </param>
     /// <returns>A list of Ffmpeg arguments.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="additionalArguments"/> contain disallowed tokens.</exception>
     IEnumerable<string> BuildFfmpegArguments(
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
@@ -30,10 +34,14 @@ public interface IMediaConversionService
     /// <param name="resolvedOutputPath">Resolved output file path.</param>
     /// <param name="videoSettings">Video encoding settings.</param>
     /// <param name="audioMappings">Audio track mappings.</param>
-    /// <param name="additionalArguments">Optional additional Ffmpeg arguments.</param>
+    /// <param name="additionalArguments">
+    /// Optional trusted-input-only FFmpeg argument tokens appended to the built command line.
+    /// Must not include extra <c>-i</c> inputs or <c>file:</c> protocol URLs.
+    /// </param>
     /// <param name="progress">Optional progress reporter for encode progress.</param>
     /// <param name="cancellationToken">Token used to cancel the conversion (and kill child processes).</param>
     /// <param name="overwrite">When false, refuses to replace an existing output file.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="additionalArguments"/> contain disallowed tokens.</exception>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     void ExecuteConversion(
         string resolvedInputPath,
