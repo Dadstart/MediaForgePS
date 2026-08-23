@@ -17,22 +17,38 @@ public class ExecutableService : IExecutableService
     }
 
     /// <inheritdoc />
-    public async Task<ExecutableResult> ExecuteAsync(string command, IEnumerable<string> arguments, CancellationToken cancellationToken = default)
+    public async Task<ExecutableResult> ExecuteAsync(
+        string command,
+        IEnumerable<string> arguments,
+        CancellationToken cancellationToken = default,
+        TimeSpan? timeout = null)
     {
-        return await ExecuteAsyncInternal(command, arguments, null, cancellationToken).ConfigureAwait(false);
+        return await ExecuteAsyncInternal(command, arguments, null, cancellationToken, timeout).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async Task<ExecutableResult> ExecuteAsync(string command, IEnumerable<string> arguments, Action<string> stdoutCallback, CancellationToken cancellationToken = default)
+    public async Task<ExecutableResult> ExecuteAsync(
+        string command,
+        IEnumerable<string> arguments,
+        Action<string> stdoutCallback,
+        CancellationToken cancellationToken = default,
+        TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(stdoutCallback);
-        return await ExecuteAsyncInternal(command, arguments, stdoutCallback, cancellationToken).ConfigureAwait(false);
+        return await ExecuteAsyncInternal(command, arguments, stdoutCallback, cancellationToken, timeout).ConfigureAwait(false);
     }
 
-    private async Task<ExecutableResult> ExecuteAsyncInternal(string command, IEnumerable<string> arguments, Action<string>? stdoutCallback, CancellationToken cancellationToken)
+    private async Task<ExecutableResult> ExecuteAsyncInternal(
+        string command,
+        IEnumerable<string> arguments,
+        Action<string>? stdoutCallback,
+        CancellationToken cancellationToken,
+        TimeSpan? timeout)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentNullException.ThrowIfNull(arguments);
+        if (timeout is { } invalidTimeout && invalidTimeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "Timeout must be positive when specified.");
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -53,29 +69,45 @@ public class ExecutableService : IExecutableService
         _logger.LogDebug(logMessage, command, argumentsForLog);
 
         Process? process = null;
+        CancellationTokenSource? timeoutCts = null;
         try
         {
+            var linkedToken = cancellationToken;
+            if (timeout is { } timeoutValue)
+            {
+                timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(timeoutValue);
+                linkedToken = timeoutCts.Token;
+                _logger.LogDebug("Process timeout set to {Timeout} for command: {Command}", timeoutValue, command);
+            }
+
             process = CreateAndStartProcess(command, argumentList);
             _logger.LogTrace("Process started successfully. Process ID: {ProcessId}", process.Id);
 
-            using var registration = cancellationToken.Register(
+            using var registration = linkedToken.Register(
                 static state => TryKillProcessTree((Process)state!),
                 process);
 
-            cancellationToken.ThrowIfCancellationRequested();
+            linkedToken.ThrowIfCancellationRequested();
 
-            var (stdout, stderr) = await ReadProcessOutputAsync(process, stdoutCallback, cancellationToken).ConfigureAwait(false);
+            var (stdout, stderr) = await ReadProcessOutputAsync(process, stdoutCallback, linkedToken).ConfigureAwait(false);
 
-            // Killing the process on cancel can make WaitForExit complete normally;
-            // always surface cancellation instead of treating it as a failed exit.
-            cancellationToken.ThrowIfCancellationRequested();
+            // Killing the process on cancel/timeout can make WaitForExit complete normally;
+            // always surface cancellation/timeout instead of treating it as a failed exit.
+            if (linkedToken.IsCancellationRequested)
+                ThrowIfCanceledOrTimedOut(cancellationToken, timeout, command);
 
             return CreateResult(process, stdout, stderr, command);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             TryKillProcessTree(process);
+            ThrowIfCanceledOrTimedOut(cancellationToken, timeout, command, ex);
             _logger.LogWarning("Command execution was cancelled: {Command}", command);
+            throw;
+        }
+        catch (TimeoutException)
+        {
             throw;
         }
         catch (Exception ex)
@@ -85,8 +117,33 @@ public class ExecutableService : IExecutableService
         }
         finally
         {
+            timeoutCts?.Dispose();
             process?.Dispose();
         }
+    }
+
+    private void ThrowIfCanceledOrTimedOut(
+        CancellationToken cancellationToken,
+        TimeSpan? timeout,
+        string command,
+        OperationCanceledException? cancelException = null)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("Command execution was cancelled: {Command}", command);
+            if (cancelException is not null)
+                throw cancelException;
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        if (timeout is { } timedOut)
+        {
+            _logger.LogWarning("Command execution timed out after {Timeout}: {Command}", timedOut, command);
+            throw new TimeoutException($"Command '{command}' timed out after {timedOut}.", cancelException);
+        }
+
+        if (cancelException is not null)
+            throw cancelException;
     }
 
     /// <summary>

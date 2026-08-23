@@ -143,7 +143,8 @@ public class ExportMediaStreamCommand : CmdletBase
                 resolvedInputPath,
                 resolvedOutputPath,
                 ffmpegArguments,
-                cancellationToken: StoppingToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken: StoppingToken,
+                timeout: ProcessTimeouts.Extract).ConfigureAwait(false).GetAwaiter().GetResult();
 
             Logger.LogInformation("Successfully extracted stream to: {OutputFileName}", outputFileName);
         }

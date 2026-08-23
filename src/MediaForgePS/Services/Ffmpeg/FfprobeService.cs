@@ -35,7 +35,11 @@ public class FfprobeService : IFfprobeService
 
         _logger.LogDebug("FFprobe arguments: {Arguments}", string.Join(" ", allArguments));
 
-        var result = await _executableService.ExecuteAsync(FFPROBE_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
+        var result = await _executableService.ExecuteAsync(
+            FFPROBE_EXECUTABLE,
+            allArguments,
+            cancellationToken,
+            ProcessTimeouts.Probe).ConfigureAwait(false);
 
         if (result.Exception is not null)
         {

@@ -562,7 +562,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     public void ConvertVideoFile_WithEnglishSubrip_ExtractsSubtitleBesideOutputMp4()
     {
         _executableServiceMock
-            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var root = CreateTempDirectory();
@@ -599,7 +599,8 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             service => service.ExecuteAsync(
                 "ffmpeg",
                 It.Is<IEnumerable<string>>(args => args.Contains("-map") && args.Contains("0:2")),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(),
+                ProcessTimeouts.Extract),
             Times.Once);
     }
 
@@ -607,7 +608,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     public void ConvertVideoFile_SkipSubtitles_DoesNotExtractSubtitles()
     {
         _executableServiceMock
-            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var root = CreateTempDirectory();
@@ -640,7 +641,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
 
         Assert.Empty(errors);
         _executableServiceMock.Verify(
-            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
             Times.Never);
     }
 
@@ -861,7 +862,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     public void ConvertVideoFile_Mp4SourceWithVobSubSubtitle_FallsBackToFfmpegTargetingIdx()
     {
         _executableServiceMock
-            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var root = CreateTempDirectory();
@@ -900,7 +901,8 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             service => service.ExecuteAsync(
                 "ffmpeg",
                 It.Is<IEnumerable<string>>(args => args.Contains(idxOutput)),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(),
+                ProcessTimeouts.Extract),
             Times.Once);
     }
 

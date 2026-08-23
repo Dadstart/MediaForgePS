@@ -1,3 +1,5 @@
+using Dadstart.Labs.MediaForge.Services.System;
+
 namespace Dadstart.Labs.MediaForge.Services.Ffmpeg;
 
 /// <summary>
@@ -13,11 +15,16 @@ public interface IFfmpegService
     /// <param name="arguments">Optional additional Ffmpeg arguments.</param>
     /// <param name="progress">Optional progress reporter for encode progress based on Ffmpeg <c>out_time</c>.</param>
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <param name="timeout">
+    /// Optional wall-clock timeout linked with <paramref name="cancellationToken"/>.
+    /// Defaults to <see cref="ProcessTimeouts.Encode"/> when omitted.
+    /// </param>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     Task ConvertAsync(
         string inputPath,
         string outputPath,
         IEnumerable<string>? arguments = null,
         IProgress<FfmpegProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        TimeSpan? timeout = null);
 }

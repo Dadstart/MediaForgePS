@@ -45,8 +45,8 @@ public class SplitSeriesChaptersCommandTests : IDisposable
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
         _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 File.WriteAllText(args.Last(), "encoded");
                 return new ExecutableResult(null, null, 0);
@@ -125,7 +125,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
 
         Assert.NotEmpty(errors);
         _mediaReaderServiceMock.Verify(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _executableServiceMock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _executableServiceMock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class SplitSeriesChaptersCommandTests : IDisposable
             Assert.Equal(expectedOutputPath, results[0].BaseObject);
 
             _executableServiceMock.Verify(
-                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
                 Times.Once);
         }
         finally

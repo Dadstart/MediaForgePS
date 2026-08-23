@@ -31,10 +31,13 @@ public class FfmpegService : IFfmpegService
         string outputPath,
         IEnumerable<string>? arguments = null,
         IProgress<FfmpegProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TimeSpan? timeout = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+
+        timeout ??= ProcessTimeouts.Encode;
 
         _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
@@ -46,7 +49,7 @@ public class FfmpegService : IFfmpegService
         {
             var nullArgs = BuildArguments(inputPath, outputPath, arguments, trackProgress: progress is not null);
             _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", nullArgs));
-            var nullResult = await ExecuteFfmpegAsync(nullArgs, progress, totalDuration, cancellationToken).ConfigureAwait(false);
+            var nullResult = await ExecuteFfmpegAsync(nullArgs, progress, totalDuration, cancellationToken, timeout).ConfigureAwait(false);
             HandleResult(nullResult, inputPath, outputPath);
             return;
         }
@@ -58,7 +61,7 @@ public class FfmpegService : IFfmpegService
             var allArguments = BuildArguments(inputPath, tempOutputPath, arguments, trackProgress: progress is not null);
             _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
 
-            var result = await ExecuteFfmpegAsync(allArguments, progress, totalDuration, cancellationToken).ConfigureAwait(false);
+            var result = await ExecuteFfmpegAsync(allArguments, progress, totalDuration, cancellationToken, timeout).ConfigureAwait(false);
             HandleResult(result, inputPath, outputPath);
             AtomicFileHelper.PromoteTempFile(tempOutputPath, outputPath);
         }
@@ -72,13 +75,14 @@ public class FfmpegService : IFfmpegService
         List<string> allArguments,
         IProgress<FfmpegProgress>? progress,
         TimeSpan totalDuration,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout)
     {
         if (progress is null)
-            return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken).ConfigureAwait(false);
+            return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, cancellationToken, timeout).ConfigureAwait(false);
 
         var tracker = new FfmpegProgressTracker(totalDuration, progress);
-        return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, tracker.HandleLine, cancellationToken).ConfigureAwait(false);
+        return await _executableService.ExecuteAsync(FFMPEG_EXECUTABLE, allArguments, tracker.HandleLine, cancellationToken, timeout).ConfigureAwait(false);
     }
 
     private async Task<TimeSpan> GetDurationAsync(string inputPath, CancellationToken cancellationToken)

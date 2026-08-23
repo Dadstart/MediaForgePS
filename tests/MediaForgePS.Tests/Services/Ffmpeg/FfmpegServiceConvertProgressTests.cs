@@ -46,12 +46,8 @@ public class FfmpegServiceConvertProgressTests : IDisposable
             .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":"10.000000"}}"""));
 
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, args, callback, _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken, TimeSpan?>((_, args, callback, _, __) =>
             {
                 var argumentList = args.ToArray();
                 Assert.Contains("-nostats", argumentList);
@@ -107,8 +103,9 @@ public class FfmpegServiceConvertProgressTests : IDisposable
             .Setup(service => service.ExecuteAsync(
                 "ffmpeg",
                 It.Is<IEnumerable<string>>(args => !args.Contains("-progress")),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+                It.IsAny<CancellationToken>(),
+                It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 File.WriteAllText(args.Last(), "encoded");
                 return new ExecutableResult(string.Empty, string.Empty, 0);
@@ -128,14 +125,10 @@ public class FfmpegServiceConvertProgressTests : IDisposable
             service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
             Times.Never);
         executableMock.Verify(
-            service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()),
+            service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
             Times.Never);
         executableMock.Verify(
-            service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
             Times.Once);
         Assert.True(File.Exists(outputPath));
     }
@@ -164,12 +157,8 @@ public class FfmpegServiceConvertProgressTests : IDisposable
             .ReturnsAsync(new FfprobeResult(probeSuccess, json));
 
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, args, callback, _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken, TimeSpan?>((_, args, callback, _, __) =>
             {
                 File.WriteAllText(args.Last(), "encoded");
                 callback("out_time=00:00:05.000000");
@@ -211,12 +200,8 @@ public class FfmpegServiceConvertProgressTests : IDisposable
             .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":20.5}}"""));
 
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken>((_, args, callback, _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken, TimeSpan?>((_, args, callback, _, __) =>
             {
                 File.WriteAllText(args.Last(), "encoded");
                 callback("out_time=00:00:10.250000");

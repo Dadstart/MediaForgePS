@@ -37,8 +37,8 @@ public class SubtitleExportHelperTests
     {
         var mock = new Mock<IExecutableService>();
         var calls = new List<(string Exe, string[] Args)>();
-        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IEnumerable<string>, CancellationToken>((exe, args, _) =>
+        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((exe, args, _, __) =>
                 calls.Add((exe, args.ToArray())))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
@@ -227,7 +227,7 @@ public class SubtitleExportHelperTests
     public void ExtractSubtitle_FfmpegFails_Throws()
     {
         var mock = new Mock<IExecutableService>();
-        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, "boom", 1));
         var stream = CreateStream("subrip");
 
@@ -247,7 +247,7 @@ public class SubtitleExportHelperTests
     public void ExtractSubtitle_MkvextractFails_Throws()
     {
         var mock = new Mock<IExecutableService>();
-        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, "broken", 2));
         var stream = CreateStream("dvd_subtitle");
 
@@ -354,7 +354,7 @@ public class SubtitleExportHelperTests
 
         Assert.Empty(result);
         Assert.True(noEnglishCalled);
-        mock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        mock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -492,8 +492,8 @@ public class SubtitleExportHelperTests
     public void ExtractEnglishSubtitles_ExtractionThrows_InvokesCallbackAndContinues()
     {
         var mock = new Mock<IExecutableService>();
-        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+        mock.Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
                 args.Any(a => a.Contains(".2.")) ? new ExecutableResult(string.Empty, "boom", 1) : new ExecutableResult(string.Empty, string.Empty, 0));
 
         var media = CreateMediaFile(@"C:\media\movie.mkv",

@@ -97,7 +97,7 @@ internal sealed class SeriesChapterExtractionPhase(
                 "-y", tempClipPath
             };
 
-            var result = executableService.ExecuteAsync("ffmpeg", arguments, cancellationToken)
+            var result = executableService.ExecuteAsync("ffmpeg", arguments, cancellationToken, ProcessTimeouts.Extract)
                 .ConfigureAwait(false).GetAwaiter().GetResult();
 
             result.EnsureProcessSuccess($"ffmpeg chapter extraction for '{filePath}'");

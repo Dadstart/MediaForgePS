@@ -29,8 +29,8 @@ public class MediaConversionServiceProgressTests
                 It.IsAny<string>(),
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken>((_, outputPath, args, progress, _) =>
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken, TimeSpan?>((_, outputPath, args, progress, _, __) =>
             {
                 callIndex++;
                 capturedOutputs.Add(outputPath);
@@ -97,8 +97,8 @@ public class MediaConversionServiceProgressTests
                 It.IsAny<string>(),
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken>((_, _, _, progress, _) =>
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, string, IEnumerable<string>?, IProgress<FfmpegProgress>?, CancellationToken, TimeSpan?>((_, _, _, progress, _, __) =>
             {
                 capturedProgress = progress;
                 progress?.Report(new FfmpegProgress(
@@ -137,7 +137,7 @@ public class MediaConversionServiceProgressTests
                 It.IsAny<string>(),
                 It.IsAny<IEnumerable<string>?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
             Times.Once);
     }
 

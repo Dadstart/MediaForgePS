@@ -41,8 +41,8 @@ public class SplitChaptersCommandTests : IDisposable
         _debuggerServiceMock.Setup(d => d.BreakIfDebugging(It.IsAny<bool>()));
 
         _executableServiceMock
-            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 var output = args.Last();
                 File.WriteAllText(output, "encoded");
@@ -104,7 +104,7 @@ public class SplitChaptersCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.NotEmpty(errors);
-        _executableServiceMock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _executableServiceMock.Verify(e => e.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class SplitChaptersCommandTests : IDisposable
             Assert.Equal(expectedOutputPath, results[0].BaseObject);
 
             _executableServiceMock.Verify(
-                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
                 Times.Once);
         }
         finally
@@ -208,7 +208,7 @@ public class SplitChaptersCommandTests : IDisposable
             Assert.Equal(Path.Combine(tempDir, "input.split-03.mkv"), results[2].BaseObject);
 
             _executableServiceMock.Verify(
-                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                e => e.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
                 Times.Exactly(3));
         }
         finally

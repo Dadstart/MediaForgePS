@@ -263,7 +263,7 @@ public static class ChapterSplitHelper
 
                 logger.LogDebug("Executing ffmpeg with arguments: {Args}", string.Join(" ", ffmpegArgs));
 
-                var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken)
+                var result = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken, ProcessTimeouts.Extract)
                     .ConfigureAwait(false).GetAwaiter().GetResult();
 
                 result.EnsureProcessSuccess($"ffmpeg chapter split for '{outputFile}'");

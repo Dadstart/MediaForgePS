@@ -53,6 +53,70 @@ public class ExecutableServiceCancellationTests
         Assert.True(executeTask.IsCompleted);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenTimeoutElapses_ThrowsTimeoutExceptionAndKillsProcess()
+    {
+        await using var script = await TempPwshScript.CreateAsync(
+            "Write-Output 'ready'\nStart-Sleep -Seconds 60",
+            TestContext.Current.CancellationToken);
+
+        var service = CreateService();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var executeTask = service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            line =>
+            {
+                if (line.Contains("ready", StringComparison.OrdinalIgnoreCase))
+                    started.TrySetResult();
+            },
+            TestContext.Current.CancellationToken,
+            timeout: TimeSpan.FromMilliseconds(500));
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<TimeoutException>(() => executeTask);
+        Assert.Contains("timed out", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCallerCancelsBeforeTimeout_ThrowsOperationCanceledException()
+    {
+        await using var script = await TempPwshScript.CreateAsync(
+            "Write-Output 'ready'\nStart-Sleep -Seconds 60",
+            TestContext.Current.CancellationToken);
+
+        var service = CreateService();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var executeTask = service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            line =>
+            {
+                if (line.Contains("ready", StringComparison.OrdinalIgnoreCase))
+                    started.TrySetResult();
+            },
+            cts.Token,
+            timeout: TimeSpan.FromMinutes(5));
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => executeTask);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenTimeoutIsNonPositive_ThrowsArgumentOutOfRangeException()
+    {
+        var service = CreateService();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            service.ExecuteAsync("pwsh", ["-NoProfile", "-Command", "1"], TestContext.Current.CancellationToken, TimeSpan.Zero));
+    }
+
     private static ExecutableService CreateService() =>
         new(NullLogger<ExecutableService>.Instance);
 

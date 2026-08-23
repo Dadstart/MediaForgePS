@@ -172,7 +172,7 @@ public class SeriesProcessingServiceCmdletIOTests
 
             var executable = new Mock<IExecutableService>();
             executable
-                .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+                .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
                 .ReturnsAsync(new ExecutableResult(null, "boom", 1));
 
             var service = new SeriesProcessingService(

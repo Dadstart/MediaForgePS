@@ -142,7 +142,7 @@ public class ExportSubtitlesCommandTests : IDisposable
             .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
 
         _executableMock
-            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var asm = typeof(ExportSubtitlesCommand).Assembly;
@@ -177,7 +177,7 @@ public class ExportSubtitlesCommandTests : IDisposable
             .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
 
         _executableMock
-            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var asm = typeof(ExportSubtitlesCommand).Assembly;
