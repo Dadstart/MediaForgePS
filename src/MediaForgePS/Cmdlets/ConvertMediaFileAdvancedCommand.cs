@@ -133,6 +133,8 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             return;
         }
 
+        PathResolver.EnsureOutputDirectoryExists(resolvedOutputPath);
+
         try
         {
             // Perform the conversion

@@ -288,6 +288,8 @@ public abstract class CmdletBase : PSCmdlet
 
     /// <summary>
     /// Resolves an output path and writes a standardized path error when resolution fails.
+    /// Does not create directories; callers should call <see cref="IPathResolver.EnsureOutputDirectoryExists"/>
+    /// only after ShouldProcess succeeds.
     /// </summary>
     /// <param name="pathResolver">Path resolver service.</param>
     /// <param name="outputPath">Output path from cmdlet parameter.</param>

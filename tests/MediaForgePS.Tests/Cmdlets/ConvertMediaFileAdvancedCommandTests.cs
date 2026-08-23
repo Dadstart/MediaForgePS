@@ -138,6 +138,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Equal(MediaConversionResult.CompletedStatus, conversionResult.Status);
         Assert.Equal(resolvedOutputPath, conversionResult.OutputPath);
         Assert.True(conversionResult.ProcessingTime >= TimeSpan.Zero);
+        _pathResolverMock.Verify(p => p.EnsureOutputDirectoryExists(resolvedOutputPath), Times.Once);
         _mediaConversionServiceMock.Verify(
             s => s.ExecuteConversion(
                 resolvedInputPath,
@@ -236,6 +237,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
 
         Assert.Empty(results);
         Assert.Empty(errors);
+        _pathResolverMock.Verify(p => p.EnsureOutputDirectoryExists(It.IsAny<string>()), Times.Never);
         _mediaConversionServiceMock.Verify(
             s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()),
             Times.Never);

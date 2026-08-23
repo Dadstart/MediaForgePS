@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services.System;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Dadstart.Labs.MediaForge.Tests.Services.System;
@@ -34,5 +37,58 @@ public class PathResolverEscapeTests
     public void EscapeLiteralProviderPath_WithNull_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => PathResolver.EscapeLiteralProviderPath(null!));
+    }
+}
+
+public class PathResolverEnsureOutputDirectoryTests
+{
+    [Fact]
+    public void EnsureOutputDirectoryExists_WhenParentMissing_CreatesDirectory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathResolver_" + Guid.NewGuid().ToString("N"));
+        var nestedDir = Path.Combine(root, "nested", "out");
+        var filePath = Path.Combine(nestedDir, "file.mp4");
+        try
+        {
+            Assert.False(Directory.Exists(nestedDir));
+
+            var resolver = new PathResolver(NullLogger<PathResolver>.Instance);
+            resolver.EnsureOutputDirectoryExists(filePath);
+
+            Assert.True(Directory.Exists(nestedDir));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void EnsureOutputDirectoryExists_WhenParentExists_DoesNotThrow()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathResolver_" + Guid.NewGuid().ToString("N"));
+        var filePath = Path.Combine(root, "file.mp4");
+        try
+        {
+            Directory.CreateDirectory(root);
+
+            var resolver = new PathResolver(NullLogger<PathResolver>.Instance);
+            resolver.EnsureOutputDirectoryExists(filePath);
+
+            Assert.True(Directory.Exists(root));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void EnsureOutputDirectoryExists_WhenPathNullOrWhitespace_Throws()
+    {
+        var resolver = new PathResolver(NullLogger<PathResolver>.Instance);
+        Assert.Throws<ArgumentException>(() => resolver.EnsureOutputDirectoryExists(" "));
     }
 }
