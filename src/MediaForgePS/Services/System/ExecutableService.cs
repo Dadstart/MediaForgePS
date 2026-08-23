@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 
@@ -100,6 +101,8 @@ public class ExecutableService : IExecutableService
         var processStartInfo = new ProcessStartInfo
         {
             FileName = command,
+            // Close stdin after start so tools like FFmpeg do not hang waiting for interactive input.
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -124,6 +127,20 @@ public class ExecutableService : IExecutableService
             _logger.LogError(errorMessage);
             process.Dispose();
             throw new InvalidOperationException(errorMessage);
+        }
+
+        // Signal EOF on stdin immediately. Without this, FFmpeg (and similar tools) can block
+        // indefinitely waiting for console input when stdin is attached to a redirected pipe.
+        try
+        {
+            process.StandardInput.Close();
+        }
+        catch (Exception ex) when (
+            ex is ObjectDisposedException
+                or InvalidOperationException
+                or IOException)
+        {
+            _logger.LogTrace(ex, "Failed to close redirected stdin for process '{Command}'", command);
         }
 
         return process;

@@ -91,6 +91,41 @@ public class ExecutableServiceCancellationTests
 public class ExecutableServiceArgumentListTests
 {
     [Fact]
+    public void CreateProcessStartInfo_RedirectsStandardInputOutputAndError()
+    {
+        var startInfo = ExecutableService.CreateProcessStartInfo("ffmpeg", ["-version"]);
+
+        Assert.True(startInfo.RedirectStandardInput);
+        Assert.True(startInfo.RedirectStandardOutput);
+        Assert.True(startInfo.RedirectStandardError);
+        Assert.False(startInfo.UseShellExecute);
+        Assert.True(startInfo.CreateNoWindow);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ClosesStandardInputSoProcessDoesNotBlockWaitingForInput()
+    {
+        // Reads one line from stdin then exits. With stdin redirected and closed after start,
+        // Read-Host / Console.ReadLine should see EOF immediately instead of hanging.
+        await using var script = await TempPwshScript.CreateAsync(
+            "$line = [Console]::In.ReadLine(); if ($null -eq $line) { Write-Output 'eof'; exit 0 } else { Write-Output $line; exit 1 }",
+            TestContext.Current.CancellationToken);
+
+        var service = new ExecutableService(NullLogger<ExecutableService>.Instance);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(15));
+
+        var result = await service.ExecuteAsync(
+            "pwsh",
+            ["-NoProfile", "-File", script.Path],
+            cts.Token);
+
+        Assert.Null(result.Exception);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("eof", result.Output?.Trim());
+    }
+
+    [Fact]
     public void CreateProcessStartInfo_UsesArgumentListNotArgumentsString()
     {
         var args = new[] { "-i", @"C:\My Videos\show.mkv", "out.mp4" };
