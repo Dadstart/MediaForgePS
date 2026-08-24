@@ -15,6 +15,23 @@ namespace Dadstart.Labs.MediaForge.Tests.Services.TvDb;
 public class TvDbClientTests
 {
     [Fact]
+    public void CreateDefaultHandler_DisablesAutomaticRedirects()
+    {
+        using var handler = TvDbClient.CreateDefaultHandler();
+
+        Assert.False(handler.AllowAutoRedirect);
+    }
+
+    [Fact]
+    public void Constructor_WhenHttpClientHandlerIsPassed_DisablesAutomaticRedirects()
+    {
+        using var handler = new HttpClientHandler { AllowAutoRedirect = true };
+        using var client = CreateClient(handler, apiKey: "test-key");
+
+        Assert.False(handler.AllowAutoRedirect);
+    }
+
+    [Fact]
     public async Task ResolveSeriesIdAsync_WhenNumeric_DoesNotCallApi()
     {
         var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("HTTP should not be called."));
