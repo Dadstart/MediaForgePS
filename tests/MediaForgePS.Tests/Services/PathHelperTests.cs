@@ -215,7 +215,7 @@ public class PathHelperTests
         Directory.CreateDirectory(tempDir);
         var sourcePath = Path.Combine(tempDir, "source.txt");
         File.WriteAllText(sourcePath, "payload");
-        File.SetAttributes(sourcePath, FileAttributes.ReadOnly);
+        MakeSourceDeleteBlocked(sourcePath, tempDir);
 
         try
         {
@@ -227,9 +227,45 @@ public class PathHelperTests
         }
         finally
         {
-            File.SetAttributes(sourcePath, FileAttributes.Normal);
+            RestoreSourceDeletePermissions(sourcePath, tempDir);
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    private static void MakeSourceDeleteBlocked(string sourcePath, string containingDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.SetAttributes(sourcePath, FileAttributes.ReadOnly);
+            return;
+        }
+
+        // On Unix, delete requires write permission on the containing directory, not the file mode.
+        File.SetUnixFileMode(
+            containingDirectory,
+            UnixFileMode.UserRead | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+    }
+
+    private static void RestoreSourceDeletePermissions(string sourcePath, string containingDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (File.Exists(sourcePath))
+                File.SetAttributes(sourcePath, FileAttributes.Normal);
+
+            return;
+        }
+
+        if (!Directory.Exists(containingDirectory))
+            return;
+
+        File.SetUnixFileMode(
+            containingDirectory,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
     }
 }
