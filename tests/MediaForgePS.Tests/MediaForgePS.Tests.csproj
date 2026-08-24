@@ -4,6 +4,16 @@
     <PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(CollectCoverage)' == 'true'">
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutput>$(MSBuildThisFileDirectory)TestResults\</CoverletOutput>
+    <CoverletOutputName>coverage</CoverletOutputName>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+    <Threshold>70</Threshold>
+    <ThresholdType>line</ThresholdType>
+    <ThresholdStat>total</ThresholdStat>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="coverlet.msbuild">

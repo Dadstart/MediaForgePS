@@ -29,6 +29,11 @@
     (`tests/MediaForgePS.Tests/Run-PesterTests.ps1`) against the same -Configuration output.
     Only runs if build succeeded. Uses --no-build flag if build output exists.
 
+.PARAMETER Coverage
+    Collect line coverage from the unit test project (`MediaForgePS.Tests`) during `dotnet test`
+    and fail when total line coverage is below 70%. Writes Cobertura output to
+    `tests/MediaForgePS.Tests/TestResults/coverage.cobertura.xml`. Requires -Test.
+
 .PARAMETER Publish
     Enable publish step. Publishes the main module project to the bin directory.
     Only runs if build succeeded.
@@ -103,6 +108,9 @@ param(
     [switch]$Test,
 
     [Parameter(ParameterSetName = "PartialBuild")]
+    [switch]$Coverage,
+
+    [Parameter(ParameterSetName = "PartialBuild")]
     [switch]$Publish,
 
     [Parameter(ParameterSetName = "FullBuild")]
@@ -118,6 +126,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($Coverage -and -not $Test) {
+    throw '-Coverage requires -Test.'
+}
 
 Import-Module (Join-Path $PSScriptRoot 'MediaForge.DevTools.psm1') -Force
 
@@ -423,6 +435,9 @@ if ($Test) {
     if (Test-BuildOutput -RepoRoot $repoRoot -Configuration $Configuration -Operation "Test") {
         Write-Host "Running tests..." -ForegroundColor Cyan
         Write-Host "Configuration: $Configuration" -ForegroundColor Gray
+        if ($Coverage) {
+            Write-Host "Collecting unit test line coverage (minimum 70%)." -ForegroundColor Gray
+        }
         Write-Host ""
 
         $progressTracker.UpdateProgress("Running tests ($Configuration)")
@@ -437,6 +452,10 @@ if ($Test) {
             '--verbosity', $Verbosity,
             '--no-build'
         )
+
+        if ($Coverage) {
+            $testArgs += '/p:CollectCoverage=true'
+        }
 
         & dotnet $testArgs
 

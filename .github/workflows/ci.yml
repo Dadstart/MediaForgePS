@@ -163,6 +163,7 @@ jobs:
             -Build `
             -Lint View `
             -Test `
+            -Coverage `
             -Verbosity minimal
 
       - name: Upload test results
