@@ -12,6 +12,13 @@ namespace Dadstart.Labs.MediaForge.Tests.Services.System;
 
 public class ExecutableServiceCancellationTests
 {
+    private const string LongRunningScriptWithReadySignal =
+        """
+        Write-Output 'ready'
+        [Console]::Out.Flush()
+        Start-Sleep -Seconds 60
+        """;
+
     [Fact]
     public async Task ExecuteAsync_WhenTokenAlreadyCanceled_ThrowsBeforeStartingProcess()
     {
@@ -27,7 +34,7 @@ public class ExecutableServiceCancellationTests
     public async Task ExecuteAsync_WhenCanceledDuringExecution_KillsProcessAndThrows()
     {
         await using var script = await TempPwshScript.CreateAsync(
-            "Write-Output 'ready'\nStart-Sleep -Seconds 60",
+            LongRunningScriptWithReadySignal,
             TestContext.Current.CancellationToken);
 
         var service = CreateService();
@@ -56,25 +63,13 @@ public class ExecutableServiceCancellationTests
     [Fact]
     public async Task ExecuteAsync_WhenTimeoutElapses_ThrowsTimeoutExceptionAndKillsProcess()
     {
-        await using var script = await TempPwshScript.CreateAsync(
-            "Write-Output 'ready'\nStart-Sleep -Seconds 60",
-            TestContext.Current.CancellationToken);
-
         var service = CreateService();
-        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var executeTask = service.ExecuteAsync(
-            "pwsh",
-            ["-NoProfile", "-File", script.Path],
-            line =>
-            {
-                if (line.Contains("ready", StringComparison.OrdinalIgnoreCase))
-                    started.TrySetResult();
-            },
+            GetSleepCommand(),
+            GetSleepArguments(60),
             TestContext.Current.CancellationToken,
             timeout: TimeSpan.FromMilliseconds(500));
-
-        await started.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken);
 
         var ex = await Assert.ThrowsAsync<TimeoutException>(() => executeTask);
         Assert.Contains("timed out", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -84,7 +79,7 @@ public class ExecutableServiceCancellationTests
     public async Task ExecuteAsync_WhenCallerCancelsBeforeTimeout_ThrowsOperationCanceledException()
     {
         await using var script = await TempPwshScript.CreateAsync(
-            "Write-Output 'ready'\nStart-Sleep -Seconds 60",
+            LongRunningScriptWithReadySignal,
             TestContext.Current.CancellationToken);
 
         var service = CreateService();
