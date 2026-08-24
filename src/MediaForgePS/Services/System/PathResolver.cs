@@ -105,14 +105,8 @@ public class PathResolver : IPathResolver
 
             _logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedPath);
 
-            // Ensure the output directory exists
-            var outputDirectory = Path.GetDirectoryName(resolvedPath);
-            if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
-            {
-                _logger.LogInformation("Creating output directory: {OutputDirectory}", outputDirectory);
-                Directory.CreateDirectory(outputDirectory);
-            }
-
+            // Do not create directories here: callers must call EnsureOutputDirectoryExists after
+            // ShouldProcess succeeds so -WhatIf does not create filesystem side effects.
             return true;
         }
         catch (Exception ex)
@@ -120,6 +114,19 @@ public class PathResolver : IPathResolver
             _logger.LogError(ex, "Failed to resolve output path: {OutputPath}", path);
             return false;
         }
+    }
+
+    /// <inheritdoc />
+    public void EnsureOutputDirectoryExists(string resolvedFilePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resolvedFilePath);
+
+        var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(resolvedFilePath));
+        if (string.IsNullOrEmpty(outputDirectory) || Directory.Exists(outputDirectory))
+            return;
+
+        _logger.LogInformation("Creating output directory: {OutputDirectory}", outputDirectory);
+        Directory.CreateDirectory(outputDirectory);
     }
 
     /// <summary>

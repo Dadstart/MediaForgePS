@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using Dadstart.Labs.MediaForge.Models;
 using Microsoft.Extensions.Logging;
 
@@ -57,7 +56,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
 
         foreach (var stream in englishAudioStreams)
         {
-            int channels = ParseChannelCount(stream.Raw);
+            int channels = stream.Channels;
             string? title = null;
             stream.Tags?.TryGetValue("title", out title);
             var sourceIndex = audioIndexLookup[stream.Index];
@@ -188,12 +187,12 @@ public class AudioTrackMappingService : IAudioTrackMappingService
 
         var usePreferredSwap = englishAudioStreams.Count >= 2 &&
             IsDtsMaOrTrueHd(englishAudioStreams[0]) &&
-            ParseChannelCount(englishAudioStreams[1].Raw) == 6;
+            englishAudioStreams[1].Channels == 6;
 
         if (usePreferredSwap)
         {
             var secondStream = englishAudioStreams[1];
-            var secondChannels = NormalizeChannelCount(ParseChannelCount(secondStream.Raw));
+            var secondChannels = NormalizeChannelCount(secondStream.Channels);
             secondStream.Tags.TryGetValue("title", out var secondTitle);
 
             mappings.Add(new EncodeAudioTrackMapping(
@@ -217,7 +216,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
         else
         {
             var firstStream = englishAudioStreams[0];
-            var firstChannels = NormalizeChannelCount(ParseChannelCount(firstStream.Raw));
+            var firstChannels = NormalizeChannelCount(firstStream.Channels);
             firstStream.Tags.TryGetValue("title", out var firstTitle);
 
             mappings.Add(new EncodeAudioTrackMapping(
@@ -232,7 +231,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
             if (englishAudioStreams.Count >= 2)
             {
                 var secondStream = englishAudioStreams[1];
-                var secondChannels = NormalizeChannelCount(ParseChannelCount(secondStream.Raw));
+                var secondChannels = NormalizeChannelCount(secondStream.Channels);
                 secondStream.Tags.TryGetValue("title", out var secondTitle);
 
                 mappings.Add(new EncodeAudioTrackMapping(
@@ -248,7 +247,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
 
         foreach (var stream in englishAudioStreams.Skip(2))
         {
-            var channels = NormalizeChannelCount(ParseChannelCount(stream.Raw));
+            var channels = NormalizeChannelCount(stream.Channels);
             stream.Tags.TryGetValue("title", out var title);
 
             mappings.Add(new EncodeAudioTrackMapping(
@@ -287,7 +286,7 @@ public class AudioTrackMappingService : IAudioTrackMappingService
                     $"Stream index {stream.Index} was not found among audio streams in the media file.",
                     nameof(selectedStreams));
 
-            var channels = NormalizeChannelCount(ParseChannelCount(stream.Raw));
+            var channels = NormalizeChannelCount(stream.Channels);
             stream.Tags.TryGetValue("title", out var title);
 
             AudioTrackMapping mapping;
@@ -352,35 +351,6 @@ public class AudioTrackMappingService : IAudioTrackMappingService
             .OrderBy(s => s.Index)
             .Select((stream, index) => new { stream.Index, AudioIndex = index })
             .ToDictionary(entry => entry.Index, entry => entry.AudioIndex);
-    }
-
-    /// <summary>
-    /// Parses the channel count from a stream's raw JSON.
-    /// </summary>
-    /// <param name="rawJson">The raw JSON string from the stream.</param>
-    /// <returns>The channel count, or 0 if not found.</returns>
-    public static int ParseChannelCount(string rawJson)
-    {
-        if (string.IsNullOrWhiteSpace(rawJson))
-            return 0;
-
-        try
-        {
-            using var document = JsonDocument.Parse(rawJson);
-            var root = document.RootElement;
-
-            if (root.TryGetProperty("channels", out var channelsElement))
-            {
-                if (channelsElement.ValueKind == JsonValueKind.Number)
-                    return channelsElement.GetInt32();
-            }
-
-            return 0;
-        }
-        catch (JsonException)
-        {
-            return 0;
-        }
     }
 
     private static bool IsDtsMaOrTrueHd(MediaStream stream)

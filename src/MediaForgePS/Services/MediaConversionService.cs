@@ -10,6 +10,14 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// <summary>
 /// Service for performing media file conversions.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <c>additionalArguments</c> are trusted-input-only: they are appended to the FFmpeg command line
+/// after built-in video/audio options. Do not pass untrusted user input. High-risk tokens such as
+/// extra <c>-i</c> inputs and <c>file:</c> protocol URLs are rejected by
+/// <see cref="FfmpegAdditionalArgumentsGuard"/>.
+/// </para>
+/// </remarks>
 public class MediaConversionService : IMediaConversionService
 {
     private readonly IFfmpegService _ffmpegService;
@@ -36,6 +44,10 @@ public class MediaConversionService : IMediaConversionService
     /// <summary>
     /// Builds FFmpeg arguments, optionally including two-pass logfile routing.
     /// </summary>
+    /// <param name="additionalArguments">
+    /// Trusted-input-only FFmpeg tokens. Extra <c>-i</c> and <c>file:</c> protocol URLs are rejected.
+    /// </param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="additionalArguments"/> contain disallowed tokens.</exception>
     public IEnumerable<string> BuildFfmpegArguments(
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
@@ -64,7 +76,8 @@ public class MediaConversionService : IMediaConversionService
             args.Add("-2");
         }
 
-        // Add additional arguments if provided
+        // Trusted-input-only: reject extra -i / file: protocol tokens, then append.
+        FfmpegAdditionalArgumentsGuard.EnsureSafeForTrustedInput(additionalArguments);
         if (additionalArguments != null)
             args.AddRange(additionalArguments);
 
@@ -98,7 +111,9 @@ public class MediaConversionService : IMediaConversionService
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments = null,
         IProgress<FfmpegProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool overwrite = false,
+        TimeSpan? totalDuration = null)
     {
         if (videoSettings.IsSinglePass)
         {
@@ -107,7 +122,9 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
                 progress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                overwrite: overwrite,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
             return;
         }
 
@@ -129,7 +146,8 @@ public class MediaConversionService : IMediaConversionService
                 AtomicFileHelper.PlatformNullDevice,
                 pass1Args,
                 firstPassProgress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -139,7 +157,9 @@ public class MediaConversionService : IMediaConversionService
                 resolvedOutputPath,
                 BuildFfmpegArguments(videoSettings, audioMappings, 2, passLogFile, additionalArguments),
                 secondPassProgress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                overwrite: overwrite,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         finally
         {

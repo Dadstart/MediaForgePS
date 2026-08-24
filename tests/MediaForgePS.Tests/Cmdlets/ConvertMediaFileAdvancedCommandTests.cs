@@ -74,7 +74,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Empty(results);
         Assert.NotEmpty(errors);
         _mediaConversionServiceMock.Verify(
-            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Never);
     }
 
@@ -104,7 +104,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Empty(results);
         Assert.NotEmpty(errors);
         _mediaConversionServiceMock.Verify(
-            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Never);
     }
 
@@ -138,6 +138,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
         Assert.Equal(MediaConversionResult.CompletedStatus, conversionResult.Status);
         Assert.Equal(resolvedOutputPath, conversionResult.OutputPath);
         Assert.True(conversionResult.ProcessingTime >= TimeSpan.Zero);
+        _pathResolverMock.Verify(p => p.EnsureOutputDirectoryExists(resolvedOutputPath), Times.Once);
         _mediaConversionServiceMock.Verify(
             s => s.ExecuteConversion(
                 resolvedInputPath,
@@ -145,7 +146,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.Is<string[]?>(args => args != null && args.SequenceEqual(new[] { "-x265-params", "aq-mode=3" })),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Once);
     }
 
@@ -169,7 +170,7 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
                 resolvedOutputPath,
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
-                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback(() =>
             {
                 var currentCmdlet = CmdletContext.Current as PSCmdlet;
@@ -236,8 +237,9 @@ public class ConvertMediaFileAdvancedCommandTests : IDisposable
 
         Assert.Empty(results);
         Assert.Empty(errors);
+        _pathResolverMock.Verify(p => p.EnsureOutputDirectoryExists(It.IsAny<string>()), Times.Never);
         _mediaConversionServiceMock.Verify(
-            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()),
+            s => s.ExecuteConversion(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VideoEncodingSettings>(), It.IsAny<AudioTrackMapping[]>(), It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Never);
     }
 

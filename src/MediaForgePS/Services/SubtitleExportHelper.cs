@@ -260,42 +260,87 @@ public static class SubtitleExportHelper
     /// Extracts a single subtitle stream to a file. Uses mkvextract for VobSub (dvd_subtitle) streams in
     /// Matroska (.mkv) sources because it reliably produces the .idx companion. For all other combinations
     /// (non-Matroska sources or non-VobSub codecs) falls back to Ffmpeg with stream copy. Throws on failure.
+    /// Writes via <see cref="AtomicFileHelper"/> temp+promote so a failed extract does not leave a partial final file.
     /// </summary>
+    /// <param name="overwrite">When false, refuses to replace an existing final output (and VobSub .idx companion).</param>
     public static void ExtractSubtitle(
         IExecutableService executableService,
         MediaStream stream,
         string mediaFilePath,
         string resolvedOutputPath,
         string? mkvextractPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool overwrite = true)
     {
+        ArgumentNullException.ThrowIfNull(executableService);
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediaFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(resolvedOutputPath);
+
         var isMatroskaSource = string.Equals(Path.GetExtension(mediaFilePath), ".mkv", StringComparison.OrdinalIgnoreCase);
         var isVobSub = string.Equals(stream.Codec, "dvd_subtitle", StringComparison.OrdinalIgnoreCase);
 
-        if (isMatroskaSource && isVobSub)
+        if (isMatroskaSource && isVobSub && string.IsNullOrEmpty(mkvextractPath))
         {
-            if (string.IsNullOrEmpty(mkvextractPath))
-            {
-                if (!OperatingSystem.IsWindows())
-                    throw new PlatformNotSupportedException(WindowsExecutablePathHelper.MkvextractUnsupportedPlatformMessage);
+            if (!OperatingSystem.IsWindows())
+                throw new PlatformNotSupportedException(WindowsExecutablePathHelper.MkvextractUnsupportedPlatformMessage);
 
-                throw new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec.");
-            }
-
-            var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{resolvedOutputPath}" };
-            var mkvResult = executableService.ExecuteAsync(mkvextractPath, args, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-            mkvResult.EnsureProcessSuccess("mkvextract");
-            return;
+            throw new FileNotFoundException("mkvextract.exe not found. Install mkvtoolnix or use a different subtitle codec.");
         }
 
-        // For VobSub from non-Matroska containers, target the .idx companion path so Ffmpeg's vobsub
-        // muxer writes both the .idx and .sub files alongside each other (matching mkvextract output).
-        var ffmpegOutputPath = isVobSub
-            ? Path.ChangeExtension(resolvedOutputPath, ".idx")
-            : resolvedOutputPath;
+        var tempOutputPath = AtomicFileHelper.CreateTempOutputPath(resolvedOutputPath);
+        var tempDirectory = Path.GetDirectoryName(tempOutputPath);
+        try
+        {
+            if (isMatroskaSource && isVobSub)
+            {
+                var args = new[] { "tracks", mediaFilePath, $"{stream.Index}:{tempOutputPath}" };
+                var mkvResult = executableService.ExecuteAsync(mkvextractPath!, args, cancellationToken, ProcessTimeouts.Extract)
+                    .ConfigureAwait(false).GetAwaiter().GetResult();
+                mkvResult.EnsureProcessSuccess("mkvextract");
+                PromoteExtractedOutputs(tempOutputPath, resolvedOutputPath, promoteVobSubCompanion: true, overwrite);
+                return;
+            }
 
-        var ffmpegArgs = new List<string> { "-i", mediaFilePath, "-map", $"0:{stream.Index}", "-c", "copy", "-y", ffmpegOutputPath };
-        var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
-        ffmpegResult.EnsureProcessSuccess("FFmpeg subtitle extract");
+            // For VobSub from non-Matroska containers, target the .idx companion path so Ffmpeg's vobsub
+            // muxer writes both the .idx and .sub files alongside each other (matching mkvextract output).
+            var ffmpegOutputPath = isVobSub
+                ? Path.ChangeExtension(tempOutputPath, ".idx")
+                : tempOutputPath;
+
+            var ffmpegArgs = new List<string>
+            {
+                "-i", mediaFilePath,
+                "-map", $"0:{stream.Index}",
+                "-c", "copy",
+                "-y",
+                ffmpegOutputPath
+            };
+            var ffmpegResult = executableService.ExecuteAsync("ffmpeg", ffmpegArgs, cancellationToken, ProcessTimeouts.Extract)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
+            ffmpegResult.EnsureProcessSuccess("FFmpeg subtitle extract");
+            PromoteExtractedOutputs(tempOutputPath, resolvedOutputPath, promoteVobSubCompanion: isVobSub, overwrite);
+        }
+        finally
+        {
+            AtomicFileHelper.TryDeleteDirectory(tempDirectory);
+        }
+    }
+
+    private static void PromoteExtractedOutputs(
+        string tempPrimaryPath,
+        string finalPrimaryPath,
+        bool promoteVobSubCompanion,
+        bool overwrite)
+    {
+        AtomicFileHelper.PromoteTempFile(tempPrimaryPath, finalPrimaryPath, overwrite);
+
+        if (!promoteVobSubCompanion)
+            return;
+
+        var tempIdxPath = Path.ChangeExtension(tempPrimaryPath, ".idx");
+        var finalIdxPath = Path.ChangeExtension(finalPrimaryPath, ".idx");
+        if (File.Exists(tempIdxPath))
+            AtomicFileHelper.PromoteTempFile(tempIdxPath, finalIdxPath, overwrite);
     }
 }

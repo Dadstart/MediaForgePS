@@ -24,7 +24,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Writes a <see cref="MediaConversionResult"/> per processed file to the pipeline.
 /// After conversions complete, when more than one file completed, writes a <see cref="MediaConversionStatistics"/> with averages.
 /// When captions are extracted, also writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
-/// Supports -WhatIf and -Confirm.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite existing output files.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "VideoFile", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
@@ -118,6 +118,12 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
     /// </summary>
     [Parameter(HelpMessage = "Keep source image subtitle files after successful OCR conversion.")]
     public SwitchParameter KeepSource { get; set; }
+
+    /// <summary>
+    /// Overwrites output files when they already exist.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites output files when they already exist.")]
+    public SwitchParameter Force { get; set; }
 
     private const int DefaultOcrThrottleLimit = 10;
 
@@ -434,6 +440,18 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                     inputPath, outputPath, false, "Failed to resolve output path.", _fileStopwatch.Elapsed);
             }
 
+            if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+            {
+                _fileStopwatch.Stop();
+                UpdateFileProgress("Skipped (output exists)", fileName, recordType: ProgressRecordType.Completed);
+                return MediaConversionHelper.CreateConversionResult(
+                    inputPath,
+                    resolvedOutputPath,
+                    false,
+                    "Output file already exists. Use -Force to overwrite.",
+                    _fileStopwatch.Elapsed);
+            }
+
             _currentFileEstimatedTime = CalculateFileEta(inputPath);
             var outName = GetFileName(resolvedOutputPath);
             UpdateFileProgress(
@@ -448,7 +466,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 videoSettings,
                 audioMappings,
                 additionalArguments,
-                outName);
+                outName,
+                MediaConversionHelper.GetTotalDuration(mediaFile));
 
             _fileStopwatch.Stop();
             RecordFileProcessingStats(inputPath);
@@ -483,7 +502,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments,
-        string outputFileName)
+        string outputFileName,
+        TimeSpan? totalDuration)
     {
         try
         {
@@ -532,7 +552,9 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                     audioMappings,
                     additionalArguments,
                     progress,
-                    cancellationToken),
+                    cancellationToken,
+                    overwrite: Force.IsPresent,
+                    totalDuration: totalDuration),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(

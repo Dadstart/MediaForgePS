@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Parsers;
+using Dadstart.Labs.MediaForge.Services.BonusProcessing;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.SeriesProcessing;
@@ -59,6 +60,7 @@ public static class ModuleServices
             services.AddSingleton<ITvDbCredentialProvider, EnvironmentTvDbCredentialProvider>();
             services.AddSingleton<ITvDbClient, TvDbClient>();
             services.AddSingleton<ISeriesProcessingService, SeriesProcessingService>();
+            services.AddSingleton<IBonusProcessingService, BonusProcessingService>();
             if (OperatingSystem.IsWindows())
                 services.AddSingleton<IImageSubtitleOcrConverter, LibseImageSubtitleOcrConverter>();
             else

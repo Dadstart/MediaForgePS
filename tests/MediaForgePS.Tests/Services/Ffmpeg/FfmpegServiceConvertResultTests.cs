@@ -38,11 +38,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
 
         var executableMock = new Mock<IExecutableService>();
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 capturedArgs = args.ToArray();
                 File.WriteAllText(capturedArgs[^1], "encoded");
@@ -90,12 +87,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
             .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":"1.0"}}"""));
 
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, Action<string> _, CancellationToken _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, Action<string> _, CancellationToken _, TimeSpan? __) =>
             {
                 capturedArgs = args.ToArray();
                 File.WriteAllText(capturedArgs[^1], "encoded");
@@ -138,11 +131,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
 
         var executableMock = new Mock<IExecutableService>();
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 stagedDirectory = Path.GetDirectoryName(args.Last());
                 File.WriteAllText(args.Last(), "partial");
@@ -155,7 +145,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
             service.ConvertAsync(
                 inputPath,
                 outputPath,
-                cancellationToken: TestContext.Current.CancellationToken));
+                cancellationToken: TestContext.Current.CancellationToken,
+                overwrite: true));
 
         Assert.Equal(inputPath, ex.InputPath);
         Assert.Equal(outputPath, ex.OutputPath);
@@ -164,6 +155,30 @@ public class FfmpegServiceConvertResultTests : IDisposable
         Assert.Equal("existing", File.ReadAllText(outputPath));
         Assert.NotNull(stagedDirectory);
         Assert.False(Directory.Exists(stagedDirectory));
+    }
+
+    [Fact]
+    public async Task ConvertAsync_WhenOutputExistsWithoutOverwrite_ThrowsIOException()
+    {
+        var inputPath = Path.Combine(_tempDir, "input-exists.mkv");
+        var outputPath = Path.Combine(_tempDir, "output-exists.mp4");
+        File.WriteAllText(inputPath, "input");
+        File.WriteAllText(outputPath, "existing");
+
+        var executableMock = new Mock<IExecutableService>();
+        var service = CreateService(executableMock.Object);
+
+        var ex = await Assert.ThrowsAsync<IOException>(() =>
+            service.ConvertAsync(
+                inputPath,
+                outputPath,
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("-Force", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("existing", File.ReadAllText(outputPath));
+        executableMock.Verify(
+            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()),
+            Times.Never);
     }
 
     [Fact]
@@ -176,10 +191,7 @@ public class FfmpegServiceConvertResultTests : IDisposable
         var inner = new InvalidOperationException("failed to start process");
         var executableMock = new Mock<IExecutableService>();
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(null, null, null, inner));
 
         var service = CreateService(executableMock.Object);
@@ -207,11 +219,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
 
         var executableMock = new Mock<IExecutableService>();
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<CancellationToken>()))
-            .Returns((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 stagedDirectory = Path.GetDirectoryName(args.Last());
                 File.WriteAllText(args.Last(), "partial");
@@ -240,11 +249,8 @@ public class FfmpegServiceConvertResultTests : IDisposable
 
         var executableMock = new Mock<IExecutableService>();
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _) =>
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .ReturnsAsync((string _, IEnumerable<string> args, CancellationToken _, TimeSpan? __) =>
             {
                 capturedArgs = args.ToArray();
                 return new ExecutableResult(string.Empty, string.Empty, 0);
@@ -276,11 +282,7 @@ public class FfmpegServiceConvertResultTests : IDisposable
             .ReturnsAsync(new FfprobeResult(true, """{"format":{"duration":"2"}}"""));
 
         executableMock
-            .Setup(service => service.ExecuteAsync(
-                "ffmpeg",
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<Action<string>>(),
-                It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
             .ReturnsAsync(new ExecutableResult(string.Empty, "encode aborted", 255));
 
         var service = new FfmpegService(

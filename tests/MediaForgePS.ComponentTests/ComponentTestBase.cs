@@ -23,6 +23,9 @@ public abstract class ComponentTestBase : IDisposable
     protected string InvalidMediaPath =>
         Path.Combine(AssetsRoot, "invalid-media.mkv");
 
+    protected string OcrBrokenSrtPath =>
+        Path.Combine(AssetsRoot, "ocr-broken.srt");
+
     protected ComponentTestBase()
     {
         AssetsRoot = Path.Combine(AppContext.BaseDirectory, "TestAssets");
@@ -46,6 +49,17 @@ public abstract class ComponentTestBase : IDisposable
         var directory = CreateTempDirectory();
         var destination = Path.Combine(directory, fileName);
         File.Copy(SampleVideoPath, destination);
+        return destination;
+    }
+
+    /// <summary>
+    /// Copies the OCR-broken SRT fixture into a temp directory under a new file name.
+    /// </summary>
+    protected string CopyOcrBrokenSrtAs(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+        File.Copy(OcrBrokenSrtPath, destination);
         return destination;
     }
 

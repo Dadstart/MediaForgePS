@@ -34,18 +34,6 @@ public class AudioTrackMappingServiceTests
         if (!string.IsNullOrEmpty(title))
             tags["title"] = title;
 
-        var rawJson = $@"{{
-            ""index"": {index},
-            ""codec_name"": ""{codec}"",
-            ""codec_type"": ""audio"",
-            ""channels"": {channels},
-            ""tags"": {{
-                {(language != null ? $@"""language"": ""{language}""," : "")}
-                {(title != null ? $@"""title"": ""{title}""," : "")}
-                ""DURATION-{language}"": ""00:43:29.500000""
-            }}
-        }}";
-
         return new MediaStream(
             "audio",
             index,
@@ -55,7 +43,7 @@ public class AudioTrackMappingServiceTests
             tags,
             TimeSpan.Zero,
             language,
-            rawJson);
+            channels);
     }
 
     [Fact]
@@ -69,8 +57,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(0, "aac", "spa", 2) // Spanish audio, not English
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -90,8 +77,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(1, "dts", "eng", 6, "DTS 5.1")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -115,8 +101,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(1, "ac3", "eng", 6, "5.1 Surround")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -143,8 +128,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(1, "aac", "eng", 2, "Stereo")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -171,8 +155,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(1, "aac", "eng", 1, "Mono")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -200,8 +183,7 @@ public class AudioTrackMappingServiceTests
             {
                 CreateAudioStream(1, "dts", "eng", 6, "DTS 5.1"),
                 CreateAudioStream(2, "aac", "eng", 6, "AAC 5.1")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -228,8 +210,7 @@ public class AudioTrackMappingServiceTests
                 CreateAudioStream(1, "aac", "eng", 2, "Stereo"),
                 CreateAudioStream(2, "aac", "eng", 1, "Mono"),
                 CreateAudioStream(3, "aac", "eng", 6, "5.1")
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -252,8 +233,7 @@ public class AudioTrackMappingServiceTests
             new[]
             {
                 CreateAudioStream(1, "aac", "eng", 2) // No title
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -276,8 +256,7 @@ public class AudioTrackMappingServiceTests
                 CreateAudioStream(1, "aac", "ENG", 2), // Uppercase
                 CreateAudioStream(2, "aac", "eng", 2), // Lowercase
                 CreateAudioStream(3, "aac", "EnG", 2)  // Mixed case
-            },
-            "{}");
+            });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -299,15 +278,13 @@ public class AudioTrackMappingServiceTests
             string.Empty,
             tags,
             TimeSpan.Zero,
-            "eng",
-            @"{""index"": 1, ""codec_name"": ""aac"", ""codec_type"": ""audio"", ""tags"": {""language"": ""eng""}}");
+            "eng");
 
         var mediaFile = new MediaFile(
             "C:\\test.mkv",
             new MediaFormat("C:\\test.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            new[] { streamWithoutChannels },
-            "{}");
+            new[] { streamWithoutChannels });
 
         // Act
         var result = _service.CreateMappings(mediaFile);
@@ -336,12 +313,11 @@ public class AudioTrackMappingServiceTests
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 CreateAudioStream(1, "dts", "eng", 8, "DTS-HD MA", profile: "DTS-HD MA", codecLongName: "DTS-HD Master Audio"),
                 CreateAudioStream(2, "ac3", "eng", 6, "AC3 5.1"),
                 CreateAudioStream(3, "aac", "eng", 2, "Commentary")
-            },
-            "{}");
+            });
 
         var result = _service.CreateDirectoryEncodeMappings(mediaFile);
 
@@ -372,12 +348,11 @@ public class AudioTrackMappingServiceTests
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 CreateAudioStream(1, "truehd", "eng", 8, "TrueHD 7.1"),
                 CreateAudioStream(2, "aac", "eng", 2, "Stereo"),
                 CreateAudioStream(3, "ac3", "eng", 6, "AC3 5.1")
-            },
-            "{}");
+            });
 
         var result = _service.CreateDirectoryEncodeMappings(mediaFile);
 
@@ -402,12 +377,11 @@ public class AudioTrackMappingServiceTests
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 CreateAudioStream(1, "truehd", "eng", 8, "TrueHD 7.1"),
                 CreateAudioStream(2, "ac3", "eng", 6, "AC3 5.1"),
                 CreateAudioStream(3, "aac", "eng", 2, "Commentary")
-            },
-            "{}");
+            });
 
         var result = _service.CreateDirectoryEncodeMappings(mediaFile);
 
@@ -433,10 +407,9 @@ public class AudioTrackMappingServiceTests
             new MediaFormat("C:\\test.mkv", 2, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             [
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 CreateAudioStream(1, "aac", "eng", 2, "Stereo")
-            ],
-            "{}");
+            ]);
 
         var result = _service.CreateMappings(mediaFile);
 
@@ -452,11 +425,10 @@ public class AudioTrackMappingServiceTests
             new MediaFormat("C:\\test.mkv", 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
             [
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 CreateAudioStream(1, "aac", "spa", 2, "Spanish"),
                 CreateAudioStream(2, "aac", "eng", 2, "English")
-            ],
-            "{}");
+            ]);
 
         var result = _service.CreateMappings(mediaFile);
 
@@ -470,8 +442,8 @@ public class AudioTrackMappingServiceTests
     {
         var allStreams = new MediaStream[]
         {
-            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
-            new("subtitle", 1, "subrip", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng", @"{""index"":1,""codec_type"":""subtitle""}"),
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
+            new("subtitle", 1, "subrip", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng", Channels: 0),
             CreateAudioStream(2, "aac", "eng", 2, "Stereo")
         };
 
@@ -486,7 +458,7 @@ public class AudioTrackMappingServiceTests
     {
         var allStreams = new MediaStream[]
         {
-            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
             CreateAudioStream(1, "aac", "spa", 2, "Spanish"),
             CreateAudioStream(2, "aac", "eng", 2, "English")
         };
@@ -505,7 +477,7 @@ public class AudioTrackMappingServiceTests
         [
             CreateAudioStream(3, "aac", "eng", 2),
             CreateAudioStream(1, "aac", "spa", 2),
-            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, "{}"),
+            new("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
             CreateAudioStream(2, "aac", "eng", 6)
         ]);
 

@@ -279,7 +279,7 @@
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options; -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles. Supports -WhatIf and -Confirm.</maml:para>
+      <maml:para>Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options (trusted-input-only; do not pass untrusted values—extra `-i` inputs and `file:` protocol URLs are rejected); -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles. Supports -WhatIf and -Confirm.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -311,7 +311,7 @@
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>AdditionalArguments</maml:name>
           <maml:description>
-            <maml:para>Additional Ffmpeg arguments (e.g., codec options, quality settings)</maml:para>
+            <maml:para>Trusted-input-only additional FFmpeg arguments appended after built-in encoding options (for example codec or filter options). Do not pass untrusted user input. Extra `-i` inputs and `file:` protocol URLs are rejected; supply inputs via `-InputPath` instead.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
           <dev:type>
@@ -396,7 +396,7 @@
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>AdditionalArguments</maml:name>
         <maml:description>
-          <maml:para>Additional Ffmpeg arguments (e.g., codec options, quality settings)</maml:para>
+          <maml:para>Trusted-input-only additional FFmpeg arguments appended after built-in encoding options (for example codec or filter options). Do not pass untrusted user input. Extra `-i` inputs and `file:` protocol URLs are rejected; supply inputs via `-InputPath` instead.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
         <dev:type>

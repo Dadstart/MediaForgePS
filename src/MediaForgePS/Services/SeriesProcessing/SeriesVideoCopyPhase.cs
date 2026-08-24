@@ -98,7 +98,27 @@ internal sealed class SeriesVideoCopyPhase
             MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Copying...", destinationName, recordType: ProgressRecordType.Processing);
 
             var stopwatch = Stopwatch.StartNew();
-            File.Copy(inputFile, destinationPath, true);
+            if (File.Exists(destinationPath))
+            {
+                if (!request.Force)
+                {
+                    io.WriteWarning($"Destination file already exists, skipping: {destinationPath}. Use -Force to overwrite.");
+                    stopwatch.Stop();
+                    copiedFiles.Add(destinationPath);
+                    completedBytes += fileSize;
+                    copyStats.Add(new FileCopyStats { FileSizeBytes = fileSize, ProcessingTime = stopwatch.Elapsed });
+
+                    (status, percent) = MediaConversionHelper.BuildBatchProgressStatus(
+                        currentFileIndex, filesWithSize.Count, Path.GetFileName(inputFile), completedBytes, totalBytes);
+                    MediaConversionHelper.WriteMainProgress(io, "Video copy", status, percent, null, ProgressRecordType.Processing);
+                    MediaConversionHelper.WriteCurrentItemProgress(io, "Current file", "Skipped (exists)", destinationName, recordType: ProgressRecordType.Completed);
+                    continue;
+                }
+
+                io.WriteWarning($"Destination file exists and Force specified. Overwriting: {destinationPath}");
+            }
+
+            File.Copy(inputFile, destinationPath, overwrite: request.Force);
             stopwatch.Stop();
 
             copiedFiles.Add(destinationPath);

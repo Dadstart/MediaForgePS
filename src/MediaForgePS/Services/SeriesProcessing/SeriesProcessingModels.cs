@@ -27,4 +27,5 @@ public record VideoCopyRequest(
     IReadOnlyList<TvDbEpisodeInfo> Episodes,
     IReadOnlyList<string> FilePatterns,
     int EpisodeStart,
-    long MinimumFileSizeBytes);
+    long MinimumFileSizeBytes,
+    bool Force = false);

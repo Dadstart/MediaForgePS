@@ -52,7 +52,6 @@ public class MediaModelParserTests
         Assert.NotNull(result.Tags);
         Assert.Equal("Chapter 01", result.Tags["title"]);
         Assert.Equal("Chapter 01", result.Title);
-        Assert.Equal(json, result.Raw);
     }
 
     [Fact]
@@ -206,7 +205,6 @@ public class MediaModelParserTests
         Assert.NotNull(result.Tags);
         Assert.Equal("My Great Video", result.Tags["title"]);
         Assert.Equal("My Great Video", result.Title);
-        Assert.Equal(json, result.Raw);
     }
 
     [Fact]
@@ -297,6 +295,28 @@ public class MediaModelParserTests
     #region ParseStream Tests
 
     [Fact]
+    public void ParseStream_WithAudioJson_ParsesChannels()
+    {
+        var json = """
+            {
+                "index": 1,
+                "codec_name": "aac",
+                "codec_long_name": "AAC (Advanced Audio Coding)",
+                "profile": "LC",
+                "codec_type": "audio",
+                "channels": 6,
+                "tags": {
+                    "language": "eng"
+                }
+            }
+            """;
+
+        var result = _parser.ParseStream(json);
+
+        Assert.Equal(6, result.Channels);
+    }
+
+    [Fact]
     public void ParseStream_WithValidJson_ReturnsMediaStream()
     {
         // Arrange
@@ -332,7 +352,6 @@ public class MediaModelParserTests
         Assert.Equal("eng", result.Tags["language"]);
         Assert.Equal("eng", result.Language);
         Assert.Equal(TimeSpan.Parse("00:43:29.481875", CultureInfo.InvariantCulture), result.Duration);
-        Assert.Equal(json, result.Raw);
     }
 
     [Fact]

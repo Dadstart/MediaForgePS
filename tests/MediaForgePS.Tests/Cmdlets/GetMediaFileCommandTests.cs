@@ -105,8 +105,7 @@ public class GetMediaFileCommandTests : IDisposable
             resolvedPath,
             new MediaFormat(resolvedPath, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            Array.Empty<MediaStream>(),
-            "{}");
+            Array.Empty<MediaStream>());
 
         _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(resolvedPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(mediaFile);

@@ -103,7 +103,7 @@ public class AtomicFileHelperTests : IDisposable
         var finalPath = Path.Combine(_tempDir, "file.srt");
         File.WriteAllText(finalPath, "old");
 
-        AtomicFileHelper.WriteTextAtomically(finalPath, "new", Encoding.UTF8);
+        AtomicFileHelper.WriteTextAtomically(finalPath, "new", Encoding.UTF8, overwrite: true);
 
         Assert.Equal("new", File.ReadAllText(finalPath));
     }
@@ -116,6 +116,35 @@ public class AtomicFileHelperTests : IDisposable
         File.WriteAllText(tempPath, "encoded");
 
         AtomicFileHelper.PromoteTempFile(tempPath, finalPath);
+
+        Assert.True(File.Exists(finalPath));
+        Assert.False(File.Exists(tempPath));
+        Assert.Equal("encoded", File.ReadAllText(finalPath));
+    }
+
+    [Fact]
+    public void PromoteTempFile_WhenDestinationExistsWithoutOverwrite_Throws()
+    {
+        var finalPath = Path.Combine(_tempDir, "exists.mp4");
+        File.WriteAllText(finalPath, "original");
+        var tempPath = AtomicFileHelper.CreateTempSiblingPath(finalPath);
+        File.WriteAllText(tempPath, "encoded");
+
+        var ex = Assert.Throws<IOException>(() => AtomicFileHelper.PromoteTempFile(tempPath, finalPath));
+        Assert.Contains("-Force", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("original", File.ReadAllText(finalPath));
+        Assert.True(File.Exists(tempPath));
+    }
+
+    [Fact]
+    public void PromoteTempFile_WhenDestinationExistsWithOverwrite_ReplacesFile()
+    {
+        var finalPath = Path.Combine(_tempDir, "replace.mp4");
+        File.WriteAllText(finalPath, "original");
+        var tempPath = AtomicFileHelper.CreateTempSiblingPath(finalPath);
+        File.WriteAllText(tempPath, "encoded");
+
+        AtomicFileHelper.PromoteTempFile(tempPath, finalPath, overwrite: true);
 
         Assert.True(File.Exists(finalPath));
         Assert.False(File.Exists(tempPath));

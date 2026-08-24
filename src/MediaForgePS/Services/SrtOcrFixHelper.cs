@@ -21,7 +21,7 @@ public static class SrtOcrFixHelper
     {
         var content = File.ReadAllText(inputPath).Replace("\r\n", "\n").Replace("\r", "\n");
         var fixedContent = FixMusicNoteOcrErrors(content);
-        AtomicFileHelper.WriteTextAtomically(outputPath, fixedContent, Encoding.UTF8);
+        AtomicFileHelper.WriteTextAtomically(outputPath, fixedContent, Encoding.UTF8, overwrite: true);
     }
 
     /// <summary>

@@ -14,6 +14,5 @@ public record MediaFormat(
     [property: JsonPropertyName("size")] long Size,
     [property: JsonPropertyName("bit_rate")] long BitRate,
     [property: JsonPropertyName("tags")] Dictionary<string, string> Tags,
-    [property: JsonIgnore] string? Title = null,
-    [property: JsonIgnore] string Raw = ""
+    [property: JsonIgnore] string? Title = null
 );

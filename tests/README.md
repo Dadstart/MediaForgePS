@@ -33,6 +33,13 @@ dotnet test
 dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 ```
 
+CI collects line coverage from this project via `coverlet.msbuild` and fails when total line coverage drops below **70%**. Cobertura output is written to `tests/MediaForgePS.Tests/TestResults/coverage.cobertura.xml`.
+
+```powershell
+./scripts/Build.ps1 -Build -Test -Coverage
+dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj /p:CollectCoverage=true
+```
+
 ### Component tests
 
 Requires `ffmpeg` and `ffprobe` on `PATH` and test assets under `MediaForgePS.ComponentTests/TestAssets`. Tests use `[SkippableFact]` / `SkipException` and skip when tools or assets are missing.

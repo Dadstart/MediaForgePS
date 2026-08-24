@@ -162,4 +162,110 @@ public class PathHelperTests
                 Directory.Delete(expectedDir);
         }
     }
+
+    [Fact]
+    public void IsSameVolume_SameRoot_ReturnsTrue()
+    {
+        var root = Path.GetPathRoot(Path.GetTempPath())!;
+        var path1 = Path.Combine(root, "media", "a.mp4");
+        var path2 = Path.Combine(root, "plex", "nested", "b.mp4");
+
+        Assert.True(PathHelper.IsSameVolume(path1, path2));
+    }
+
+    [Fact]
+    public void IsSameVolume_DifferentRoots_ReturnsFalse()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        Assert.False(PathHelper.IsSameVolume(@"C:\media\a.mp4", @"D:\media\b.mp4"));
+    }
+
+    [Fact]
+    public void MoveFile_SameVolume_MovesSourceToDestination()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathHelper_Move_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var sourcePath = Path.Combine(tempDir, "source.txt");
+        var destinationPath = Path.Combine(tempDir, "nested", "destination.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(sourcePath, "payload");
+
+        try
+        {
+            var result = PathHelper.MoveFile(sourcePath, destinationPath);
+
+            Assert.True(result.SourceRemoved);
+            Assert.Null(result.SourceDeleteError);
+            Assert.False(File.Exists(sourcePath));
+            Assert.Equal("payload", File.ReadAllText(destinationPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeleteSourceAfterCopy_WhenSourceIsReadOnly_ReturnsDeleteErrorWithoutThrowing()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathHelper_Delete_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var sourcePath = Path.Combine(tempDir, "source.txt");
+        File.WriteAllText(sourcePath, "payload");
+        MakeSourceDeleteBlocked(sourcePath, tempDir);
+
+        try
+        {
+            var result = PathHelper.DeleteSourceAfterCopy(sourcePath);
+
+            Assert.False(result.SourceRemoved);
+            Assert.NotNull(result.SourceDeleteError);
+            Assert.True(File.Exists(sourcePath));
+        }
+        finally
+        {
+            RestoreSourceDeletePermissions(sourcePath, tempDir);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    private static void MakeSourceDeleteBlocked(string sourcePath, string containingDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.SetAttributes(sourcePath, FileAttributes.ReadOnly);
+            return;
+        }
+
+        // On Unix, delete requires write permission on the containing directory, not the file mode.
+        File.SetUnixFileMode(
+            containingDirectory,
+            UnixFileMode.UserRead | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+    }
+
+    private static void RestoreSourceDeletePermissions(string sourcePath, string containingDirectory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (File.Exists(sourcePath))
+                File.SetAttributes(sourcePath, FileAttributes.Normal);
+
+            return;
+        }
+
+        if (!Directory.Exists(containingDirectory))
+            return;
+
+        File.SetUnixFileMode(
+            containingDirectory,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+    }
 }

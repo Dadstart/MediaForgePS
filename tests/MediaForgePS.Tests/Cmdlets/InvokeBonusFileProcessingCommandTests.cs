@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.BonusProcessing;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -51,6 +52,12 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
+        services.AddSingleton<IBonusProcessingService>(sp => new BonusProcessingService(
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger<BonusProcessingService>(),
+            sp.GetRequiredService<IMediaReaderService>(),
+            sp.GetRequiredService<IMediaConversionService>(),
+            sp.GetRequiredService<IExecutableService>(),
+            sp.GetRequiredService<IPathResolver>()));
 
         _serviceProvider = services.BuildServiceProvider();
         _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
@@ -137,27 +144,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     }
 
     [Fact]
-    public void PlexLayout_DefinesExpectedBonusFoldersAndSuffixes()
-    {
-        var layoutField = typeof(InvokeBonusFileProcessingCommand)
-            .GetField("_plexLayout", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(layoutField);
-
-        var layout = (ValueTuple<string, string>[])layoutField!.GetValue(null)!;
-
-        Assert.Equal(8, layout.Length);
-
-        Assert.Contains(layout, p => p.Item1 == "Behind The Scenes" && p.Item2 == "behindthescenes");
-        Assert.Contains(layout, p => p.Item1 == "Deleted Scenes" && p.Item2 == "deleted");
-        Assert.Contains(layout, p => p.Item1 == "Featurettes" && p.Item2 == "featurette");
-        Assert.Contains(layout, p => p.Item1 == "Interviews" && p.Item2 == "interview");
-        Assert.Contains(layout, p => p.Item1 == "Scenes" && p.Item2 == "scene");
-        Assert.Contains(layout, p => p.Item1 == "Shorts" && p.Item2 == "short");
-        Assert.Contains(layout, p => p.Item1 == "Trailers" && p.Item2 == "trailer");
-        Assert.Contains(layout, p => p.Item1 == "Other" && p.Item2 == "other");
-    }
-
-    [Fact]
     public void CreateAudioTrackMappings_CreatesCopyMapping_ForMultiChannelDts()
     {
         var streams = new List<MediaStream>
@@ -217,36 +203,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     }
 
     [Fact]
-    public void GetFileSizeOrZero_ReturnsExpectedSize_WhenFileExists()
-    {
-        var tempPath = Path.GetTempFileName();
-        try
-        {
-            var content = new byte[] { 1, 2, 3, 4, 5, 6, 7 };
-            File.WriteAllBytes(tempPath, content);
-
-            var size = InvokeGetFileSizeOrZero(tempPath);
-
-            Assert.Equal(content.Length, size);
-        }
-        finally
-        {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-        }
-    }
-
-    [Fact]
-    public void GetFileSizeOrZero_ReturnsZero_WhenFileDoesNotExist()
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
-
-        var size = InvokeGetFileSizeOrZero(path);
-
-        Assert.Equal(0, size);
-    }
-
-    [Fact]
     public void InvokeBonusFileProcessing_SupportsShouldProcess()
     {
         var attribute = typeof(InvokeBonusFileProcessingCommand)
@@ -286,7 +242,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Never);
         _mediaReaderServiceMock.Verify(
             service => service.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
@@ -314,7 +270,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback(() => File.WriteAllBytes(expectedOutput, new byte[400]));
 
         using var ps = CreatePowerShell();
@@ -363,14 +319,14 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress, CancellationToken _) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _, TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(25),
@@ -422,14 +378,14 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress, CancellationToken _) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _, TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(99),
@@ -481,17 +437,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     private static PowerShell CreatePowerShell() =>
         PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
 
-    private static long InvokeGetFileSizeOrZero(string path)
-    {
-        var method = typeof(InvokeBonusFileProcessingCommand)
-            .GetMethod("GetFileSizeOrZero", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        var result = method!.Invoke(null, new object[] { path });
-        Assert.NotNull(result);
-        return (long)result!;
-    }
-
     private static MediaFile CreateMediaFile(string path)
     {
         var stream = new MediaStream(
@@ -503,7 +448,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
             "eng",
-            @"{""index"":1,""codec_type"":""audio"",""channels"":2}");
+            2);
 
         return new MediaFile(
             path,
@@ -511,10 +456,9 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 stream
-            },
-            "{}");
+            });
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, string language, int channels, string? title = null)
@@ -525,18 +469,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         if (!string.IsNullOrEmpty(title))
             tags["title"] = title;
 
-        var rawJson = $@"{{
-            ""index"": {index},
-            ""codec_name"": ""{codec}"",
-            ""codec_type"": ""audio"",
-            ""channels"": {channels},
-            ""tags"": {{
-                {(language != null ? $@"""language"": ""{language}""," : "")}
-                {(title != null ? $@"""title"": ""{title}""," : "")}
-                ""DURATION-{language}"": ""00:43:29.500000""
-            }}
-        }}";
-
         return new MediaStream(
             "audio",
             index,
@@ -546,6 +478,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             tags,
             TimeSpan.Zero,
             language,
-            rawJson);
+            channels);
     }
 }

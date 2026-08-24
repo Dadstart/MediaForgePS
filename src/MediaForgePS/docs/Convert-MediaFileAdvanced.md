@@ -20,7 +20,7 @@ Convert-MediaFileAdvanced [-InputPath] <String> [-OutputPath] <String>
 ```
 
 ## DESCRIPTION
-Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options; -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles. Supports -WhatIf and -Confirm.
+Convert-MediaFileAdvanced uses FFmpeg to convert one media file with full control: you must supply VideoEncodingSettings (from New-VideoEncodingSettings) and AudioTrackMappings (from Get-AudioStreams or New-AudioTrackMapping). Optional -AdditionalArguments pass extra FFmpeg options (trusted-input-only; do not pass untrusted values—extra `-i` inputs and `file:` protocol URLs are rejected); -X265Params are passed via -x265-params when the codec is x265. Use this cmdlet when you need precise control; for batch conversion with auto-detection use Convert-MediaFiles. Supports -WhatIf and -Confirm.
 
 ## EXAMPLES
 
@@ -45,7 +45,7 @@ Passes aq-mode=3 to x265 via -x265-params.
 ## PARAMETERS
 
 ### -AdditionalArguments
-Additional Ffmpeg arguments (e.g., codec options, quality settings)
+Trusted-input-only additional FFmpeg arguments appended after built-in encoding options (for example codec or filter options). Do not pass untrusted user input. Extra `-i` inputs and `file:` protocol URLs are rejected; supply inputs via `-InputPath` instead.
 
 ```yaml
 Type: String[]

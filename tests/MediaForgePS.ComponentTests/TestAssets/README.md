@@ -10,6 +10,7 @@ Assets
 |------|---------|
 | `sample-1s.mkv` | Valid ~1 s video with a single audio track — used for happy-path cmdlet tests |
 | `invalid-media.mkv` | Small text file with an `.mkv` extension — exercises ffprobe error paths |
+| `ocr-broken.srt` | SRT with common OCR misreads (J/♪, pipe/I, [$10]) — used by Repair-Subtitles component tests |
 
 Image subtitle OCR component tests generate ephemeral VobSub `.sub`/`.idx` fixtures at runtime (Windows + Tesseract `eng.traineddata`). They skip when tessdata is missing unless `MEDIAFORGE_REQUIRE_COMPONENT_TESTS=1`.
 

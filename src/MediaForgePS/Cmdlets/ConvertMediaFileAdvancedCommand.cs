@@ -18,7 +18,9 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <see cref="NewVideoEncodingSettingsCommand"/> and <see cref="AudioTrackMapping"/> objects from
 /// <see cref="GetAudioTrackMappingsCommand"/> or <see cref="NewAudioTrackMappingCommand"/>.
 /// Does not write to the pipeline on failure (errors via WriteError); on success writes a <see cref="MediaConversionResult"/>.
-/// Supports -WhatIf and -Confirm.
+/// Supports -WhatIf and -Confirm. Use -Force to overwrite an existing output file.
+/// <see cref="AdditionalArguments"/> are trusted-input-only and are passed through to FFmpeg;
+/// do not supply untrusted values. Extra <c>-i</c> inputs and <c>file:</c> protocol URLs are rejected.
 /// </remarks>
 [Cmdlet(VerbsData.Convert, "MediaFileAdvanced", SupportsShouldProcess = true)]
 [OutputType(typeof(MediaConversionResult))]
@@ -67,11 +69,16 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
     public AudioTrackMapping[] AudioTrackMappings { get; set; } = Array.Empty<AudioTrackMapping>();
 
     /// <summary>
-    /// Additional Ffmpeg arguments to pass to the conversion process.
+    /// Additional FFmpeg arguments to pass to the conversion process.
     /// </summary>
+    /// <remarks>
+    /// Trusted-input-only: tokens are appended to the FFmpeg command line after built-in options.
+    /// Do not pass untrusted user input. Extra <c>-i</c> inputs and <c>file:</c> protocol URLs are rejected.
+    /// Use for codec/filter options (e.g. <c>-vf</c>, <c>-preset</c>), not additional inputs.
+    /// </remarks>
     [Parameter(
         Mandatory = false,
-        HelpMessage = "Additional Ffmpeg arguments (e.g., codec options, quality settings)")]
+        HelpMessage = "Trusted-input-only additional FFmpeg arguments (codec/filter options). Extra -i and file: URLs are rejected.")]
     public string[]? AdditionalArguments { get; set; }
 
     /// <summary>
@@ -81,6 +88,12 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         Mandatory = false,
         HelpMessage = "Additional x265 params (passed to ffmpeg via -x265-params)")]
     public string? X265Params { get; set; }
+
+    /// <summary>
+    /// Overwrites the output file if it already exists.
+    /// </summary>
+    [Parameter(HelpMessage = "Overwrites the output file if it already exists")]
+    public SwitchParameter Force { get; set; }
 
     private IPathResolver? _pathResolver;
     private IMediaConversionService? _mediaConversionService;
@@ -109,6 +122,9 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
         if (!TryResolveOutputPath(PathResolver, OutputPath, out var resolvedOutputPath))
             return;
 
+        if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+            return;
+
         var inputFileName = Path.GetFileName(resolvedInputPath);
         var outputFileName = Path.GetFileName(resolvedOutputPath);
         if (!ShouldProcess($"Convert '{inputFileName}' to '{outputFileName}'", "Convert media file"))
@@ -116,6 +132,8 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
             Logger.LogInformation("WhatIf: Would convert '{InputFileName}' to '{OutputFileName}'", inputFileName, outputFileName);
             return;
         }
+
+        PathResolver.EnsureOutputDirectoryExists(resolvedOutputPath);
 
         try
         {
@@ -133,7 +151,8 @@ public class ConvertMediaFileAdvancedCommand : CmdletBase
                 VideoEncodingSettings,
                 AudioTrackMappings,
                 additionalArguments,
-                cancellationToken: StoppingToken);
+                cancellationToken: StoppingToken,
+                overwrite: Force.IsPresent);
             stopwatch.Stop();
 
             Logger.LogInformation("Successfully converted media file: {ResolvedInputPath} -> {ResolvedOutputPath}", resolvedInputPath, resolvedOutputPath);

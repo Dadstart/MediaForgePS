@@ -142,7 +142,13 @@ public class ExportSubtitlesCommandTests : IDisposable
             .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
 
         _executableMock
-            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((_, args, _, __) =>
+            {
+                var outputPath = args.ToArray()[^1];
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+                File.WriteAllText(outputPath, "1\n00:00:00,000 --> 00:00:01,000\n");
+            })
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var asm = typeof(ExportSubtitlesCommand).Assembly;
@@ -177,7 +183,13 @@ public class ExportSubtitlesCommandTests : IDisposable
             .ReturnsAsync(CreateMediaFile(mediaPath, "subrip"));
 
         _executableMock
-            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((_, args, _, __) =>
+            {
+                var outputPath = args.ToArray()[^1];
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+                File.WriteAllText(outputPath, "1\n00:00:00,000 --> 00:00:01,000\n");
+            })
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var asm = typeof(ExportSubtitlesCommand).Assembly;
@@ -213,8 +225,7 @@ public class ExportSubtitlesCommandTests : IDisposable
                 1024,
                 new Dictionary<string, string>()),
             [],
-            [new MediaStream("subtitle", 2, subtitleCodec, string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng")],
-            string.Empty);
+            [new MediaStream("subtitle", 2, subtitleCodec, string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, "eng")]);
     }
 
     private sealed class TemporaryDirectory : IDisposable

@@ -288,6 +288,8 @@ public abstract class CmdletBase : PSCmdlet
 
     /// <summary>
     /// Resolves an output path and writes a standardized path error when resolution fails.
+    /// Does not create directories; callers should call <see cref="IPathResolver.EnsureOutputDirectoryExists"/>
+    /// only after ShouldProcess succeeds.
     /// </summary>
     /// <param name="pathResolver">Path resolver service.</param>
     /// <param name="outputPath">Output path from cmdlet parameter.</param>
@@ -304,6 +306,31 @@ public abstract class CmdletBase : PSCmdlet
             ErrorCategory.InvalidArgument,
             outputPath));
 
+        return false;
+    }
+
+    /// <summary>
+    /// Ensures an output path can be written. Existing files require <paramref name="force"/>.
+    /// </summary>
+    /// <returns>True when the path is writable; otherwise false after writing an error.</returns>
+    protected bool TryEnsureOutputCanBeWritten(string resolvedOutputPath, bool force)
+    {
+        if (!File.Exists(resolvedOutputPath))
+            return true;
+
+        if (force)
+        {
+            Logger.LogWarning("Output file exists and Force specified. Will overwrite: {ResolvedOutputPath}", resolvedOutputPath);
+            return true;
+        }
+
+        var errorMessage = $"Output file already exists: {resolvedOutputPath}. Use -Force to overwrite.";
+        Logger.LogError(errorMessage);
+        WriteError(CreateErrorRecord(
+            new IOException(errorMessage),
+            ErrorIds.OutputFileExists,
+            ErrorCategory.ResourceExists,
+            resolvedOutputPath));
         return false;
     }
 

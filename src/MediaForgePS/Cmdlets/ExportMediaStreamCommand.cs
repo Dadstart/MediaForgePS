@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.System;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Dadstart.Labs.MediaForge.Cmdlets;
@@ -73,7 +73,7 @@ public class ExportMediaStreamCommand : CmdletBase
     public SwitchParameter Force { get; set; }
 
     private IPathResolver? _pathResolver;
-    private IExecutableService? _executableService;
+    private IFfmpegService? _ffmpegService;
 
     /// <summary>
     /// Path resolver service instance for resolving and validating file paths.
@@ -81,9 +81,9 @@ public class ExportMediaStreamCommand : CmdletBase
     private IPathResolver PathResolver => _pathResolver ??= ModuleServices.GetRequiredService<IPathResolver>();
 
     /// <summary>
-    /// Executable service instance for executing FFmpeg.
+    /// Ffmpeg service instance for extracting streams without re-encoding.
     /// </summary>
-    private IExecutableService ExecutableService => _executableService ??= ModuleServices.GetRequiredService<IExecutableService>();
+    private IFfmpegService FfmpegService => _ffmpegService ??= ModuleServices.GetRequiredService<IFfmpegService>();
 
     /// <summary>
     /// Processes the stream extraction request.
@@ -105,93 +105,63 @@ public class ExportMediaStreamCommand : CmdletBase
         Logger.LogDebug("Resolved output path: {ResolvedOutputPath}", resolvedOutputPath);
 
         // Check if output file exists and handle Force parameter
-        if (File.Exists(resolvedOutputPath))
-        {
-            if (Force)
-            {
-                Logger.LogWarning("Output file exists and Force specified. Will overwrite: {ResolvedOutputPath}", resolvedOutputPath);
-            }
-            else
-            {
-                var errorMessage = $"Output file already exists: {resolvedOutputPath}. Use -Force to overwrite.";
-                Logger.LogError(errorMessage);
-                var errorRecord = new ErrorRecord(
-                    new IOException(errorMessage),
-                    ErrorIds.OutputFileExists,
-                    ErrorCategory.ResourceExists,
-                    resolvedOutputPath);
-                WriteError(errorRecord);
-                return;
-            }
-        }
+        if (!TryEnsureOutputCanBeWritten(resolvedOutputPath, Force.IsPresent))
+            return;
 
-        // Build FFmpeg arguments
-        var ffmpegArguments = BuildFfmpegArguments(resolvedInputPath, resolvedOutputPath);
+        var ffmpegArguments = BuildStreamCopyArguments();
         Logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", ffmpegArguments));
 
-        // Get file names for ShouldProcess message
         var inputFileName = Path.GetFileName(resolvedInputPath);
         var outputFileName = Path.GetFileName(resolvedOutputPath);
-        var shouldProcessMessage = $"Extract stream from '{inputFileName}' to '{outputFileName}'";
-        var shouldProcessCaption = "Extract stream";
-
-        // Execute FFmpeg with ShouldProcess support
-        if (ShouldProcess(shouldProcessMessage, shouldProcessCaption))
-        {
-            Logger.LogInformation("Executing FFmpeg to extract stream...");
-            try
-            {
-                var result = ExecutableService.ExecuteAsync("ffmpeg", ffmpegArguments, StoppingToken).ConfigureAwait(false).GetAwaiter().GetResult();
-
-                try
-                {
-                    result.EnsureProcessSuccess("FFmpeg stream extraction");
-                    Logger.LogInformation("Successfully extracted stream to: {OutputFileName}", outputFileName);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    Logger.LogError(ex, "Failed to extract stream");
-                    var errorId = result.Exception is not null
-                        ? ErrorIds.FfmpegExecutionException
-                        : ErrorIds.FfmpegExecutionFailed;
-                    WriteError(new ErrorRecord(ex, errorId, ErrorCategory.OperationStopped, null));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Exception occurred while executing FFmpeg");
-                var errorRecord = new ErrorRecord(
-                    ex,
-                    ErrorIds.FfmpegExecutionException,
-                    ErrorCategory.OperationStopped,
-                    null);
-                WriteError(errorRecord);
-            }
-        }
-        else
+        if (!ShouldProcess($"Extract stream from '{inputFileName}' to '{outputFileName}'", "Extract stream"))
         {
             Logger.LogInformation("WhatIf: Would extract stream from '{InputFileName}' to '{OutputFileName}'", inputFileName, outputFileName);
+            return;
+        }
+
+        Logger.LogInformation("Executing FFmpeg to extract stream...");
+        try
+        {
+            FfmpegService.ConvertAsync(
+                resolvedInputPath,
+                resolvedOutputPath,
+                ffmpegArguments,
+                cancellationToken: StoppingToken,
+                timeout: ProcessTimeouts.Extract,
+                overwrite: Force.IsPresent).ConfigureAwait(false).GetAwaiter().GetResult();
+
+            Logger.LogInformation("Successfully extracted stream to: {OutputFileName}", outputFileName);
+        }
+        catch (FfmpegConversionException ex)
+        {
+            Logger.LogError(ex, "Failed to extract stream");
+            var errorId = ex.InnerException is not null
+                ? ErrorIds.FfmpegExecutionException
+                : ErrorIds.FfmpegExecutionFailed;
+            WriteStandardError(ex, errorId, ErrorCategory.OperationStopped, resolvedOutputPath);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred while executing FFmpeg");
+            WriteStandardError(ex, ErrorIds.FfmpegExecutionException, ErrorCategory.OperationStopped, resolvedOutputPath);
         }
     }
 
-    private List<string> BuildFfmpegArguments(string inputPath, string outputPath)
+    private List<string> BuildStreamCopyArguments()
     {
         var arguments = new List<string>();
 
-        // Input file
-        arguments.Add("-i");
-        arguments.Add(inputPath);
-
-        // Stream mapping based on type and index
         if (Type.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
-            // Extract by absolute stream index
             arguments.Add("-map");
             arguments.Add($"0:{Index}");
         }
         else
         {
-            // Extract by stream type and index
             var streamTypeMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "Video", "v" },
@@ -211,16 +181,8 @@ public class ExportMediaStreamCommand : CmdletBase
             }
         }
 
-        // Copy stream without re-encoding
         arguments.Add("-c");
         arguments.Add("copy");
-
-        // Overwrite output file if Force is specified (we've already checked file existence)
-        if (Force)
-            arguments.Add("-y");
-
-        // Output file
-        arguments.Add(outputPath);
 
         return arguments;
     }

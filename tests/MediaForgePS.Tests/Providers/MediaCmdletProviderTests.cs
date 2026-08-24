@@ -257,6 +257,6 @@ public class MediaCmdletProviderTests : IDisposable
             new MediaChapter(1, 10, 20, new Dictionary<string, string>(), Title: "Main"),
         };
 
-        return new MediaFile(path, format, chapters, streams, Raw: "{}");
+        return new MediaFile(path, format, chapters, streams);
     }
 }

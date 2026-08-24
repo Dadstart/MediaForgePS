@@ -4,6 +4,13 @@ using System.IO;
 namespace Dadstart.Labs.MediaForge.Services;
 
 /// <summary>
+/// Result of <see cref="PathHelper.MoveFile"/>.
+/// </summary>
+/// <param name="SourceRemoved">Whether the source file was removed after the destination was written.</param>
+/// <param name="SourceDeleteError">Error message when the source could not be removed after a successful copy.</param>
+public readonly record struct FileMoveResult(bool SourceRemoved, string? SourceDeleteError);
+
+/// <summary>
 /// Helper class for path resolution and directory operations.
 /// </summary>
 public static class PathHelper
@@ -69,5 +76,53 @@ public static class PathHelper
             Directory.CreateDirectory(dir);
 
         return dir;
+    }
+
+    /// <summary>
+    /// Returns whether two paths reside on the same volume (drive or UNC share root).
+    /// </summary>
+    public static bool IsSameVolume(string path1, string path2)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path1);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path2);
+
+        var root1 = Path.GetPathRoot(Path.GetFullPath(path1));
+        var root2 = Path.GetPathRoot(Path.GetFullPath(path2));
+        return !string.IsNullOrEmpty(root1)
+            && !string.IsNullOrEmpty(root2)
+            && string.Equals(root1, root2, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Moves a file to <paramref name="destinationPath"/>, using <see cref="File.Move(string,string)"/>
+    /// when source and destination share a volume; otherwise copies then deletes the source.
+    /// </summary>
+    /// <returns>Outcome describing whether the source was removed.</returns>
+    public static FileMoveResult MoveFile(string sourcePath, string destinationPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+
+        if (IsSameVolume(sourcePath, destinationPath))
+        {
+            File.Move(sourcePath, destinationPath);
+            return new FileMoveResult(SourceRemoved: true, SourceDeleteError: null);
+        }
+
+        File.Copy(sourcePath, destinationPath);
+        return DeleteSourceAfterCopy(sourcePath);
+    }
+
+    internal static FileMoveResult DeleteSourceAfterCopy(string sourcePath)
+    {
+        try
+        {
+            File.Delete(sourcePath);
+            return new FileMoveResult(SourceRemoved: true, SourceDeleteError: null);
+        }
+        catch (Exception ex)
+        {
+            return new FileMoveResult(SourceRemoved: false, SourceDeleteError: ex.Message);
+        }
     }
 }

@@ -13,5 +13,5 @@ public record MediaStream(
     [property: JsonPropertyName("tags")] Dictionary<string, string> Tags,
     [property: JsonIgnore] TimeSpan Duration = default,
     [property: JsonIgnore] string? Language = null,
-    [property: JsonIgnore] string Raw = ""
+    [property: JsonPropertyName("channels")] int Channels = 0
 );
