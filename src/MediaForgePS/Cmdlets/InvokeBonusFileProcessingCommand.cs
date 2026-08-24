@@ -258,6 +258,11 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to extract or process subtitles from bonus files");
+                WriteError(new ErrorRecord(
+                    ex,
+                    "BonusSubtitleProcessingFailed",
+                    ErrorCategory.OperationStopped,
+                    inputFullPath));
                 WriteWarning($"Continuing with file organization despite subtitle error: {ex.Message}");
             }
         }

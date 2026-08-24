@@ -9,6 +9,7 @@ namespace Dadstart.Labs.MediaForge.Module;
 /// If no cmdlet is present in CmdletContext.Current, messages are ignored.
 /// Error and Critical map to WriteWarning so routine service logging does not produce
 /// pipeline error records; cmdlets should call WriteError for intentional failures.
+/// Analyzer MFPS001 enforces this for catch blocks that call Logger.LogError.
 /// </summary>
 public class PowerShellLogger : ILogger
 {
