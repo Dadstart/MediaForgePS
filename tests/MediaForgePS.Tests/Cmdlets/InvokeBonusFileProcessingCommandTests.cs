@@ -221,7 +221,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         var mkvPath = Path.Combine(input, "clip-trailer.mkv");
         File.WriteAllText(mkvPath, "x");
 
-        SetupOutputPathResolution(output);
+        SetupOutputPathResolution();
 
         using var ps = CreatePowerShell();
         ps.AddCommand("Invoke-BonusFileProcessing")
@@ -259,7 +259,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(mkvPath));
-        SetupOutputPathResolution(output);
+        SetupOutputPathResolution();
 
         var expectedOutput = Path.Combine(input, "clip-trailer.mp4");
         _mediaConversionServiceMock
@@ -310,7 +310,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(mkvPath));
-        SetupOutputPathResolution(output);
+        SetupOutputPathResolution();
 
         _mediaConversionServiceMock
             .Setup(service => service.ExecuteConversion(
@@ -369,7 +369,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
         _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateMediaFile(mkvPath));
-        SetupOutputPathResolution(output);
+        SetupOutputPathResolution();
 
         _mediaConversionServiceMock
             .Setup(service => service.ExecuteConversion(
@@ -415,10 +415,154 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 && record.SecondsRemaining == -1);
     }
 
-    private void SetupOutputPathResolution(string outputPath)
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenInputPathDoesNotExist_WritesError()
+    {
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", Path.Combine(Path.GetTempPath(), "MediaForgePS-Missing-" + Guid.NewGuid().ToString("N")))
+            .AddParameter("OutputPath", CreateTempDirectory())
+            .AddParameter("Confirm", false);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Contains(errors, error => error.FullyQualifiedErrorId.Contains("InputPathNotFound", StringComparison.Ordinal));
+        _mediaConversionServiceMock.Verify(
+            service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WithSkipSubtitles_DoesNotWriteSubtitleProcessingResult()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution();
+        SetupConversionToWriteOutput(mkvPath, Path.Combine(input, "clip-trailer.mp4"));
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.DoesNotContain(results, record => record.BaseObject is SubtitleProcessingResult);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenSubtitlesPresent_WritesSubtitleProcessingResult()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFileWithSubtitles(mkvPath));
+        SetupOutputPathResolution();
+        SetupExecutableForSubtitleExtract();
+        SetupConversionToWriteOutput(mkvPath, Path.Combine(input, "clip-trailer.mp4"));
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("Ocr", "Skip")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        var subtitleResult = Assert.Single(results.Select(record => record.BaseObject).OfType<SubtitleProcessingResult>());
+        Assert.True(subtitleResult.ExtractedCount > 0);
+        Assert.Equal(0, subtitleResult.ConvertedCount);
+    }
+
+    private void SetupConversionToWriteOutput(string inputPath, string outputPath)
+    {
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                inputPath,
+                outputPath,
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
+            .Callback(() =>
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.WriteAllBytes(outputPath, new byte[400]);
+            });
+    }
+
+    private void SetupExecutableForSubtitleExtract()
+    {
+        _executableServiceMock
+            .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((exe, args, _, __) =>
+            {
+                if (!string.Equals(exe, "ffmpeg", StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                var outputPath = args.Last();
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.WriteAllText(outputPath, "staged");
+            })
+            .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
+    }
+
+    private static MediaFile CreateMediaFileWithSubtitles(string path)
+    {
+        var subtitle = new MediaStream(
+            "subtitle",
+            2,
+            "subrip",
+            string.Empty,
+            string.Empty,
+            new Dictionary<string, string> { ["language"] = "eng" },
+            TimeSpan.Zero,
+            "eng");
+
+        return new MediaFile(
+            path,
+            new MediaFormat(path, 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
+            Array.Empty<MediaChapter>(),
+            new[]
+            {
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
+                new MediaStream("audio", 1, "aac", string.Empty, string.Empty, new Dictionary<string, string> { ["language"] = "eng" }, TimeSpan.Zero, "eng", 2),
+                subtitle
+            });
+    }
+
+    private void SetupOutputPathResolution()
     {
         _pathResolverMock
-            .Setup(resolver => resolver.TryResolveOutputPath(outputPath, out It.Ref<string>.IsAny))
+            .Setup(resolver => resolver.TryResolveOutputPath(It.IsAny<string>(), out It.Ref<string>.IsAny))
             .Returns((string path, out string resolved) =>
             {
                 resolved = path;
