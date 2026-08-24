@@ -8,9 +8,24 @@ namespace Dadstart.Labs.MediaForge.Services;
 /// <summary>
 /// Fixes common OCR errors in SRT subtitle text (music note ♪ misreads, pipe as I, brackets, etc.).
 /// </summary>
-public static class SrtOcrFixHelper
+public static partial class SrtOcrFixHelper
 {
     private const char MusicNote = '♪';
+
+    [GeneratedRegex(@"(^|\s|<i>|</i>)[J3S&¢d$g](\s|$|<i>|</i>)")]
+    private static partial Regex MusicNoteMisreadRegex();
+
+    [GeneratedRegex(@"(^|\s|<i>|</i>)\|(\s|$|<i>|</i>)")]
+    private static partial Regex SolitaryPipeRegex();
+
+    [GeneratedRegex(@"([a-zA-Z])\|([a-zA-Z])")]
+    private static partial Regex MidWordPipeRegex();
+
+    [GeneratedRegex(@"(down )10 (South)")]
+    private static partial Regex Down10SouthRegex();
+
+    [GeneratedRegex(@"(\s|</i>|<i>)I$")]
+    private static partial Regex TrailingIMusicNoteRegex();
 
     /// <summary>
     /// Reads an SRT file, applies OCR fixes, and writes the result to outputPath atomically. Uses UTF-8 encoding.
@@ -88,13 +103,13 @@ public static class SrtOcrFixHelper
         s = s.Replace("[$10]", threeNotes).Replace("[$20]", threeNotes);
 
         // Replace J, 3, S, &, ¢, d, $ or g with ♪ when they appear in "music note" positions (standalone or at boundaries).
-        s = Regex.Replace(s, @"(^|\s|<i>|</i>)[J3S&¢d$g](\s|$|<i>|</i>)", $"$1{MusicNote}$2");
+        s = MusicNoteMisreadRegex().Replace(s, $"$1{MusicNote}$2");
 
         // Replace solitary '|' with 'I' (OCR often misreads capital I as pipe).
-        s = Regex.Replace(s, @"(^|\s|<i>|</i>)\|(\s|$|<i>|</i>)", "$1I$2");
+        s = SolitaryPipeRegex().Replace(s, "$1I$2");
 
         // Replace '|' with 'I' when it appears in the middle of a word (letter | letter).
-        s = Regex.Replace(s, @"([a-zA-Z])\|([a-zA-Z])", "$1I$2");
+        s = MidWordPipeRegex().Replace(s, "$1I$2");
 
         // Replace any remaining '|' with 'I' (OCR misread).
         s = s.Replace('|', 'I');
@@ -103,10 +118,10 @@ public static class SrtOcrFixHelper
         s = ReplaceUnmatchedBrackets(s);
 
         // Fix OCR misread in South Park lyric: "down 10 South" → "down to South".
-        s = Regex.Replace(s, @"(down )10 (South)", "$1to $2");
+        s = Down10SouthRegex().Replace(s, "$1to $2");
 
         // Replace trailing I with ♪ when it looks like an OCR'd music note at end of line.
-        s = Regex.Replace(s, @"(\s|</i>|<i>)I$", $"$1{MusicNote}");
+        s = TrailingIMusicNoteRegex().Replace(s, $"$1{MusicNote}");
         if (s.Length == 1 && s[0] == 'I')
             s = MusicNote.ToString();
 

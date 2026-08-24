@@ -43,9 +43,12 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
     private bool _disposed;
 
     public TvDbClient(ITvDbCredentialProvider credentials, ILogger<TvDbClient> logger)
-        : this(credentials, logger, new HttpClientHandler(), disposeHandler: true)
+        : this(credentials, logger, CreateDefaultHandler(), disposeHandler: true)
     {
     }
+
+    internal static HttpClientHandler CreateDefaultHandler() =>
+        new() { AllowAutoRedirect = false };
 
     internal TvDbClient(
         ITvDbCredentialProvider credentials,
@@ -57,6 +60,9 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(handler);
+
+        if (handler is HttpClientHandler clientHandler)
+            clientHandler.AllowAutoRedirect = false;
 
         _credentials = credentials;
         _logger = logger;
