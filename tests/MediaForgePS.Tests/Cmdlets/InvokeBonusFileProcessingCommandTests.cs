@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Services.BonusProcessing;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.Ocr;
 using Dadstart.Labs.MediaForge.Services.System;
@@ -51,6 +52,12 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
         services.AddSingleton(_loggerFactoryMock.Object);
         services.AddSingleton(_debuggerServiceMock.Object);
+        services.AddSingleton<IBonusProcessingService>(sp => new BonusProcessingService(
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger<BonusProcessingService>(),
+            sp.GetRequiredService<IMediaReaderService>(),
+            sp.GetRequiredService<IMediaConversionService>(),
+            sp.GetRequiredService<IExecutableService>(),
+            sp.GetRequiredService<IPathResolver>()));
 
         _serviceProvider = services.BuildServiceProvider();
         _moduleServicesScope = new ModuleServicesTestScope(_serviceProvider);
@@ -137,27 +144,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
     }
 
     [Fact]
-    public void PlexLayout_DefinesExpectedBonusFoldersAndSuffixes()
-    {
-        var layoutField = typeof(InvokeBonusFileProcessingCommand)
-            .GetField("_plexLayout", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(layoutField);
-
-        var layout = (ValueTuple<string, string>[])layoutField!.GetValue(null)!;
-
-        Assert.Equal(8, layout.Length);
-
-        Assert.Contains(layout, p => p.Item1 == "Behind The Scenes" && p.Item2 == "behindthescenes");
-        Assert.Contains(layout, p => p.Item1 == "Deleted Scenes" && p.Item2 == "deleted");
-        Assert.Contains(layout, p => p.Item1 == "Featurettes" && p.Item2 == "featurette");
-        Assert.Contains(layout, p => p.Item1 == "Interviews" && p.Item2 == "interview");
-        Assert.Contains(layout, p => p.Item1 == "Scenes" && p.Item2 == "scene");
-        Assert.Contains(layout, p => p.Item1 == "Shorts" && p.Item2 == "short");
-        Assert.Contains(layout, p => p.Item1 == "Trailers" && p.Item2 == "trailer");
-        Assert.Contains(layout, p => p.Item1 == "Other" && p.Item2 == "other");
-    }
-
-    [Fact]
     public void CreateAudioTrackMappings_CreatesCopyMapping_ForMultiChannelDts()
     {
         var streams = new List<MediaStream>
@@ -214,36 +200,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         Assert.Equal(1, secondCopy.DestinationIndex);
         Assert.Equal(6, firstEncode.DestinationChannels);
         Assert.Equal("aac", firstEncode.DestinationCodec);
-    }
-
-    [Fact]
-    public void GetFileSizeOrZero_ReturnsExpectedSize_WhenFileExists()
-    {
-        var tempPath = Path.GetTempFileName();
-        try
-        {
-            var content = new byte[] { 1, 2, 3, 4, 5, 6, 7 };
-            File.WriteAllBytes(tempPath, content);
-
-            var size = InvokeGetFileSizeOrZero(tempPath);
-
-            Assert.Equal(content.Length, size);
-        }
-        finally
-        {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-        }
-    }
-
-    [Fact]
-    public void GetFileSizeOrZero_ReturnsZero_WhenFileDoesNotExist()
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tmp");
-
-        var size = InvokeGetFileSizeOrZero(path);
-
-        Assert.Equal(0, size);
     }
 
     [Fact]
@@ -480,17 +436,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
     private static PowerShell CreatePowerShell() =>
         PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
-
-    private static long InvokeGetFileSizeOrZero(string path)
-    {
-        var method = typeof(InvokeBonusFileProcessingCommand)
-            .GetMethod("GetFileSizeOrZero", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        var result = method!.Invoke(null, new object[] { path });
-        Assert.NotNull(result);
-        return (long)result!;
-    }
 
     private static MediaFile CreateMediaFile(string path)
     {
