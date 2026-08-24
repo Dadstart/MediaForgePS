@@ -18,13 +18,13 @@ public sealed class ComponentModuleServicesScope : IDisposable
     public ComponentModuleServicesScope(IServiceProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        ModuleServices.ResetForTesting();
         _providerField?.SetValue(null, provider);
         _initializedField?.SetValue(null, true);
     }
 
     public void Dispose()
     {
-        _providerField?.SetValue(null, null);
-        _initializedField?.SetValue(null, false);
+        ModuleServices.ResetForTesting();
     }
 }

@@ -51,6 +51,7 @@ public abstract class CmdletBase : PSCmdlet
     private IDisposable? _commandTitleScope;
     private string? _powerShellCommandName;
     private CancellationTokenSource? _cancellationTokenSource;
+    private bool _moduleServicesScopeEntered;
 
     /// <summary>
     /// Logger instance for the derived cmdlet type.
@@ -88,6 +89,8 @@ public abstract class CmdletBase : PSCmdlet
     protected sealed override void BeginProcessing()
     {
         CmdletContext.Current = this;
+        ModuleServices.EnterCmdlet();
+        _moduleServicesScopeEntered = true;
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = new CancellationTokenSource();
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
@@ -104,12 +107,14 @@ public abstract class CmdletBase : PSCmdlet
         {
             _commandTitleScope?.Dispose();
             _commandTitleScope = null;
+            ReleaseModuleServicesScope();
             throw new PipelineStoppedException();
         }
         catch
         {
             _commandTitleScope?.Dispose();
             _commandTitleScope = null;
+            ReleaseModuleServicesScope();
             throw;
         }
     }
@@ -160,7 +165,17 @@ public abstract class CmdletBase : PSCmdlet
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
             CmdletContext.Current = null;
+            ReleaseModuleServicesScope();
         }
+    }
+
+    private void ReleaseModuleServicesScope()
+    {
+        if (!_moduleServicesScopeEntered)
+            return;
+
+        ModuleServices.ExitCmdlet();
+        _moduleServicesScopeEntered = false;
     }
 
     /// <summary>
