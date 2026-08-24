@@ -8,6 +8,7 @@ using System.Threading;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
+using Dadstart.Labs.MediaForge.Module;
 using Dadstart.Labs.MediaForge.Services.BonusProcessing;
 using Dadstart.Labs.MediaForge.Services.Ffmpeg;
 using Dadstart.Labs.MediaForge.Services.Ocr;
@@ -497,6 +498,375 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         Assert.Equal(0, subtitleResult.ConvertedCount);
     }
 
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenNoBonusMkvFiles_CompletesWithoutConversionResults()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        File.WriteAllText(Path.Combine(input, "regular-video.mkv"), "not a bonus suffix");
+
+        SetupOutputPathResolution();
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var warnings = ps.Streams.Warning.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.DoesNotContain(results, record => record.BaseObject is MediaConversionResult);
+        Assert.Contains(warnings, warning => warning.Message.Contains("No bonus content files found", StringComparison.OrdinalIgnoreCase));
+        _mediaConversionServiceMock.Verify(
+            service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenConversionFails_ContinuesWithOrganization()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution();
+        var expectedOutput = Path.Combine(input, "clip-trailer.mp4");
+        _mediaConversionServiceMock
+            .Setup(service => service.ExecuteConversion(
+                mkvPath,
+                expectedOutput,
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
+            .Throws(new FfmpegConversionException("conversion failed", mkvPath, expectedOutput, 1, "Invalid data found"));
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var warnings = ps.Streams.Warning.ReadAll();
+
+        Assert.Empty(errors);
+        var failedResult = Assert.Single(results.Select(record => record.BaseObject).OfType<MediaConversionResult>());
+        Assert.False(MediaConversionHelper.IsCompletedConversion(failedResult));
+        Assert.Contains("Conversion failed", failedResult.Status, StringComparison.Ordinal);
+        Assert.Contains(warnings, warning => warning.Message.Contains("No bonus content files found", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenOutputExistsWithoutForce_SkipsConversion()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        var existingOutput = Path.Combine(input, "clip-trailer.mp4");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+        File.WriteAllBytes(existingOutput, new byte[500]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution();
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Contains(errors, error => error.FullyQualifiedErrorId.Contains("OutputFileExists", StringComparison.Ordinal));
+        var skippedResult = Assert.Single(results.Select(record => record.BaseObject).OfType<MediaConversionResult>());
+        Assert.Contains("Output file already exists", skippedResult.Status, StringComparison.Ordinal);
+        _mediaConversionServiceMock.Verify(
+            service => service.ExecuteConversion(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<VideoEncodingSettings>(),
+                It.IsAny<AudioTrackMapping[]>(),
+                It.IsAny<string[]?>(),
+                It.IsAny<IProgress<FfmpegProgress>?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenForceSpecified_OverwritesExistingOutput()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        var existingOutput = Path.Combine(input, "clip-trailer.mp4");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+        File.WriteAllBytes(existingOutput, new byte[500]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(mkvPath, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(mkvPath));
+        SetupOutputPathResolution();
+        SetupConversionToWriteOutput(mkvPath, existingOutput);
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Force")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        var result = Assert.IsType<MediaConversionResult>(Assert.Single(results.Select(record => record.BaseObject).OfType<MediaConversionResult>()));
+        Assert.Equal(MediaConversionResult.CompletedStatus, result.Status);
+        var movedPath = Path.Combine(output, "Trailers", "clip-trailer.mp4");
+        Assert.True(File.Exists(movedPath));
+        Assert.Equal(400, new FileInfo(movedPath).Length);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenSubtitleExtractionFails_ContinuesWithOrganization()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var mkvPath = Path.Combine(input, "clip-trailer.mkv");
+        File.WriteAllBytes(mkvPath, new byte[1000]);
+
+        var bonusProcessingServiceMock = new Mock<IBonusProcessingService>();
+        bonusProcessingServiceMock.SetupGet(service => service.PlexLayout)
+            .Returns(new BonusProcessingService(
+                _loggerFactoryMock.Object.CreateLogger<BonusProcessingService>(),
+                _mediaReaderServiceMock.Object,
+                _mediaConversionServiceMock.Object,
+                _executableServiceMock.Object,
+                _pathResolverMock.Object).PlexLayout);
+        bonusProcessingServiceMock.Setup(service => service.GetBonusMkvPaths(input))
+            .Returns([mkvPath]);
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeConversionPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusConversionRequest>(),
+                It.IsAny<Action<MediaConversionResult>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<ICmdletIO, BonusConversionRequest, Action<MediaConversionResult>, CancellationToken>(
+                (_, _, emitResult, _) =>
+                {
+                    var conversionResult = MediaConversionHelper.CreateConversionResult(
+                        mkvPath,
+                        Path.Combine(input, "clip-trailer.mp4"),
+                        true,
+                        MediaConversionResult.CompletedStatus,
+                        TimeSpan.FromSeconds(1));
+                    emitResult?.Invoke(conversionResult);
+                })
+            .Returns((ICmdletIO _, BonusConversionRequest _, Action<MediaConversionResult> _, CancellationToken _) =>
+                new BonusConversionPhaseResult(
+                    [MediaConversionHelper.CreateConversionResult(
+                        mkvPath,
+                        Path.Combine(input, "clip-trailer.mp4"),
+                        true,
+                        MediaConversionResult.CompletedStatus,
+                        TimeSpan.FromSeconds(1))],
+                    1));
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeCaptionExtractionPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusCaptionExtractionRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("subtitle pipeline failed"));
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeOrganizationPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusOrganizationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(new BonusOrganizationPhaseResult(0, 0));
+
+        SetupOutputPathResolution();
+
+        using var scope = CreateModuleScope(bonusProcessingServiceMock.Object);
+        using var ps = PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var warnings = ps.Streams.Warning.ReadAll();
+
+        Assert.Contains(errors, error => error.FullyQualifiedErrorId.Contains("BonusSubtitleProcessingFailed", StringComparison.Ordinal));
+        Assert.Contains(warnings, warning => warning.Message.Contains("Continuing with file organization despite subtitle error", StringComparison.Ordinal));
+        Assert.DoesNotContain(results, record => record.BaseObject is SubtitleProcessingResult);
+        Assert.IsType<MediaConversionResult>(Assert.Single(results.Select(record => record.BaseObject).OfType<MediaConversionResult>()));
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenConversionPhaseThrows_ContinuesWithOrganization()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var bonusProcessingServiceMock = new Mock<IBonusProcessingService>();
+        bonusProcessingServiceMock.SetupGet(service => service.PlexLayout)
+            .Returns(new BonusProcessingService(
+                _loggerFactoryMock.Object.CreateLogger<BonusProcessingService>(),
+                _mediaReaderServiceMock.Object,
+                _mediaConversionServiceMock.Object,
+                _executableServiceMock.Object,
+                _pathResolverMock.Object).PlexLayout);
+        bonusProcessingServiceMock.Setup(service => service.GetBonusMkvPaths(input))
+            .Returns([Path.Combine(input, "clip-trailer.mkv")]);
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeConversionPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusConversionRequest>(),
+                It.IsAny<Action<MediaConversionResult>>(),
+                It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("conversion phase failed"));
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeOrganizationPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusOrganizationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(new BonusOrganizationPhaseResult(0, 0));
+
+        SetupOutputPathResolution();
+
+        using var scope = CreateModuleScope(bonusProcessingServiceMock.Object);
+        using var ps = PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        _ = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+        var warnings = ps.Streams.Warning.ReadAll();
+
+        Assert.Contains(errors, error => error.FullyQualifiedErrorId.Contains("BonusConversionFailed", StringComparison.Ordinal));
+        Assert.Contains(warnings, warning => warning.Message.Contains("Continuing with file organization for Plex despite conversion error", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WhenOrganizationFails_WritesTerminatingError()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+
+        var bonusProcessingServiceMock = new Mock<IBonusProcessingService>();
+        bonusProcessingServiceMock.SetupGet(service => service.PlexLayout)
+            .Returns(new BonusProcessingService(
+                _loggerFactoryMock.Object.CreateLogger<BonusProcessingService>(),
+                _mediaReaderServiceMock.Object,
+                _mediaConversionServiceMock.Object,
+                _executableServiceMock.Object,
+                _pathResolverMock.Object).PlexLayout);
+        bonusProcessingServiceMock.Setup(service => service.GetBonusMkvPaths(input))
+            .Returns(Array.Empty<string>());
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeConversionPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusConversionRequest>(),
+                It.IsAny<Action<MediaConversionResult>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(new BonusConversionPhaseResult([], 0));
+        bonusProcessingServiceMock
+            .Setup(service => service.InvokeOrganizationPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusOrganizationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Throws(new IOException("destination unavailable"));
+
+        SetupOutputPathResolution();
+
+        using var scope = CreateModuleScope(bonusProcessingServiceMock.Object);
+        using var ps = PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var caught = Record.Exception(() => ps.Invoke());
+        var errors = ps.Streams.Error.ReadAll();
+
+        bonusProcessingServiceMock.Verify(
+            service => service.InvokeOrganizationPhase(
+                It.IsAny<ICmdletIO>(),
+                It.IsAny<BonusOrganizationRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        var organizationError = errors.FirstOrDefault(error =>
+            error.FullyQualifiedErrorId.Contains("PlexOrganizationFailed", StringComparison.Ordinal));
+        if (organizationError is not null)
+        {
+            Assert.Contains("PlexOrganizationFailed", organizationError.FullyQualifiedErrorId, StringComparison.Ordinal);
+            return;
+        }
+
+        Assert.NotNull(caught);
+        Assert.Contains("destination unavailable", caught.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InvokeBonusFileProcessing_WithMultipleBonusFiles_WritesStatisticsForCompletedConversions()
+    {
+        var input = CreateTempDirectory();
+        var output = CreateTempDirectory();
+        var firstMkv = Path.Combine(input, "clip-trailer.mkv");
+        var secondMkv = Path.Combine(input, "clip-featurette.mkv");
+        File.WriteAllBytes(firstMkv, new byte[1000]);
+        File.WriteAllBytes(secondMkv, new byte[2000]);
+
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(firstMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(firstMkv));
+        _mediaReaderServiceMock.Setup(service => service.GetMediaFileAsync(secondMkv, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateMediaFile(secondMkv));
+        SetupOutputPathResolution();
+        SetupConversionToWriteOutput(firstMkv, Path.Combine(input, "clip-trailer.mp4"));
+        SetupConversionToWriteOutput(secondMkv, Path.Combine(input, "clip-featurette.mp4"));
+
+        using var ps = CreatePowerShell();
+        ps.AddCommand("Invoke-BonusFileProcessing")
+            .AddParameter("InputPath", input)
+            .AddParameter("OutputPath", output)
+            .AddParameter("SkipSubtitles")
+            .AddParameter("Confirm", false);
+
+        var results = ps.Invoke();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Equal(2, results.Select(record => record.BaseObject).OfType<MediaConversionResult>().Count());
+        var statistics = Assert.Single(results.Select(record => record.BaseObject).OfType<MediaConversionStatistics>());
+        Assert.Equal(2, statistics.FileCount);
+    }
+
     private void SetupConversionToWriteOutput(string inputPath, string outputPath)
     {
         _mediaConversionServiceMock
@@ -580,6 +950,26 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
 
     private static PowerShell CreatePowerShell() =>
         PowerShellCmdletTestHost.Create<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+
+    private ModuleServicesTestScope CreateModuleScope(IBonusProcessingService bonusProcessingService)
+    {
+        var ocrConverterMock = new Mock<IImageSubtitleOcrConverter>();
+        ocrConverterMock.SetupGet(converter => converter.IsSupportedOnCurrentPlatform).Returns(true);
+        ocrConverterMock.SetupGet(converter => converter.IsAvailable).Returns(true);
+        ocrConverterMock.SetupGet(converter => converter.ExpectedTessDataDescription).Returns("tessdata expected");
+
+        var services = new ServiceCollection();
+        services.AddSingleton(_pathResolverMock.Object);
+        services.AddSingleton(_mediaReaderServiceMock.Object);
+        services.AddSingleton(_mediaConversionServiceMock.Object);
+        services.AddSingleton(_executableServiceMock.Object);
+        services.AddSingleton<IImageSubtitleOcrConverter>(ocrConverterMock.Object);
+        services.AddSingleton(_loggerFactoryMock.Object);
+        services.AddSingleton(_debuggerServiceMock.Object);
+        services.AddSingleton(bonusProcessingService);
+        var serviceProvider = services.BuildServiceProvider();
+        return new ModuleServicesTestScope(serviceProvider);
+    }
 
     private static MediaFile CreateMediaFile(string path)
     {
