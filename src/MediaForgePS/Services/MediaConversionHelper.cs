@@ -39,6 +39,19 @@ public static class MediaConversionHelper
         TimeSpan? Eta);
 
     /// <summary>
+    /// Returns the media duration from an already-probed <see cref="MediaFile"/>, or null when unknown/non-positive.
+    /// Pass to conversion APIs to avoid a second Ffprobe for encode progress.
+    /// </summary>
+    public static TimeSpan? GetTotalDuration(MediaFile mediaFile)
+    {
+        ArgumentNullException.ThrowIfNull(mediaFile);
+        if (mediaFile.Format.Duration <= 0)
+            return null;
+
+        return TimeSpan.FromSeconds((double)mediaFile.Format.Duration);
+    }
+
+    /// <summary>
     /// Formats a byte count as a human-readable string (B, KB, MB, GB).
     /// </summary>
     public static string FormatByteCount(long bytes)

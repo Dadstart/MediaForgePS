@@ -110,19 +110,19 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             firstOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             secondMkv,
             secondOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             nestedMkv,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
@@ -220,7 +220,8 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 string[]? _,
                 IProgress<FfmpegProgress>? progress,
                 CancellationToken _,
-                bool _) =>
+                bool _,
+                TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(25),
@@ -277,14 +278,14 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _, TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(99),
@@ -352,7 +353,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
     }
 
     [Fact]
@@ -392,13 +393,13 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             otherMkvPath,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -429,7 +430,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 mapping,
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback(() => File.WriteAllBytes(expectedOutput, new byte[400]));
 
         using var ps = CreatePowerShell("Convert-VideoFile");
@@ -483,7 +484,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 mapping,
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Throws(new OperationCanceledException());
 
         using var ps = CreatePowerShell("Convert-VideoFile");
@@ -545,19 +546,19 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             firstOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             secondMkvPath,
             secondOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
             ignoredMkvPath,
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -565,6 +566,14 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     {
         _executableServiceMock
             .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((_, args, _, __) =>
+            {
+                var outputPath = args.Last();
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.WriteAllText(outputPath, "staged");
+            })
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var root = CreateTempDirectory();
@@ -597,10 +606,15 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
+        Assert.True(File.Exists(srtOutput));
         _executableServiceMock.Verify(
             service => service.ExecuteAsync(
                 "ffmpeg",
-                It.Is<IEnumerable<string>>(args => args.Contains("-map") && args.Contains("0:2")),
+                It.Is<IEnumerable<string>>(args =>
+                    args.Contains("-map")
+                    && args.Contains("0:2")
+                    && args.Any(a => a.EndsWith("one.eng.sdh.srt", StringComparison.OrdinalIgnoreCase)
+                        && a.Contains("MediaForgePS_", StringComparison.Ordinal))),
                 It.IsAny<CancellationToken>(),
                 ProcessTimeouts.Extract),
             Times.Once);
@@ -683,7 +697,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
     }
 
     [Fact]
@@ -750,7 +764,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
                 expected,
                 It.IsAny<VideoEncodingSettings>(),
                 mapping,
-                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+                It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
         }
 
         _mediaConversionServiceMock.Verify(service => service.ExecuteConversion(
@@ -758,7 +772,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -786,7 +800,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -829,7 +843,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             expectedOutput,
             It.IsAny<VideoEncodingSettings>(),
             mapping,
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Once);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Once);
     }
 
     [Fact]
@@ -857,7 +871,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             It.IsAny<string>(),
             It.IsAny<VideoEncodingSettings>(),
             It.IsAny<AudioTrackMapping[]>(),
-            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Never);
+            It.IsAny<string[]?>(), It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()), Times.Never);
     }
 
     [Fact]
@@ -865,6 +879,16 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
     {
         _executableServiceMock
             .Setup(service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Callback<string, IEnumerable<string>, CancellationToken, TimeSpan?>((_, args, _, __) =>
+            {
+                var outputPath = args.Last();
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+                File.WriteAllText(outputPath, "staged");
+                if (outputPath.EndsWith(".idx", StringComparison.OrdinalIgnoreCase))
+                    File.WriteAllText(Path.ChangeExtension(outputPath, ".sub"), "staged");
+            })
             .ReturnsAsync(new ExecutableResult(string.Empty, string.Empty, 0));
 
         var root = CreateTempDirectory();
@@ -899,10 +923,14 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
+        Assert.True(File.Exists(subOutput));
+        Assert.True(File.Exists(idxOutput));
         _executableServiceMock.Verify(
             service => service.ExecuteAsync(
                 "ffmpeg",
-                It.Is<IEnumerable<string>>(args => args.Contains(idxOutput)),
+                It.Is<IEnumerable<string>>(args =>
+                    args.Any(a => a.EndsWith("clip.eng.sdh.idx", StringComparison.OrdinalIgnoreCase)
+                        && a.Contains("MediaForgePS_", StringComparison.Ordinal))),
                 It.IsAny<CancellationToken>(),
                 ProcessTimeouts.Extract),
             Times.Once);

@@ -23,6 +23,10 @@ public interface IFfmpegService
     /// When false, refuses to replace an existing <paramref name="outputPath"/>.
     /// Pass true only after the caller has approved overwrite (e.g. -Force).
     /// </param>
+    /// <param name="totalDuration">
+    /// Optional known media duration (e.g. from an already-probed <c>MediaFile</c>).
+    /// When progress is requested and this is omitted or non-positive, duration is probed via Ffprobe.
+    /// </param>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     /// <exception cref="IOException">Thrown when <paramref name="outputPath"/> exists and <paramref name="overwrite"/> is false.</exception>
     Task ConvertAsync(
@@ -32,5 +36,6 @@ public interface IFfmpegService
         IProgress<FfmpegProgress>? progress = null,
         CancellationToken cancellationToken = default,
         TimeSpan? timeout = null,
-        bool overwrite = false);
+        bool overwrite = false,
+        TimeSpan? totalDuration = null);
 }

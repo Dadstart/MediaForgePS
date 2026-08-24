@@ -457,7 +457,7 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
 
         // Perform conversion
         UpdateFileProgress("Starting conversion", GetFileName(resolvedOutputPath), percentComplete: 50, eta: _currentFileEstimatedTime);
-        if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath))
+        if (ProcessConversion(resolvedInputPath, resolvedOutputPath, audioMappings, inputPath, MediaConversionHelper.GetTotalDuration(mediaFile)))
         {
             _fileProcessingStopwatch.Stop();
             RecordFileProcessingStats(resolvedInputPath);
@@ -510,7 +510,12 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
         }
     }
 
-    private bool ProcessConversion(string resolvedInputPath, string resolvedOutputPath, AudioTrackMapping[] audioMappings, string originalInputPath)
+    private bool ProcessConversion(
+        string resolvedInputPath,
+        string resolvedOutputPath,
+        AudioTrackMapping[] audioMappings,
+        string originalInputPath,
+        TimeSpan? totalDuration)
     {
         try
         {
@@ -560,7 +565,8 @@ public class ConvertMediaFilesCommand : ProgressCmdletBase
                     additionalArguments,
                     progress,
                     cancellationToken,
-                    overwrite: Force.IsPresent),
+                    overwrite: Force.IsPresent,
+                    totalDuration: totalDuration),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(

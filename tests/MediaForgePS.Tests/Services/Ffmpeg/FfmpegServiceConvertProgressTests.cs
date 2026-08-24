@@ -90,6 +90,54 @@ public class FfmpegServiceConvertProgressTests : IDisposable
     }
 
     [Fact]
+    public async Task ConvertAsync_WithProgressAndKnownDuration_DoesNotProbe()
+    {
+        var inputPath = Path.Combine(_tempDir, "input.mkv");
+        var outputPath = Path.Combine(_tempDir, "output.mp4");
+        File.WriteAllText(inputPath, "input");
+
+        var executableMock = new Mock<IExecutableService>();
+        var ffprobeMock = new Mock<IFfprobeService>();
+        var reports = new List<FfmpegProgress>();
+
+        executableMock
+            .Setup(service => service.ExecuteAsync("ffmpeg", It.IsAny<IEnumerable<string>>(), It.IsAny<Action<string>>(), It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
+            .Returns<string, IEnumerable<string>, Action<string>, CancellationToken, TimeSpan?>((_, args, callback, _, __) =>
+            {
+                var argumentList = args.ToArray();
+                Assert.Contains("-progress", argumentList);
+                File.WriteAllText(argumentList[^1], "encoded");
+
+                callback("out_time=00:00:05.000000");
+                callback("progress=continue");
+                callback("out_time=00:00:10.000000");
+                callback("progress=end");
+
+                return Task.FromResult(new ExecutableResult(string.Empty, string.Empty, 0));
+            });
+
+        var service = new FfmpegService(
+            executableMock.Object,
+            ffprobeMock.Object,
+            NullLogger<FfmpegService>.Instance);
+
+        await service.ConvertAsync(
+            inputPath,
+            outputPath,
+            progress: new SynchronousProgressReporter(reports.Add),
+            cancellationToken: TestContext.Current.CancellationToken,
+            totalDuration: TimeSpan.FromSeconds(10));
+
+        Assert.Equal(2, reports.Count);
+        Assert.Equal(TimeSpan.FromSeconds(10), reports[0].TotalDuration);
+        Assert.True(File.Exists(outputPath));
+        ffprobeMock.Verify(
+            service => service.ExecuteAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        executableMock.VerifyAll();
+    }
+
+    [Fact]
     public async Task ConvertAsync_WithoutProgress_DoesNotProbeOrStream()
     {
         var inputPath = Path.Combine(_tempDir, "input.mkv");

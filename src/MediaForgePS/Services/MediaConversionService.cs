@@ -112,7 +112,8 @@ public class MediaConversionService : IMediaConversionService
         string[]? additionalArguments = null,
         IProgress<FfmpegProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        bool overwrite = false)
+        bool overwrite = false,
+        TimeSpan? totalDuration = null)
     {
         if (videoSettings.IsSinglePass)
         {
@@ -122,7 +123,8 @@ public class MediaConversionService : IMediaConversionService
                 BuildFfmpegArguments(videoSettings, audioMappings, null, additionalArguments),
                 progress,
                 cancellationToken,
-                overwrite: overwrite).ConfigureAwait(false).GetAwaiter().GetResult();
+                overwrite: overwrite,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
             return;
         }
 
@@ -144,7 +146,8 @@ public class MediaConversionService : IMediaConversionService
                 AtomicFileHelper.PlatformNullDevice,
                 pass1Args,
                 firstPassProgress,
-                cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+                cancellationToken,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -155,7 +158,8 @@ public class MediaConversionService : IMediaConversionService
                 BuildFfmpegArguments(videoSettings, audioMappings, 2, passLogFile, additionalArguments),
                 secondPassProgress,
                 cancellationToken,
-                overwrite: overwrite).ConfigureAwait(false).GetAwaiter().GetResult();
+                overwrite: overwrite,
+                totalDuration: totalDuration).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         finally
         {

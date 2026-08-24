@@ -286,7 +286,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>()),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()),
             Times.Never);
         _mediaReaderServiceMock.Verify(
             service => service.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
@@ -314,7 +314,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
                 It.IsAny<IProgress<FfmpegProgress>?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback(() => File.WriteAllBytes(expectedOutput, new byte[400]));
 
         using var ps = CreatePowerShell();
@@ -363,14 +363,14 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _, TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(25),
@@ -422,14 +422,14 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
                 It.IsAny<VideoEncodingSettings>(),
                 It.IsAny<AudioTrackMapping[]>(),
                 It.IsAny<string[]?>(),
-                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                It.IsAny<IProgress<FfmpegProgress>?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<TimeSpan?>()))
             .Callback((
                 string _,
                 string _,
                 VideoEncodingSettings _,
                 AudioTrackMapping[] _,
                 string[]? _,
-                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _) =>
+                IProgress<FfmpegProgress>? progress, CancellationToken _, bool _, TimeSpan? _) =>
             {
                 progress?.Report(new FfmpegProgress(
                     TimeSpan.FromSeconds(99),

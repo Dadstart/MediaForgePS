@@ -466,7 +466,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                 videoSettings,
                 audioMappings,
                 additionalArguments,
-                outName);
+                outName,
+                MediaConversionHelper.GetTotalDuration(mediaFile));
 
             _fileStopwatch.Stop();
             RecordFileProcessingStats(inputPath);
@@ -501,7 +502,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments,
-        string outputFileName)
+        string outputFileName,
+        TimeSpan? totalDuration)
     {
         try
         {
@@ -551,7 +553,8 @@ public class ConvertVideoFileCommand : ProgressCmdletBase
                     additionalArguments,
                     progress,
                     cancellationToken,
-                    overwrite: Force.IsPresent),
+                    overwrite: Force.IsPresent,
+                    totalDuration: totalDuration),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(

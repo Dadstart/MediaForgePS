@@ -33,7 +33,8 @@ public class FfmpegService : IFfmpegService
         IProgress<FfmpegProgress>? progress = null,
         CancellationToken cancellationToken = default,
         TimeSpan? timeout = null,
-        bool overwrite = false)
+        bool overwrite = false,
+        TimeSpan? totalDuration = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -45,15 +46,19 @@ public class FfmpegService : IFfmpegService
 
         _logger.LogInformation("Converting media file from {InputPath} to {OutputPath}", inputPath, outputPath);
 
-        var totalDuration = progress is null
-            ? TimeSpan.Zero
-            : await GetDurationAsync(inputPath, cancellationToken).ConfigureAwait(false);
+        var resolvedDuration = TimeSpan.Zero;
+        if (progress is not null)
+        {
+            resolvedDuration = totalDuration is { } known && known > TimeSpan.Zero
+                ? known
+                : await GetDurationAsync(inputPath, cancellationToken).ConfigureAwait(false);
+        }
 
         if (AtomicFileHelper.IsNullMuxerOutput(outputPath))
         {
             var nullArgs = BuildArguments(inputPath, outputPath, arguments, trackProgress: progress is not null);
             _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", nullArgs));
-            var nullResult = await ExecuteFfmpegAsync(nullArgs, progress, totalDuration, cancellationToken, timeout).ConfigureAwait(false);
+            var nullResult = await ExecuteFfmpegAsync(nullArgs, progress, resolvedDuration, cancellationToken, timeout).ConfigureAwait(false);
             HandleResult(nullResult, inputPath, outputPath);
             return;
         }
@@ -65,7 +70,7 @@ public class FfmpegService : IFfmpegService
             var allArguments = BuildArguments(inputPath, tempOutputPath, arguments, trackProgress: progress is not null);
             _logger.LogDebug("FFmpeg arguments: {Arguments}", string.Join(" ", allArguments));
 
-            var result = await ExecuteFfmpegAsync(allArguments, progress, totalDuration, cancellationToken, timeout).ConfigureAwait(false);
+            var result = await ExecuteFfmpegAsync(allArguments, progress, resolvedDuration, cancellationToken, timeout).ConfigureAwait(false);
             HandleResult(result, inputPath, outputPath);
             AtomicFileHelper.PromoteTempFile(tempOutputPath, outputPath, overwrite);
         }

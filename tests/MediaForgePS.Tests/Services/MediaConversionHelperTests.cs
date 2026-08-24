@@ -13,6 +13,34 @@ namespace Dadstart.Labs.MediaForge.Tests.Services;
 
 public class MediaConversionHelperTests
 {
+    [Fact]
+    public void GetTotalDuration_WhenPositive_ReturnsTimeSpan()
+    {
+        var media = new MediaFile(
+            @"C:\in.mkv",
+            new MediaFormat(@"C:\in.mkv", 1, "matroska", "Matroska", 0, 100.5m, 1, 1, new Dictionary<string, string>()),
+            [],
+            [],
+            string.Empty);
+
+        var duration = MediaConversionHelper.GetTotalDuration(media);
+
+        Assert.Equal(TimeSpan.FromSeconds(100.5), duration);
+    }
+
+    [Fact]
+    public void GetTotalDuration_WhenZeroOrNegative_ReturnsNull()
+    {
+        var media = new MediaFile(
+            @"C:\in.mkv",
+            new MediaFormat(@"C:\in.mkv", 1, "matroska", "Matroska", 0, 0, 1, 1, new Dictionary<string, string>()),
+            [],
+            [],
+            string.Empty);
+
+        Assert.Null(MediaConversionHelper.GetTotalDuration(media));
+    }
+
     [Theory]
     [InlineData(0, "0 B")]
     [InlineData(1023, "1023 B")]

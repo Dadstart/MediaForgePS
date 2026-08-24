@@ -492,7 +492,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     videoSettings,
                     audioMappings,
                     x265Arguments,
-                    outputFileName);
+                    outputFileName,
+                    MediaConversionHelper.GetTotalDuration(mediaFile));
 
                 stopwatch.Stop();
                 UpdateFileProgress("Conversion completed", fileName, recordType: ProgressRecordType.Completed);
@@ -541,7 +542,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
         VideoEncodingSettings videoSettings,
         AudioTrackMapping[] audioMappings,
         string[]? additionalArguments,
-        string outputFileName)
+        string outputFileName,
+        TimeSpan? totalDuration)
     {
         try
         {
@@ -599,7 +601,8 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                     additionalArguments,
                     progress,
                     cancellationToken,
-                    overwrite: Force.IsPresent),
+                    overwrite: Force.IsPresent,
+                    totalDuration: totalDuration),
                 encodeStatus,
                 outputFileName,
                 update => UpdateFileProgress(

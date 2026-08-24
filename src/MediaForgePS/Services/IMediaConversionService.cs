@@ -41,6 +41,10 @@ public interface IMediaConversionService
     /// <param name="progress">Optional progress reporter for encode progress.</param>
     /// <param name="cancellationToken">Token used to cancel the conversion (and kill child processes).</param>
     /// <param name="overwrite">When false, refuses to replace an existing output file.</param>
+    /// <param name="totalDuration">
+    /// Optional known media duration from an already-probed <see cref="MediaFile"/>.
+    /// Avoids a second Ffprobe when encode progress is reported.
+    /// </param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="additionalArguments"/> contain disallowed tokens.</exception>
     /// <exception cref="FfmpegConversionException">Thrown when FFmpeg conversion fails.</exception>
     void ExecuteConversion(
@@ -51,5 +55,6 @@ public interface IMediaConversionService
         string[]? additionalArguments = null,
         IProgress<FfmpegProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        bool overwrite = false);
+        bool overwrite = false,
+        TimeSpan? totalDuration = null);
 }
