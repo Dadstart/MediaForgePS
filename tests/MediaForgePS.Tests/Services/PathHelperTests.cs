@@ -162,4 +162,74 @@ public class PathHelperTests
                 Directory.Delete(expectedDir);
         }
     }
+
+    [Fact]
+    public void IsSameVolume_SameRoot_ReturnsTrue()
+    {
+        var root = Path.GetPathRoot(Path.GetTempPath())!;
+        var path1 = Path.Combine(root, "media", "a.mp4");
+        var path2 = Path.Combine(root, "plex", "nested", "b.mp4");
+
+        Assert.True(PathHelper.IsSameVolume(path1, path2));
+    }
+
+    [Fact]
+    public void IsSameVolume_DifferentRoots_ReturnsFalse()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        Assert.False(PathHelper.IsSameVolume(@"C:\media\a.mp4", @"D:\media\b.mp4"));
+    }
+
+    [Fact]
+    public void MoveFile_SameVolume_MovesSourceToDestination()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathHelper_Move_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var sourcePath = Path.Combine(tempDir, "source.txt");
+        var destinationPath = Path.Combine(tempDir, "nested", "destination.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        File.WriteAllText(sourcePath, "payload");
+
+        try
+        {
+            var result = PathHelper.MoveFile(sourcePath, destinationPath);
+
+            Assert.True(result.SourceRemoved);
+            Assert.Null(result.SourceDeleteError);
+            Assert.False(File.Exists(sourcePath));
+            Assert.Equal("payload", File.ReadAllText(destinationPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeleteSourceAfterCopy_WhenSourceIsReadOnly_ReturnsDeleteErrorWithoutThrowing()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MediaForgePS_PathHelper_Delete_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var sourcePath = Path.Combine(tempDir, "source.txt");
+        File.WriteAllText(sourcePath, "payload");
+        File.SetAttributes(sourcePath, FileAttributes.ReadOnly);
+
+        try
+        {
+            var result = PathHelper.DeleteSourceAfterCopy(sourcePath);
+
+            Assert.False(result.SourceRemoved);
+            Assert.NotNull(result.SourceDeleteError);
+            Assert.True(File.Exists(sourcePath));
+        }
+        finally
+        {
+            File.SetAttributes(sourcePath, FileAttributes.Normal);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

@@ -864,16 +864,11 @@ public class InvokeBonusFileProcessingCommand : ProgressCmdletBase
                 else
                 {
                     WriteVerbose($"Moving {sourceFile} to {destFolder}");
-                    File.Copy(sourceFile, destinationPath);
-                    try
+                    var moveResult = PathHelper.MoveFile(sourceFile, destinationPath);
+                    if (!moveResult.SourceRemoved && moveResult.SourceDeleteError is not null)
                     {
-                        File.Delete(sourceFile);
-                    }
-                    catch (Exception deleteEx)
-                    {
-                        throw new InvalidOperationException(
-                            $"Copied file to destination but failed to remove source: {deleteEx.Message}",
-                            deleteEx);
+                        WriteWarning(
+                            $"Copied '{sourceFile}' to '{destinationPath}' but could not remove the source file: {moveResult.SourceDeleteError}");
                     }
 
                     filesMoved++;
