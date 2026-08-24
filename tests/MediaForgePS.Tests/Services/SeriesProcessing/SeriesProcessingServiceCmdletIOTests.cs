@@ -167,8 +167,7 @@ public class SeriesProcessingServiceCmdletIOTests
                     input,
                     new MediaFormat(input, 1, "matroska", "Matroska", 10, 100, 1000, 1000, new Dictionary<string, string>()),
                     [new MediaChapter(0, 0, 10, new Dictionary<string, string>())],
-                    Array.Empty<MediaStream>(),
-                    "{}"));
+                    Array.Empty<MediaStream>()));
 
             var executable = new Mock<IExecutableService>();
             executable

@@ -9,11 +9,9 @@ namespace Dadstart.Labs.MediaForge.Models;
 /// <param name="Format">Container format metadata from ffprobe.</param>
 /// <param name="Chapters">Chapter markers, if present.</param>
 /// <param name="Streams">Video, audio, subtitle, and other streams.</param>
-/// <param name="Raw">Raw ffprobe JSON response.</param>
 public record MediaFile(
     [property: JsonIgnore] string Path,
     [property: JsonPropertyName("format")] MediaFormat Format,
     [property: JsonPropertyName("chapters")] MediaChapter[] Chapters,
-    [property: JsonPropertyName("streams")] MediaStream[] Streams,
-    [property: JsonIgnore] string Raw
+    [property: JsonPropertyName("streams")] MediaStream[] Streams
 );

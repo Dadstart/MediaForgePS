@@ -124,15 +124,14 @@ public class SplitChaptersCommandTests : IDisposable
 
             var chapters = new[]
             {
-                new MediaChapter(0, 0, 100, new Dictionary<string, string>(), null, ""),
-                new MediaChapter(1, 100, 200, new Dictionary<string, string>(), null, "")
+                new MediaChapter(0, 0, 100, new Dictionary<string, string>(), null),
+                new MediaChapter(1, 100, 200, new Dictionary<string, string>(), null)
             };
             var mediaFile = new MediaFile(
                 inputPath,
                 new MediaFormat(inputPath, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
                 chapters,
-                Array.Empty<MediaStream>(),
-                "{}");
+                Array.Empty<MediaStream>());
             _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mediaFile);
 
@@ -180,16 +179,15 @@ public class SplitChaptersCommandTests : IDisposable
 
             var chapters = new[]
             {
-                new MediaChapter(0, 0, 100, new Dictionary<string, string>(), null, ""),
-                new MediaChapter(1, 100, 200, new Dictionary<string, string>(), null, ""),
-                new MediaChapter(2, 200, 300, new Dictionary<string, string>(), null, "")
+                new MediaChapter(0, 0, 100, new Dictionary<string, string>(), null),
+                new MediaChapter(1, 100, 200, new Dictionary<string, string>(), null),
+                new MediaChapter(2, 200, 300, new Dictionary<string, string>(), null)
             };
             var mediaFile = new MediaFile(
                 inputPath,
                 new MediaFormat(inputPath, 1, "matroska", "Matroska", 0, 300, 1000, 1000, new Dictionary<string, string>()),
                 chapters,
-                Array.Empty<MediaStream>(),
-                "{}");
+                Array.Empty<MediaStream>());
             _mediaReaderServiceMock.Setup(m => m.GetMediaFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mediaFile);
 

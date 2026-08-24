@@ -20,8 +20,7 @@ public class MediaConversionHelperTests
             @"C:\in.mkv",
             new MediaFormat(@"C:\in.mkv", 1, "matroska", "Matroska", 0, 100.5m, 1, 1, new Dictionary<string, string>()),
             [],
-            [],
-            string.Empty);
+            []);
 
         var duration = MediaConversionHelper.GetTotalDuration(media);
 
@@ -35,8 +34,7 @@ public class MediaConversionHelperTests
             @"C:\in.mkv",
             new MediaFormat(@"C:\in.mkv", 1, "matroska", "Matroska", 0, 0, 1, 1, new Dictionary<string, string>()),
             [],
-            [],
-            string.Empty);
+            []);
 
         Assert.Null(MediaConversionHelper.GetTotalDuration(media));
     }
@@ -834,14 +832,6 @@ public class MediaConversionHelperTests
         if (!string.IsNullOrWhiteSpace(title))
             tags["title"] = title;
 
-        var rawJson = $@"{{
-            ""index"": {index},
-            ""codec_name"": ""{codec}"",
-            ""codec_type"": ""audio"",
-            ""channels"": {channels},
-            ""tags"": {{}}
-        }}";
-
         return new MediaStream(
             "audio",
             index,
@@ -851,6 +841,6 @@ public class MediaConversionHelperTests
             tags,
             TimeSpan.Zero,
             language,
-            rawJson);
+            channels);
     }
 }

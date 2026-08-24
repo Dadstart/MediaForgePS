@@ -18,8 +18,7 @@ public class ChapterSplitHelperCmdletIOTests
             "video.mkv",
             new MediaFormat("video.mkv", 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            Array.Empty<MediaStream>(),
-            "{}");
+            Array.Empty<MediaStream>());
 
         var ok = ChapterSplitHelper.TryGetChapters(io, "video.mkv", media, out var chapters);
 

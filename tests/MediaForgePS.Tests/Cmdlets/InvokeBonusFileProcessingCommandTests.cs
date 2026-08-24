@@ -503,7 +503,7 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
             "eng",
-            @"{""index"":1,""codec_type"":""audio"",""channels"":2}");
+            2);
 
         return new MediaFile(
             path,
@@ -511,10 +511,9 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 stream
-            },
-            "{}");
+            });
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, string language, int channels, string? title = null)
@@ -525,18 +524,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         if (!string.IsNullOrEmpty(title))
             tags["title"] = title;
 
-        var rawJson = $@"{{
-            ""index"": {index},
-            ""codec_name"": ""{codec}"",
-            ""codec_type"": ""audio"",
-            ""channels"": {channels},
-            ""tags"": {{
-                {(language != null ? $@"""language"": ""{language}""," : "")}
-                {(title != null ? $@"""title"": ""{title}""," : "")}
-                ""DURATION-{language}"": ""00:43:29.500000""
-            }}
-        }}";
-
         return new MediaStream(
             "audio",
             index,
@@ -546,6 +533,6 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
             tags,
             TimeSpan.Zero,
             language,
-            rawJson);
+            channels);
     }
 }

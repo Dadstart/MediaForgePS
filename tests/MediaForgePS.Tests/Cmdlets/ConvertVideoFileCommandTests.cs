@@ -954,7 +954,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
             "eng",
-            @"{""index"":1,""codec_type"":""audio"",""channels"":2}");
+            2);
 
         return new MediaFile(
             path,
@@ -962,10 +962,9 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             Array.Empty<MediaChapter>(),
             new[]
             {
-                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, @"{""index"":0,""codec_type"":""video""}"),
+                new MediaStream("video", 0, "h264", string.Empty, string.Empty, new Dictionary<string, string>(), TimeSpan.Zero, null, Channels: 0),
                 stream
-            },
-            "{}");
+            });
     }
 
     private static MediaFile CreateMediaFileWithEnglishSubrip(string path)
@@ -978,8 +977,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string>(),
             TimeSpan.Zero,
-            null,
-            @"{""index"":0,""codec_type"":""video""}");
+            null);
 
         var audio = new MediaStream(
             "audio",
@@ -989,8 +987,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
-            "eng",
-            @"{""index"":1,""codec_type"":""audio""}");
+            "eng");
 
         var subtitle = new MediaStream(
             "subtitle",
@@ -1000,15 +997,13 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
-            "eng",
-            @"{""index"":2,""codec_type"":""subtitle""}");
+            "eng");
 
         return new MediaFile(
             path,
             new MediaFormat(path, 3, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            new[] { video, audio, subtitle },
-            "{}");
+            new[] { video, audio, subtitle });
     }
 
     private static MediaFile CreateMediaFileWithEnglishVobSub(string path)
@@ -1021,8 +1016,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string>(),
             TimeSpan.Zero,
-            null,
-            @"{""index"":0,""codec_type"":""video""}");
+            null);
 
         var audio = new MediaStream(
             "audio",
@@ -1032,8 +1026,7 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
-            "eng",
-            @"{""index"":1,""codec_type"":""audio""}");
+            "eng");
 
         var subtitle = new MediaStream(
             "subtitle",
@@ -1043,15 +1036,13 @@ public sealed class ConvertVideoFileCommandTests : IDisposable
             string.Empty,
             new Dictionary<string, string> { ["language"] = "eng" },
             TimeSpan.Zero,
-            "eng",
-            @"{""index"":2,""codec_type"":""subtitle""}");
+            "eng");
 
         return new MediaFile(
             path,
             new MediaFormat(path, 3, "mov,mp4,m4a,3gp,3g2,mj2", "QuickTime", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            new[] { video, audio, subtitle },
-            "{}");
+            new[] { video, audio, subtitle });
     }
 
     private static PowerShell CreatePowerShell(string commandName = "Convert-VideoFile") =>

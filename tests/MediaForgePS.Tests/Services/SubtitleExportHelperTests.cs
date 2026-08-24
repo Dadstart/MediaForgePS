@@ -30,8 +30,7 @@ public class SubtitleExportHelperTests
             Path: path,
             Format: new MediaFormat(path, streams.Length, "matroska", "Matroska", 0, 1, 0, 0, new Dictionary<string, string>()),
             Chapters: [],
-            Streams: streams,
-            Raw: string.Empty);
+            Streams: streams);
 
     private static (Mock<IExecutableService> Mock, List<(string Exe, string[] Args)> Calls) CreateExecutableMock()
     {
@@ -432,7 +431,7 @@ public class SubtitleExportHelperTests
     {
         var media = new MediaFile(@"C:\media\movie.mkv",
             new MediaFormat(@"C:\media\movie.mkv", 0, "matroska", "Matroska", 0, 1, 0, 0, new Dictionary<string, string>()),
-            [], null!, string.Empty);
+            [], null!);
 
         var result = SubtitleExportHelper.GetEnglishSubtitleStreams(media);
 

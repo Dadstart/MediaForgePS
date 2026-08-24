@@ -402,8 +402,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             path,
             new MediaFormat(path, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            streams,
-            "{}");
+            streams);
     }
 
     private static MediaStream CreateAudioStream(int index, string codec, string language, int channels, string? title = null)
@@ -414,14 +413,6 @@ public class ConvertMediaFilesCommandTests : IDisposable
         if (!string.IsNullOrEmpty(title))
             tags["title"] = title;
 
-        var rawJson = $@"{{
-            ""index"": {index},
-            ""codec_name"": ""{codec}"",
-            ""codec_type"": ""audio"",
-            ""channels"": {channels},
-            ""tags"": {{}}
-        }}";
-
         return new MediaStream(
             "audio",
             index,
@@ -431,7 +422,7 @@ public class ConvertMediaFilesCommandTests : IDisposable
             tags,
             TimeSpan.Zero,
             language,
-            rawJson);
+            channels);
     }
 
     private static string PathCombine(string outputDirectory, string fileName)

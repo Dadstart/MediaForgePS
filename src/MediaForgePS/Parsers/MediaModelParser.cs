@@ -138,7 +138,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
 
         var tags = chapter.Tags ?? [];
         tags.TryGetValue("title", out var title);
-        return chapter with { Title = title, Tags = tags, Raw = json };
+        return chapter with { Title = title, Tags = tags };
     }
 
     /// <inheritdoc />
@@ -174,7 +174,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         _logger.LogInformation("Deserialized MediaFormat");
         var tags = format.Tags ?? [];
         tags.TryGetValue("title", out var title);
-        return format with { Title = title, Tags = tags, Raw = json };
+        return format with { Title = title, Tags = tags };
     }
 
     /// <inheritdoc />
@@ -217,7 +217,7 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         if (language is not null && tags.TryGetValue($"DURATION-{language}", out var durationStr))
             duration = ParseDuration(durationStr);
 
-        return stream with { Language = language, Duration = duration, Tags = tags, Raw = json };
+        return stream with { Language = language, Duration = duration, Tags = tags };
     }
 
     /// <inheritdoc />
@@ -276,6 +276,6 @@ public class MediaModelParser(ILogger<MediaModelParser> logger) : IMediaModelPar
         var streams = streamList.ToArray();
 
         _logger.LogInformation("Deserialized MediaFile");
-        return new MediaFile(path, format, chapters, streams, json);
+        return new MediaFile(path, format, chapters, streams);
     }
 }

@@ -110,8 +110,7 @@ public class GetAudioTrackMappingsCommandTests : IDisposable
             resolvedPath,
             new MediaFormat(resolvedPath, 1, "matroska", "Matroska", 0, 100, 1000, 1000, new Dictionary<string, string>()),
             Array.Empty<MediaChapter>(),
-            Array.Empty<MediaStream>(),
-            "{}");
+            Array.Empty<MediaStream>());
 
         var expectedMappings = new AudioTrackMapping[]
         {
