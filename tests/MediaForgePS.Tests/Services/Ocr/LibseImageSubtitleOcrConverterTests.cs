@@ -74,6 +74,46 @@ public class LibseImageSubtitleOcrConverterTests : IDisposable
     }
 
     [Fact]
+    public void IsPalFromIdxFile_WhenNtscSize_ReturnsFalse()
+    {
+        var idxPath = WriteIdxWithSize("720x480");
+        Assert.False(LibseImageSubtitleOcrConverter.IsPalFromIdxFile(idxPath));
+    }
+
+    [Fact]
+    public void IsPalFromIdxFile_WhenPalSize_ReturnsTrue()
+    {
+        var idxPath = WriteIdxWithSize("720x576");
+        Assert.True(LibseImageSubtitleOcrConverter.IsPalFromIdxFile(idxPath));
+    }
+
+    [Fact]
+    public void IsPalFromIdxFile_WhenSizeMissing_ReturnsFalse()
+    {
+        var idxPath = Path.Combine(_tempDir, "nosize.idx");
+        File.WriteAllText(idxPath, "# VobSub index file, v7\r\nid: en, index: 0\r\n");
+        Assert.False(LibseImageSubtitleOcrConverter.IsPalFromIdxFile(idxPath));
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public void LoadMergedVobSubPacks_AssignsIdxPaletteToEachPack()
+    {
+        if (!OperatingSystem.IsWindows())
+            throw SkipException.ForSkip("VobSub fixture generation requires Windows System.Drawing.");
+
+        var subPath = ImageSubtitleTestAssetFactory.CreateVobSubWithText(_tempDir, "palette", "HELLO");
+        var packs = LibseImageSubtitleOcrConverter.LoadMergedVobSubPacks(subPath);
+
+        Assert.NotEmpty(packs);
+        Assert.All(packs, pack =>
+        {
+            Assert.NotNull(pack.Palette);
+            Assert.True(pack.Palette.Count >= 4, "IDX palette should include the four DVD CLUT colors.");
+        });
+    }
+
+    [Fact]
     [SupportedOSPlatform("windows")]
     public void ConvertToSrt_WithGeneratedVobSub_WritesNonEmptySrt()
     {
@@ -90,6 +130,13 @@ public class LibseImageSubtitleOcrConverterTests : IDisposable
         var content = File.ReadAllText(srtPath);
         Assert.False(string.IsNullOrWhiteSpace(content));
         Assert.Contains("HELLO", content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string WriteIdxWithSize(string size)
+    {
+        var idxPath = Path.Combine(_tempDir, size.Replace('x', '_') + ".idx");
+        File.WriteAllText(idxPath, $"# VobSub index file, v7\r\nsize: {size}\r\nid: en, index: 0\r\n");
+        return idxPath;
     }
 
     private static LibseImageSubtitleOcrConverter CreateConverterOrSkip()
