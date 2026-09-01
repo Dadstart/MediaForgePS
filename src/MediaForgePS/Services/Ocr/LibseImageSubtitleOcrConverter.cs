@@ -98,26 +98,68 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
 
     private Subtitle OcrVobSub(string inputPath, CancellationToken cancellationToken)
     {
+        var packs = LoadMergedVobSubPacks(inputPath);
+        if (packs.Count == 0)
+            throw new InvalidOperationException($"No VobSub pictures found in: {inputPath}");
+
+        if (packs[0].Palette is null || packs[0].Palette.Count == 0)
+            _logger.LogWarning("VobSub idx has no palette; OCR glyphs may be unreadable: {Path}", inputPath);
+
+        var frames = new List<OcrFrame>(packs.Count);
+        foreach (var pack in packs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            frames.Add(new OcrFrame(pack.StartTimeCode, pack.EndTimeCode, () => GetOcrBitmap(pack)));
+        }
+
+        return RunOcr(frames, cancellationToken);
+    }
+
+    /// <summary>
+    /// Parses a VobSub pair and applies the IDX CLUT to each merged pack so contrast/alpha from the
+    /// subpicture can be applied. Glyph colors used for OCR are isolated separately.
+    /// </summary>
+    internal static List<VobSubMergedPack> LoadMergedVobSubPacks(string inputPath)
+    {
         ResolveVobSubPaths(inputPath, out var subPath, out var idxPath);
         if (!File.Exists(subPath))
             throw new FileNotFoundException($"VobSub .sub file not found: {subPath}", subPath);
         if (!File.Exists(idxPath))
             throw new FileNotFoundException($"VobSub .idx file not found: {idxPath}", idxPath);
 
-        var parser = new VobSubParser(isPal: true);
+        var parser = new VobSubParser(isPal: IsPalFromIdxFile(idxPath));
         parser.OpenSubIdx(subPath, idxPath);
         var packs = parser.MergeVobSubPacks();
-        if (packs.Count == 0)
-            throw new InvalidOperationException($"No VobSub pictures found in: {inputPath}");
-
-        var frames = new List<OcrFrame>(packs.Count);
         foreach (var pack in packs)
+            pack.Palette = parser.IdxPalette;
+
+        return packs;
+    }
+
+    /// <summary>
+    /// DVD PAL is 720x576; NTSC is 720x480. libse uses this only for PTS conversion.
+    /// </summary>
+    internal static bool IsPalFromIdxFile(string idxPath)
+    {
+        foreach (var line in File.ReadLines(idxPath))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            frames.Add(new OcrFrame(pack.StartTimeCode, pack.EndTimeCode, () => pack.GetBitmap()));
+            var trimmed = line.AsSpan().Trim();
+            if (!trimmed.StartsWith("size:", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            return trimmed.Contains("x576", StringComparison.OrdinalIgnoreCase);
         }
 
-        return RunOcr(frames, cancellationToken);
+        return false;
+    }
+
+    /// <summary>
+    /// Renders a VobSub picture using the IDX palette so glyph fill is not the default black.
+    /// </summary>
+    internal static Bitmap GetOcrBitmap(VobSubMergedPack pack)
+    {
+        ArgumentNullException.ThrowIfNull(pack);
+        return pack.GetBitmap();
     }
 
     private Subtitle RunOcr(IReadOnlyList<OcrFrame> frames, CancellationToken cancellationToken)
@@ -149,19 +191,54 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
 
     private static string OcrBitmap(TesseractEngine engine, Bitmap bitmap)
     {
-        // Tesseract prefers opaque images; flatten onto black for typical white subtitle glyphs.
         using var opaque = FlattenOntoBlack(bitmap);
-        using var pix = PixConverter.ToPix(opaque);
+        using var inverted = InvertRgb(opaque);
+        var text = ProcessPix(engine, inverted);
+        if (!string.IsNullOrWhiteSpace(text))
+            return text;
+
+        return ProcessPix(engine, opaque);
+    }
+
+    private static string ProcessPix(TesseractEngine engine, Bitmap bitmap)
+    {
+        using var pix = PixConverter.ToPix(bitmap);
         using var page = engine.Process(pix, PageSegMode.SingleBlock);
         return page.GetText() ?? string.Empty;
     }
 
     private static Bitmap FlattenOntoBlack(Bitmap source)
     {
-        var result = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
+        const int Margin = 10;
+        var result = new Bitmap(source.Width + Margin * 2, source.Height + Margin * 2, PixelFormat.Format24bppRgb);
         using var graphics = Graphics.FromImage(result);
         graphics.Clear(Color.Black);
-        graphics.DrawImage(source, 0, 0, source.Width, source.Height);
+        graphics.DrawImage(source, Margin, Margin, source.Width, source.Height);
+        return result;
+    }
+
+    private static Bitmap InvertRgb(Bitmap source)
+    {
+        var result = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
+        using var graphics = Graphics.FromImage(result);
+        using var attributes = new ImageAttributes();
+        attributes.SetColorMatrix(new ColorMatrix(
+        [
+            [-1f, 0f, 0f, 0f, 0f],
+            [0f, -1f, 0f, 0f, 0f],
+            [0f, 0f, -1f, 0f, 0f],
+            [0f, 0f, 0f, 1f, 0f],
+            [1f, 1f, 1f, 0f, 1f]
+        ]));
+        graphics.DrawImage(
+            source,
+            new Rectangle(0, 0, source.Width, source.Height),
+            0,
+            0,
+            source.Width,
+            source.Height,
+            GraphicsUnit.Pixel,
+            attributes);
         return result;
     }
 
