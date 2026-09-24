@@ -16,7 +16,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <summary>
 /// Base class for MediaForge PowerShell cmdlets providing logging, path resolution, and progress helpers.
 /// </summary>
-public abstract class CmdletBase : PSCmdlet
+public abstract class CmdletBase : PSCmdlet, ITerminalProgressTitle
 {
     /// <summary>
     /// Shared error identifiers used by cmdlets in this module.
@@ -49,6 +49,10 @@ public abstract class CmdletBase : PSCmdlet
     private ILogger? _logger;
     private ICmdletIO? _cmdletIO;
     private IDisposable? _commandTitleScope;
+    private IDisposable? _progressTitleRestoreScope;
+    private ProgressTerminalTitle? _progressTerminalTitle;
+    private string? _lastAppliedTerminalTitle;
+    private bool _terminalTitleUnavailable;
     private string? _powerShellCommandName;
     private CancellationTokenSource? _cancellationTokenSource;
     private bool _moduleServicesScopeEntered;
@@ -96,7 +100,7 @@ public abstract class CmdletBase : PSCmdlet
         Debugger.BreakIfDebugging(Debugger.PowerShellBreakOnBeginProcessing);
 
         if (ShouldSetCommandTerminalTitle)
-            _commandTitleScope = TrySetTerminalTitle(BuildTerminalTitle(PowerShellCommandName));
+            StartCommandTerminalTitle();
 
         try
         {
@@ -105,15 +109,13 @@ public abstract class CmdletBase : PSCmdlet
         }
         catch (OperationCanceledException)
         {
-            _commandTitleScope?.Dispose();
-            _commandTitleScope = null;
+            ReleaseTerminalTitles();
             ReleaseModuleServicesScope();
             throw new PipelineStoppedException();
         }
         catch
         {
-            _commandTitleScope?.Dispose();
-            _commandTitleScope = null;
+            ReleaseTerminalTitles();
             ReleaseModuleServicesScope();
             throw;
         }
@@ -134,7 +136,13 @@ public abstract class CmdletBase : PSCmdlet
         }
         catch (OperationCanceledException)
         {
+            ReleaseTerminalTitles();
             throw new PipelineStoppedException();
+        }
+        catch
+        {
+            ReleaseTerminalTitles();
+            throw;
         }
     }
 
@@ -160,8 +168,7 @@ public abstract class CmdletBase : PSCmdlet
         finally
         {
             TryAlertOnCompletion();
-            _commandTitleScope?.Dispose();
-            _commandTitleScope = null;
+            ReleaseTerminalTitles();
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
             CmdletContext.Current = null;
@@ -208,6 +215,30 @@ public abstract class CmdletBase : PSCmdlet
             return NoOpTerminalTitleScope.Instance;
 
         return TrySetTerminalTitle(BuildTerminalTitle(PowerShellCommandName, operationName));
+    }
+
+    void ITerminalProgressTitle.ApplyProgressToTerminalTitle(ProgressRecord record)
+    {
+        if (_terminalTitleUnavailable)
+            return;
+
+        if (_progressTerminalTitle == null)
+        {
+            if (!ProgressTerminalTitle.HasActivePercent(record))
+                return;
+
+            if (!TryStartProgressTerminalTitle())
+                return;
+        }
+
+        var title = _progressTerminalTitle!.Apply(record);
+        if (string.Equals(title, _lastAppliedTerminalTitle, StringComparison.Ordinal))
+            return;
+
+        if (!TryAssignWindowTitle(title))
+            return;
+
+        _lastAppliedTerminalTitle = title;
     }
 
     /// <summary>
@@ -415,6 +446,77 @@ public abstract class CmdletBase : PSCmdlet
             return CmdletName;
 
         return $"{cmdletAttribute.VerbName}-{cmdletAttribute.NounName}";
+    }
+
+    private void StartCommandTerminalTitle()
+    {
+        var title = BuildTerminalTitle(PowerShellCommandName);
+        _commandTitleScope = TrySetTerminalTitle(title);
+        if (_commandTitleScope is not TerminalTitleScope)
+        {
+            _terminalTitleUnavailable = true;
+            return;
+        }
+
+        _progressTerminalTitle = new ProgressTerminalTitle(title);
+        _lastAppliedTerminalTitle = title;
+    }
+
+    private bool TryStartProgressTerminalTitle()
+    {
+        var rawUi = TryGetRawUi();
+        if (rawUi == null)
+        {
+            _terminalTitleUnavailable = true;
+            return false;
+        }
+
+        string currentTitle;
+        try
+        {
+            currentTitle = rawUi.WindowTitle ?? string.Empty;
+        }
+        catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+        {
+            Logger.LogDebug(ex, "Terminal title updates are unavailable for {CmdletName}", CmdletName);
+            _terminalTitleUnavailable = true;
+            return false;
+        }
+
+        _progressTitleRestoreScope = new TerminalTitleScope(rawUi, currentTitle);
+        _progressTerminalTitle = new ProgressTerminalTitle(currentTitle);
+        _lastAppliedTerminalTitle = currentTitle;
+        return true;
+    }
+
+    private bool TryAssignWindowTitle(string title)
+    {
+        var rawUi = TryGetRawUi();
+        if (rawUi == null)
+        {
+            _terminalTitleUnavailable = true;
+            return false;
+        }
+
+        try
+        {
+            rawUi.WindowTitle = title;
+            return true;
+        }
+        catch (Exception ex) when (ex is HostException or NotImplementedException or InvalidOperationException)
+        {
+            Logger.LogDebug(ex, "Terminal title updates are unavailable for {CmdletName}", CmdletName);
+            _terminalTitleUnavailable = true;
+            return false;
+        }
+    }
+
+    private void ReleaseTerminalTitles()
+    {
+        _progressTitleRestoreScope?.Dispose();
+        _progressTitleRestoreScope = null;
+        _commandTitleScope?.Dispose();
+        _commandTitleScope = null;
     }
 
     private IDisposable TrySetTerminalTitle(string title)
