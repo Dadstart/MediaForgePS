@@ -73,14 +73,12 @@ public class ConversionStatisticsE2ETests : E2ETestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        Assert.Contains("AvgSizeReduction", rendered, StringComparison.Ordinal);
-        Assert.Contains("AvgInputSize", rendered, StringComparison.Ordinal);
-        Assert.Contains("AvgOutputSize", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputPercent", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageInputSize", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputSize", rendered, StringComparison.Ordinal);
         Assert.Contains("AvgDuration", rendered, StringComparison.Ordinal);
-        Assert.True(
-            rendered.Contains("smaller", StringComparison.Ordinal) ||
-            rendered.Contains("larger", StringComparison.Ordinal) ||
-            rendered.Contains("same size", StringComparison.Ordinal),
-            $"Expected a size-change phrase in rendered statistics: {rendered}");
+        Assert.Contains("%", rendered, StringComparison.Ordinal);
+        Assert.Contains("MB", rendered, StringComparison.Ordinal);
+        Assert.Contains(" s", rendered, StringComparison.Ordinal);
     }
 }

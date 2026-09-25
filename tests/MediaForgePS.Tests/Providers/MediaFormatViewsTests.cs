@@ -60,6 +60,31 @@ public class MediaFormatViewsTests
     }
 
     [Fact]
+    public void MediaConversionStatistics_FormatView_ShowsPercentMegabytesAndSeconds()
+    {
+        var formatPath = FindFormatFile();
+        using var ps = CreatePowerShellWithFormatData(formatPath);
+
+        var statistics = new MediaConversionStatistics(
+            2,
+            55.5,
+            2000,
+            950.5,
+            TimeSpan.FromSeconds(90.5));
+
+        var rendered = FormatObject(ps, statistics);
+        Assert.Contains("AverageOutputPercent", rendered, StringComparison.Ordinal);
+        Assert.Contains("55.5%", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageInputSize", rendered, StringComparison.Ordinal);
+        Assert.Contains("2000.0 MB", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputSize", rendered, StringComparison.Ordinal);
+        Assert.Contains("950.5 MB", rendered, StringComparison.Ordinal);
+        Assert.Contains("90.5 s", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("AvgSizeReduction", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("smaller", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MediaConversionResult_FormatView_ShowsOutputFileNameOnly()
     {
         var formatPath = FindFormatFile();

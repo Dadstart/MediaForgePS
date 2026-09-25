@@ -444,16 +444,16 @@
             <Width>8</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>AvgSizeReduction</Label>
-            <Width>16</Width>
+            <Label>AverageOutputPercent</Label>
+            <Width>22</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>AvgInputSize</Label>
-            <Width>13</Width>
+            <Label>AverageInputSize</Label>
+            <Width>18</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>AvgOutputSize</Label>
-            <Width>14</Width>
+            <Label>AverageOutputSize</Label>
+            <Width>18</Width>
           </TableColumnHeader>
           <TableColumnHeader>
             <Label>AvgDuration</Label>
@@ -469,9 +469,7 @@
               <TableColumnItem>
                 <ScriptBlock>
                   if ($null -eq $_.AverageSizeReductionPercent) { 'n/a' }
-                  elseif ($_.AverageSizeReductionPercent -gt 0) { '{0:0.#}% smaller' -f $_.AverageSizeReductionPercent }
-                  elseif ($_.AverageSizeReductionPercent -lt 0) { '{0:0.#}% larger' -f [math]::Abs($_.AverageSizeReductionPercent) }
-                  else { 'same size' }
+                  else { '{0:0.#}%' -f $_.AverageSizeReductionPercent }
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
@@ -486,9 +484,7 @@
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  $t = $_.AverageProcessingTime
-                  if ($t.TotalHours -ge 1) { '{0}:{1:D2}:{2:D2}' -f [int]$t.TotalHours, $t.Minutes, $t.Seconds }
-                  else { '{0:D2}:{1:D2}' -f [int]$t.TotalMinutes, $t.Seconds }
+                  '{0:0.#} s' -f $_.AverageProcessingTime.TotalSeconds
                 </ScriptBlock>
               </TableColumnItem>
             </TableColumnItems>
