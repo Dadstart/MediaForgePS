@@ -70,18 +70,24 @@ public class MediaFormatViewsTests
             55.5,
             2000,
             950.5,
-            TimeSpan.FromSeconds(90.5));
+            TimeSpan.FromSeconds(3.3032863));
 
-        var rendered = FormatObject(ps, statistics);
-        Assert.Contains("AverageOutputPercent", rendered, StringComparison.Ordinal);
-        Assert.Contains("55.5%", rendered, StringComparison.Ordinal);
-        Assert.Contains("AverageInputSize", rendered, StringComparison.Ordinal);
-        Assert.Contains("2000.0 MB", rendered, StringComparison.Ordinal);
-        Assert.Contains("AverageOutputSize", rendered, StringComparison.Ordinal);
-        Assert.Contains("950.5 MB", rendered, StringComparison.Ordinal);
-        Assert.Contains("90.5 s", rendered, StringComparison.Ordinal);
-        Assert.DoesNotContain("AvgSizeReduction", rendered, StringComparison.Ordinal);
-        Assert.DoesNotContain("smaller", rendered, StringComparison.Ordinal);
+        var list = FormatObject(ps, statistics, useFormatList: true);
+        Assert.Contains("AverageSizeReductionPercent", list, StringComparison.Ordinal);
+        Assert.Contains("55.50%", list, StringComparison.Ordinal);
+        Assert.Contains("AverageInputSizeMegabytes", list, StringComparison.Ordinal);
+        Assert.Contains("2000.00 MB", list, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputSizeMegabytes", list, StringComparison.Ordinal);
+        Assert.Contains("950.50 MB", list, StringComparison.Ordinal);
+        Assert.Contains("AverageProcessingTime", list, StringComparison.Ordinal);
+        Assert.Contains("3.30 sec", list, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:00:03", list, StringComparison.Ordinal);
+
+        var table = FormatObject(ps, statistics, useFormatTable: true);
+        Assert.Contains("AverageOutputPercent", table, StringComparison.Ordinal);
+        Assert.Contains("55.50%", table, StringComparison.Ordinal);
+        Assert.Contains("3.30 sec", table, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:00:03", table, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -117,12 +123,17 @@ public class MediaFormatViewsTests
         Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
     }
 
-    private static string FormatObject(PowerShell ps, object value, bool useFormatList = false)
+    private static string FormatObject(PowerShell ps, object value, bool useFormatList = false, bool useFormatTable = false)
     {
         ps.Commands.Clear();
         if (useFormatList)
         {
             ps.AddCommand("Format-List").AddParameter("InputObject", value);
+            ps.AddCommand("Out-String");
+        }
+        else if (useFormatTable)
+        {
+            ps.AddCommand("Format-Table").AddParameter("InputObject", value);
             ps.AddCommand("Out-String");
         }
         else

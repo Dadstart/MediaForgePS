@@ -437,6 +437,49 @@
       <ViewSelectedBy>
         <TypeName>Dadstart.Labs.MediaForge.Models.MediaConversionStatistics</TypeName>
       </ViewSelectedBy>
+      <ListControl>
+        <ListEntries>
+          <ListEntry>
+            <ListItems>
+              <ListItem>
+                <Label>FileCount</Label>
+                <PropertyName>FileCount</PropertyName>
+              </ListItem>
+              <ListItem>
+                <Label>AverageSizeReductionPercent</Label>
+                <ScriptBlock>
+                  if ($null -eq $_.AverageSizeReductionPercent) { 'n/a' }
+                  else { '{0:0.00}%' -f $_.AverageSizeReductionPercent }
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>AverageInputSizeMegabytes</Label>
+                <ScriptBlock>
+                  '{0:0.00} MB' -f $_.AverageInputSizeMegabytes
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>AverageOutputSizeMegabytes</Label>
+                <ScriptBlock>
+                  '{0:0.00} MB' -f $_.AverageOutputSizeMegabytes
+                </ScriptBlock>
+              </ListItem>
+              <ListItem>
+                <Label>AverageProcessingTime</Label>
+                <ScriptBlock>
+                  '{0:0.00} sec' -f $_.AverageProcessingTime.TotalSeconds
+                </ScriptBlock>
+              </ListItem>
+            </ListItems>
+          </ListEntry>
+        </ListEntries>
+      </ListControl>
+    </View>
+    <View>
+      <Name>Dadstart.Labs.MediaForge.Models.MediaConversionStatistics-Table</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.MediaConversionStatistics</TypeName>
+      </ViewSelectedBy>
       <TableControl>
         <TableHeaders>
           <TableColumnHeader>
@@ -457,7 +500,7 @@
           </TableColumnHeader>
           <TableColumnHeader>
             <Label>AvgDuration</Label>
-            <Width>12</Width>
+            <Width>18</Width>
           </TableColumnHeader>
         </TableHeaders>
         <TableRowEntries>
@@ -469,22 +512,22 @@
               <TableColumnItem>
                 <ScriptBlock>
                   if ($null -eq $_.AverageSizeReductionPercent) { 'n/a' }
-                  else { '{0:0.#}%' -f $_.AverageSizeReductionPercent }
+                  else { '{0:0.00}%' -f $_.AverageSizeReductionPercent }
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f $_.AverageInputSizeMegabytes
+                  '{0:0.00} MB' -f $_.AverageInputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.0} MB' -f $_.AverageOutputSizeMegabytes
+                  '{0:0.00} MB' -f $_.AverageOutputSizeMegabytes
                 </ScriptBlock>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>
-                  '{0:0.#} s' -f $_.AverageProcessingTime.TotalSeconds
+                  '{0:0.00} sec' -f $_.AverageProcessingTime.TotalSeconds
                 </ScriptBlock>
               </TableColumnItem>
             </TableColumnItems>
