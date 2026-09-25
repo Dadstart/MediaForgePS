@@ -10,7 +10,13 @@ public sealed class PsCmdletIO(PSCmdlet cmdlet) : ICmdletIO
 {
     public ICmdletPathContext Paths { get; } = new PsCmdletPathContext(cmdlet);
 
-    public void WriteProgress(ProgressRecord record) => cmdlet.WriteProgress(record);
+    public void WriteProgress(ProgressRecord record)
+    {
+        if (cmdlet is ITerminalProgressTitle terminalTitle)
+            terminalTitle.ApplyProgressToTerminalTitle(record);
+
+        cmdlet.WriteProgress(record);
+    }
 
     public void WriteError(ErrorRecord error) => cmdlet.WriteError(error);
 
