@@ -43,7 +43,7 @@ public class MediaFormatViewsTests
     }
 
     [Fact]
-    public void SubtitleProcessingResult_FormatView_ShowsFileNamesOnly()
+    public void SubtitleProcessingResult_FormatView_ShowsCountsOnly()
     {
         var formatPath = FindFormatFile();
         using var ps = CreatePowerShellWithFormatData(formatPath);
@@ -53,16 +53,10 @@ public class MediaFormatViewsTests
             [@"C:\media\bonus\title.eng.ocr.srt"]);
 
         var table = FormatObject(ps, result);
-        Assert.Contains("title.eng.srt", table, StringComparison.Ordinal);
-        Assert.Contains("title.eng.sup", table, StringComparison.Ordinal);
-        Assert.Contains("title.eng.ocr.srt", table, StringComparison.Ordinal);
-        Assert.DoesNotContain(@"C:\media", table, StringComparison.Ordinal);
+        AssertCountsOnly(table);
 
         var list = FormatObject(ps, result, useFormatList: true);
-        Assert.Contains("title.eng.srt", list, StringComparison.Ordinal);
-        Assert.Contains("title.eng.sup", list, StringComparison.Ordinal);
-        Assert.Contains("title.eng.ocr.srt", list, StringComparison.Ordinal);
-        Assert.DoesNotContain(@"C:\media", list, StringComparison.Ordinal);
+        AssertCountsOnly(list);
     }
 
     [Fact]
@@ -83,6 +77,18 @@ public class MediaFormatViewsTests
         var rendered = FormatObject(ps, result);
 
         Assert.Contains("episode.mp4", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
+    }
+
+    private static void AssertCountsOnly(string rendered)
+    {
+        Assert.Contains("ExtractedCount", rendered, StringComparison.Ordinal);
+        Assert.Contains("ConvertedCount", rendered, StringComparison.Ordinal);
+        Assert.Contains("2", rendered, StringComparison.Ordinal);
+        Assert.Contains("1", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("ExtractedPaths", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConvertedPaths", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("title.eng", rendered, StringComparison.Ordinal);
         Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
     }
 

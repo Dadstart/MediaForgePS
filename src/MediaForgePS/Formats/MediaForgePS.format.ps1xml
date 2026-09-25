@@ -511,14 +511,6 @@
             <Label>ConvertedCount</Label>
             <Width>14</Width>
           </TableColumnHeader>
-          <TableColumnHeader>
-            <Label>ExtractedPaths</Label>
-            <Width>36</Width>
-          </TableColumnHeader>
-          <TableColumnHeader>
-            <Label>ConvertedPaths</Label>
-            <Width>36</Width>
-          </TableColumnHeader>
         </TableHeaders>
         <TableRowEntries>
           <TableRowEntry>
@@ -528,18 +520,6 @@
               </TableColumnItem>
               <TableColumnItem>
                 <PropertyName>ConvertedCount</PropertyName>
-              </TableColumnItem>
-              <TableColumnItem>
-                <ScriptBlock>
-                  if ($null -eq $_.ExtractedPaths -or $_.ExtractedPaths.Count -eq 0) { '' }
-                  else { ($_.ExtractedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
-                </ScriptBlock>
-              </TableColumnItem>
-              <TableColumnItem>
-                <ScriptBlock>
-                  if ($null -eq $_.ConvertedPaths -or $_.ConvertedPaths.Count -eq 0) { '' }
-                  else { ($_.ConvertedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
-                </ScriptBlock>
               </TableColumnItem>
             </TableColumnItems>
           </TableRowEntry>
@@ -562,20 +542,6 @@
               <ListItem>
                 <Label>ConvertedCount</Label>
                 <PropertyName>ConvertedCount</PropertyName>
-              </ListItem>
-              <ListItem>
-                <Label>ExtractedPaths</Label>
-                <ScriptBlock>
-                  if ($null -eq $_.ExtractedPaths -or $_.ExtractedPaths.Count -eq 0) { '' }
-                  else { ($_.ExtractedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
-                </ScriptBlock>
-              </ListItem>
-              <ListItem>
-                <Label>ConvertedPaths</Label>
-                <ScriptBlock>
-                  if ($null -eq $_.ConvertedPaths -or $_.ConvertedPaths.Count -eq 0) { '' }
-                  else { ($_.ConvertedPaths | ForEach-Object { [Dadstart.Labs.MediaForge.Services.PathHelper]::GetFileName($_) }) -join ', ' }
-                </ScriptBlock>
               </ListItem>
             </ListItems>
           </ListEntry>
