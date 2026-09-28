@@ -65,16 +65,16 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         var statistics = Assert.Single(results.OfType<MediaConversionStatistics>());
         Assert.Equal(2, statistics.FileCount);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 1),
+            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 2),
             statistics.AverageInputSizeMegabytes);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 1),
+            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 2),
             statistics.AverageOutputSizeMegabytes);
         Assert.NotNull(statistics.AverageSizeReductionPercent);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 1),
+            Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 2),
             statistics.AverageSizeReductionPercent!.Value,
-            precision: 1);
+            precision: 2);
         Assert.True(statistics.AverageProcessingTime > TimeSpan.Zero);
     }
 

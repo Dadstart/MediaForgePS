@@ -9,9 +9,9 @@ BeforeAll {
     if (Test-Path $devToolsPath) {
         Import-Module $devToolsPath -Force
         $moduleDir = Get-MediaForgeBuildOutput -RepoRoot $repoRoot -Configuration $configuration
-        $modulePath = Join-Path $moduleDir 'MediaForgePS.dll'
+        $modulePath = Join-Path $moduleDir 'MediaForgePS.psd1'
     } else {
-        $modulePath = Join-Path $PSScriptRoot "..\..\..\src\MediaForgePS\bin\$configuration\net10.0\MediaForgePS.dll"
+        $modulePath = Join-Path $PSScriptRoot "..\..\..\src\MediaForgePS\bin\$configuration\net10.0\MediaForgePS.psd1"
     }
 
     if (-not (Test-Path $modulePath)) {

@@ -35,15 +35,15 @@ public class ConversionStatisticsE2ETests : E2ETestBase
         Assert.Equal(2, statistics.FileCount);
         Assert.NotNull(statistics.AverageSizeReductionPercent);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 1),
+            Math.Round(conversions.Average(c => c.InputSizeMegabytes), 2),
             statistics.AverageInputSizeMegabytes);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 1),
+            Math.Round(conversions.Average(c => c.OutputSizeMegabytes), 2),
             statistics.AverageOutputSizeMegabytes);
         Assert.Equal(
-            Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 1),
+            Math.Round(conversions.Average(c => c.SizeReductionPercent!.Value), 2),
             statistics.AverageSizeReductionPercent!.Value,
-            precision: 1);
+            precision: 2);
         Assert.True(statistics.AverageProcessingTime > TimeSpan.Zero);
     }
 
@@ -73,14 +73,13 @@ public class ConversionStatisticsE2ETests : E2ETestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        Assert.Contains("AvgSizeReduction", rendered, StringComparison.Ordinal);
-        Assert.Contains("AvgInputSize", rendered, StringComparison.Ordinal);
-        Assert.Contains("AvgOutputSize", rendered, StringComparison.Ordinal);
-        Assert.Contains("AvgDuration", rendered, StringComparison.Ordinal);
-        Assert.True(
-            rendered.Contains("smaller", StringComparison.Ordinal) ||
-            rendered.Contains("larger", StringComparison.Ordinal) ||
-            rendered.Contains("same size", StringComparison.Ordinal),
-            $"Expected a size-change phrase in rendered statistics: {rendered}");
+        Assert.Contains("AverageSizeReductionPercent", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageInputSizeMegabytes", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputSizeMegabytes", rendered, StringComparison.Ordinal);
+        Assert.Contains("AverageProcessingTime", rendered, StringComparison.Ordinal);
+        Assert.Contains("%", rendered, StringComparison.Ordinal);
+        Assert.Contains("MB", rendered, StringComparison.Ordinal);
+        Assert.Contains(" sec", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:", rendered, StringComparison.Ordinal);
     }
 }

@@ -43,7 +43,31 @@ public class MediaFormatViewsTests
     }
 
     [Fact]
-    public void SubtitleProcessingResult_FormatView_ShowsFileNamesOnly()
+    public void ModuleManifest_ImportsFormattingAndRuntimeXml()
+    {
+        var manifestPath = FindBuiltModuleManifest();
+        var moduleDir = Path.GetDirectoryName(manifestPath)!;
+        Assert.True(File.Exists(Path.Combine(moduleDir, "Formats", "MediaForgePS.format.ps1xml")));
+        Assert.True(File.Exists(Path.Combine(moduleDir, "en-US", "MediaForgePS.dll-Help.xml")));
+
+        using var ps = CreatePowerShellSession();
+        ps.AddCommand("Import-Module").AddParameter("Name", manifestPath).AddParameter("Force", true);
+        ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+
+        ps.Commands.Clear();
+        ps.AddCommand("Get-FormatData").AddParameter("TypeName", typeof(MediaConversionStatistics).FullName);
+        var formatData = ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+        Assert.NotEmpty(formatData);
+
+        ps.Commands.Clear();
+        ps.AddCommand("Remove-Module").AddParameter("Name", "MediaForgePS").AddParameter("Force", true);
+        ps.Invoke();
+    }
+
+    [Fact]
+    public void SubtitleProcessingResult_FormatView_ShowsCountsOnly()
     {
         var formatPath = FindFormatFile();
         using var ps = CreatePowerShellWithFormatData(formatPath);
@@ -53,16 +77,41 @@ public class MediaFormatViewsTests
             [@"C:\media\bonus\title.eng.ocr.srt"]);
 
         var table = FormatObject(ps, result);
-        Assert.Contains("title.eng.srt", table, StringComparison.Ordinal);
-        Assert.Contains("title.eng.sup", table, StringComparison.Ordinal);
-        Assert.Contains("title.eng.ocr.srt", table, StringComparison.Ordinal);
-        Assert.DoesNotContain(@"C:\media", table, StringComparison.Ordinal);
+        AssertCountsOnly(table);
 
         var list = FormatObject(ps, result, useFormatList: true);
-        Assert.Contains("title.eng.srt", list, StringComparison.Ordinal);
-        Assert.Contains("title.eng.sup", list, StringComparison.Ordinal);
-        Assert.Contains("title.eng.ocr.srt", list, StringComparison.Ordinal);
-        Assert.DoesNotContain(@"C:\media", list, StringComparison.Ordinal);
+        AssertCountsOnly(list);
+    }
+
+    [Fact]
+    public void MediaConversionStatistics_FormatView_ShowsPercentMegabytesAndSeconds()
+    {
+        var formatPath = FindFormatFile();
+        using var ps = CreatePowerShellWithFormatData(formatPath);
+
+        var statistics = new MediaConversionStatistics(
+            2,
+            55.5,
+            2000,
+            950.5,
+            TimeSpan.FromSeconds(3.3032863));
+
+        var list = FormatObject(ps, statistics, useFormatList: true);
+        Assert.Contains("AverageSizeReductionPercent", list, StringComparison.Ordinal);
+        Assert.Contains("55.50%", list, StringComparison.Ordinal);
+        Assert.Contains("AverageInputSizeMegabytes", list, StringComparison.Ordinal);
+        Assert.Contains("2000.00 MB", list, StringComparison.Ordinal);
+        Assert.Contains("AverageOutputSizeMegabytes", list, StringComparison.Ordinal);
+        Assert.Contains("950.50 MB", list, StringComparison.Ordinal);
+        Assert.Contains("AverageProcessingTime", list, StringComparison.Ordinal);
+        Assert.Contains("3.30 sec", list, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:00:03", list, StringComparison.Ordinal);
+
+        var table = FormatObject(ps, statistics, useFormatTable: true);
+        Assert.Contains("AverageOutputPercent", table, StringComparison.Ordinal);
+        Assert.Contains("55.50%", table, StringComparison.Ordinal);
+        Assert.Contains("3.30 sec", table, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:00:03", table, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -86,12 +135,29 @@ public class MediaFormatViewsTests
         Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
     }
 
-    private static string FormatObject(PowerShell ps, object value, bool useFormatList = false)
+    private static void AssertCountsOnly(string rendered)
+    {
+        Assert.Contains("ExtractedCount", rendered, StringComparison.Ordinal);
+        Assert.Contains("ConvertedCount", rendered, StringComparison.Ordinal);
+        Assert.Contains("2", rendered, StringComparison.Ordinal);
+        Assert.Contains("1", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("ExtractedPaths", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConvertedPaths", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("title.eng", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\media", rendered, StringComparison.Ordinal);
+    }
+
+    private static string FormatObject(PowerShell ps, object value, bool useFormatList = false, bool useFormatTable = false)
     {
         ps.Commands.Clear();
         if (useFormatList)
         {
             ps.AddCommand("Format-List").AddParameter("InputObject", value);
+            ps.AddCommand("Out-String");
+        }
+        else if (useFormatTable)
+        {
+            ps.AddCommand("Format-Table").AddParameter("InputObject", value);
             ps.AddCommand("Out-String");
         }
         else
@@ -104,17 +170,33 @@ public class MediaFormatViewsTests
 
     private static PowerShell CreatePowerShellWithFormatData(string formatPath)
     {
+        var ps = CreatePowerShellSession();
+        ps.AddCommand("Update-FormatData").AddParameter("AppendPath", formatPath);
+        ps.Invoke();
+        ps.Commands.Clear();
+        return ps;
+    }
+
+    private static PowerShell CreatePowerShellSession()
+    {
         var initialSessionState = InitialSessionState.CreateDefault();
         // Format ps1xml ScriptBlocks are subject to execution policy on Windows; bypass so Restricted hosts can load views.
         // ExecutionPolicy is not supported on Unix/macOS and throws PlatformNotSupportedException if set.
         if (OperatingSystem.IsWindows())
             initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
 
-        var ps = PowerShell.Create(initialSessionState);
-        ps.AddCommand("Update-FormatData").AddParameter("AppendPath", formatPath);
-        ps.Invoke();
-        ps.Commands.Clear();
-        return ps;
+        return PowerShell.Create(initialSessionState);
+    }
+
+    private static string FindBuiltModuleManifest()
+    {
+        var outputDir = new DirectoryInfo(AppContext.BaseDirectory);
+        var configuration = outputDir.Parent?.Name ?? "Debug";
+        var tfm = outputDir.Name;
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var manifestPath = Path.Combine(repoRoot, "src", "MediaForgePS", "bin", configuration, tfm, "MediaForgePS.psd1");
+        Assert.True(File.Exists(manifestPath), $"Built module manifest was not found at {manifestPath}.");
+        return manifestPath;
     }
 
     private static string FindFormatFile()

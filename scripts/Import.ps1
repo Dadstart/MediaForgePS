@@ -62,8 +62,14 @@ function TestModulePathsExist {
     }
 
     $baseName = Join-Path $ModuleDir $moduleBaseName
-    foreach ($fileExtension in ('dll', 'psd1')) {
-        $file = "$baseName.$fileExtension"
+    $requiredFiles = @(
+        "$baseName.dll"
+        "$baseName.psd1"
+        "$baseName.psm1"
+        (Join-Path $ModuleDir 'Formats\MediaForgePS.format.ps1xml')
+        (Join-Path $ModuleDir 'en-US\MediaForgePS.dll-Help.xml')
+    )
+    foreach ($file in $requiredFiles) {
         if (-not (TestPathWithThrow -Path $file -ThrowText "Module file not found: $file" -ShouldThrow $ShouldThrow)) {
             return $false
         }

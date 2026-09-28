@@ -296,8 +296,8 @@ public sealed class InvokeBonusFileProcessingCommandTests : IDisposable
         var statistics = Assert.Single(results.Select(r => r.BaseObject).OfType<MediaConversionStatistics>());
         Assert.Equal(1, statistics.FileCount);
         Assert.Equal(60.0, statistics.AverageSizeReductionPercent);
-        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(1000), 1), statistics.AverageInputSizeMegabytes);
-        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(400), 1), statistics.AverageOutputSizeMegabytes);
+        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(1000), 2), statistics.AverageInputSizeMegabytes);
+        Assert.Equal(Math.Round(MediaConversionHelper.BytesToMegabytes(400), 2), statistics.AverageOutputSizeMegabytes);
     }
 
     [Fact]
