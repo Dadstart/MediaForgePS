@@ -43,6 +43,30 @@ public class MediaFormatViewsTests
     }
 
     [Fact]
+    public void ModuleManifest_ImportsFormattingAndRuntimeXml()
+    {
+        var manifestPath = FindBuiltModuleManifest();
+        var moduleDir = Path.GetDirectoryName(manifestPath)!;
+        Assert.True(File.Exists(Path.Combine(moduleDir, "Formats", "MediaForgePS.format.ps1xml")));
+        Assert.True(File.Exists(Path.Combine(moduleDir, "en-US", "MediaForgePS.dll-Help.xml")));
+
+        using var ps = CreatePowerShellSession();
+        ps.AddCommand("Import-Module").AddParameter("Name", manifestPath).AddParameter("Force", true);
+        ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+
+        ps.Commands.Clear();
+        ps.AddCommand("Get-FormatData").AddParameter("TypeName", typeof(MediaConversionStatistics).FullName);
+        var formatData = ps.Invoke();
+        Assert.Empty(ps.Streams.Error);
+        Assert.NotEmpty(formatData);
+
+        ps.Commands.Clear();
+        ps.AddCommand("Remove-Module").AddParameter("Name", "MediaForgePS").AddParameter("Force", true);
+        ps.Invoke();
+    }
+
+    [Fact]
     public void SubtitleProcessingResult_FormatView_ShowsCountsOnly()
     {
         var formatPath = FindFormatFile();
@@ -146,17 +170,33 @@ public class MediaFormatViewsTests
 
     private static PowerShell CreatePowerShellWithFormatData(string formatPath)
     {
+        var ps = CreatePowerShellSession();
+        ps.AddCommand("Update-FormatData").AddParameter("AppendPath", formatPath);
+        ps.Invoke();
+        ps.Commands.Clear();
+        return ps;
+    }
+
+    private static PowerShell CreatePowerShellSession()
+    {
         var initialSessionState = InitialSessionState.CreateDefault();
         // Format ps1xml ScriptBlocks are subject to execution policy on Windows; bypass so Restricted hosts can load views.
         // ExecutionPolicy is not supported on Unix/macOS and throws PlatformNotSupportedException if set.
         if (OperatingSystem.IsWindows())
             initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
 
-        var ps = PowerShell.Create(initialSessionState);
-        ps.AddCommand("Update-FormatData").AddParameter("AppendPath", formatPath);
-        ps.Invoke();
-        ps.Commands.Clear();
-        return ps;
+        return PowerShell.Create(initialSessionState);
+    }
+
+    private static string FindBuiltModuleManifest()
+    {
+        var outputDir = new DirectoryInfo(AppContext.BaseDirectory);
+        var configuration = outputDir.Parent?.Name ?? "Debug";
+        var tfm = outputDir.Name;
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var manifestPath = Path.Combine(repoRoot, "src", "MediaForgePS", "bin", configuration, tfm, "MediaForgePS.psd1");
+        Assert.True(File.Exists(manifestPath), $"Built module manifest was not found at {manifestPath}.");
+        return manifestPath;
     }
 
     private static string FindFormatFile()
