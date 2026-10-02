@@ -667,8 +667,48 @@ public static class MediaConversionHelper
     }
 
     /// <summary>
+    /// Appends or replaces a trailing <c>(N%)</c> on a terminal window title.
+    /// </summary>
+    public static string FormatTitleWithProgressPercent(string title, int percentComplete)
+    {
+        var baseTitle = RemoveProgressPercentFromTitle(title);
+        var clamped = Math.Clamp(percentComplete, 0, 100);
+        return $"{baseTitle} ({clamped}%)";
+    }
+
+    /// <summary>
+    /// Removes a trailing <c>(N%)</c> progress suffix from a terminal window title when present.
+    /// </summary>
+    public static string RemoveProgressPercentFromTitle(string? title)
+    {
+        if (string.IsNullOrEmpty(title))
+            return title ?? string.Empty;
+
+        if (!title.EndsWith("%)", StringComparison.Ordinal))
+            return title;
+
+        var openParen = title.LastIndexOf(" (", StringComparison.Ordinal);
+        if (openParen < 0)
+            return title;
+
+        var digitsStart = openParen + 2;
+        var digitsLength = title.Length - digitsStart - 2;
+        if (digitsLength is < 1 or > 3)
+            return title;
+
+        for (var i = 0; i < digitsLength; i++)
+        {
+            if (!char.IsAsciiDigit(title[digitsStart + i]))
+                return title;
+        }
+
+        return title[..openParen];
+    }
+
+    /// <summary>
     /// Writes the main (batch) progress record and optionally the current-item record.
     /// Use with <see cref="BuildBatchProgressStatus"/> or <see cref="BuildCountBasedProgressStatus"/> for status and percent.
+    /// While processing with a percent, appends that percent to the terminal window title.
     /// </summary>
     public static void WriteMainProgress(
         ICmdletProgress progress,
@@ -686,10 +726,12 @@ public static class MediaConversionHelper
             recordType: recordType);
         ApplyEta(progressRecord, eta);
         progress.WriteProgress(progressRecord);
+        ApplyProgressTitlePercent(progress, percentComplete, recordType);
     }
 
     /// <summary>
     /// Writes the current-item (nested) progress record.
+    /// While processing with a percent, appends that percent to the terminal window title.
     /// </summary>
     public static void WriteCurrentItemProgress(
         ICmdletProgress progress,
@@ -710,6 +752,7 @@ public static class MediaConversionHelper
             recordType);
         ApplyEta(progressRecord, eta);
         progress.WriteProgress(progressRecord);
+        ApplyProgressTitlePercent(progress, percentComplete, recordType);
     }
 
     private static void ApplyEta(ProgressRecord progressRecord, TimeSpan? eta)
@@ -721,12 +764,23 @@ public static class MediaConversionHelper
         progressRecord.SecondsRemaining = clampedSeconds;
     }
 
+    private static void ApplyProgressTitlePercent(
+        ICmdletProgress progress,
+        int? percentComplete,
+        ProgressRecordType recordType)
+    {
+        if (recordType == ProgressRecordType.Processing && percentComplete.HasValue)
+            progress.UpdateProgressTitlePercent(percentComplete.Value);
+    }
+
     /// <summary>
     /// Writes both main and current-item progress records as completed.
     /// Call once when the batch or phase is finished.
+    /// Restores the terminal window title by clearing any appended progress percent.
     /// </summary>
     public static void WriteProgressCompleted(ICmdletProgress progress, string mainActivity, string currentActivity)
     {
+        progress.ClearProgressTitlePercent();
         progress.WriteProgress(CreateSimpleProgressRecord(
             ProgressActivityIds.Main,
             mainActivity,

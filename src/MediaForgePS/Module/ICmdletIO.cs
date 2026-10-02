@@ -9,6 +9,17 @@ namespace Dadstart.Labs.MediaForge.Module;
 public interface ICmdletProgress
 {
     void WriteProgress(ProgressRecord record);
+
+    /// <summary>
+    /// Appends or updates the percent complete on the terminal window title.
+    /// </summary>
+    /// <param name="percentComplete">Percentage complete (0-100).</param>
+    void UpdateProgressTitlePercent(int percentComplete);
+
+    /// <summary>
+    /// Removes any appended progress percent from the terminal window title.
+    /// </summary>
+    void ClearProgressTitlePercent();
 }
 
 /// <summary>
