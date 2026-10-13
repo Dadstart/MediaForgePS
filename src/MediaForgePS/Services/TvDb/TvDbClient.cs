@@ -134,7 +134,7 @@ public sealed class TvDbClient : ITvDbClient, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(seriesId);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(season);
+        ArgumentOutOfRangeException.ThrowIfNegative(season);
         ArgumentException.ThrowIfNullOrWhiteSpace(seasonType);
 
         var normalizedSeasonType = seasonType.Trim().ToLowerInvariant();

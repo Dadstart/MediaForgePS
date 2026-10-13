@@ -33,9 +33,9 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     public string Title { get; set; } = string.Empty;
 
     /// <summary>
-    /// Season number to process (1-based).
+    /// Season number to process (0 for specials).
     /// </summary>
-    [Parameter(Mandatory = true, HelpMessage = "Season number to process (1-based).")]
+    [Parameter(Mandatory = true, HelpMessage = "Season number to process (0 for specials).")]
     [ValidateRange(0, 9999)]
     public int Season { get; set; }
 
