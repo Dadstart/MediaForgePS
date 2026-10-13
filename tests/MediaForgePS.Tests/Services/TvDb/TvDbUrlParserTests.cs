@@ -38,6 +38,18 @@ public class TvDbUrlParserTests
     }
 
     [Fact]
+    public void TryParseSeasonUrl_AcceptsSeasonZero()
+    {
+        Assert.True(TvDbUrlParser.TryParseSeasonUrl(
+            "https://thetvdb.com/series/doctor-who/seasons/official/0",
+            out var parsed));
+
+        Assert.Equal("doctor-who", parsed.SeriesKey);
+        Assert.Equal("official", parsed.SeasonType);
+        Assert.Equal(0, parsed.SeasonNumber);
+    }
+
+    [Fact]
     public void TryParseSeasonUrl_WhenSeasonMissing_LeavesSeasonNull()
     {
         Assert.True(TvDbUrlParser.TryParseSeasonUrl(

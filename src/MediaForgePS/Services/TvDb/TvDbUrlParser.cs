@@ -53,7 +53,7 @@ internal static class TvDbUrlParser
         if (segments.Length >= 4)
         {
             if (!int.TryParse(segments[3], NumberStyles.None, CultureInfo.InvariantCulture, out var parsedSeason) ||
-                parsedSeason <= 0)
+                parsedSeason < 0)
                 return false;
 
             seasonNumber = parsedSeason;
