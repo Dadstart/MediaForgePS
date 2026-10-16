@@ -26,6 +26,9 @@ public abstract class ComponentTestBase : IDisposable
     protected string OcrBrokenSrtPath =>
         Path.Combine(AssetsRoot, "ocr-broken.srt");
 
+    protected string MisspelledSrtPath =>
+        Path.Combine(AssetsRoot, "misspelled.srt");
+
     protected ComponentTestBase()
     {
         AssetsRoot = Path.Combine(AppContext.BaseDirectory, "TestAssets");
@@ -60,6 +63,17 @@ public abstract class ComponentTestBase : IDisposable
         var directory = CreateTempDirectory();
         var destination = Path.Combine(directory, fileName);
         File.Copy(OcrBrokenSrtPath, destination);
+        return destination;
+    }
+
+    /// <summary>
+    /// Copies the misspelled SRT fixture into a temp directory under a new file name.
+    /// </summary>
+    protected string CopyMisspelledSrtAs(string fileName)
+    {
+        var directory = CreateTempDirectory();
+        var destination = Path.Combine(directory, fileName);
+        File.Copy(MisspelledSrtPath, destination);
         return destination;
     }
 

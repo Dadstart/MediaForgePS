@@ -46,7 +46,7 @@ public static partial class SrtOcrFixHelper
     /// <returns>Fixed SRT content with normalized line endings preserved in structure.</returns>
     public static string FixMusicNoteOcrErrors(string content)
     {
-        var blocks = ParseSrtBlocks(content);
+        var blocks = SrtDocumentHelper.ParseSrtBlocks(content);
         var sb = new StringBuilder();
 
         foreach (var block in blocks)
@@ -59,29 +59,6 @@ public static partial class SrtOcrFixHelper
         }
 
         return sb.ToString().TrimEnd();
-    }
-
-    internal static List<SrtBlock> ParseSrtBlocks(string content)
-    {
-        var blocks = new List<SrtBlock>();
-        var parts = content.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var part in parts)
-        {
-            var lines = part.Split('\n');
-            if (lines.Length < 3)
-                continue;
-
-            var sequenceLine = lines[0];
-            var timestampLine = lines[1];
-            var textLines = new List<string>();
-            for (var i = 2; i < lines.Length; i++)
-                textLines.Add(lines[i]);
-
-            blocks.Add(new SrtBlock(sequenceLine, timestampLine, textLines));
-        }
-
-        return blocks;
     }
 
     /// <summary>
@@ -150,6 +127,4 @@ public static partial class SrtOcrFixHelper
 
         return new string(chars);
     }
-
-    internal record SrtBlock(string SequenceLine, string TimestampLine, List<string> TextLines);
 }

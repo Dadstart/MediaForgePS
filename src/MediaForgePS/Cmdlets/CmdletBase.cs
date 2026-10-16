@@ -28,6 +28,7 @@ public abstract class CmdletBase : PSCmdlet, ITerminalProgressTitle
         public const string MediaFileReadFailed = "MediaFileReadFailed";
         public const string ConversionFailed = "ConversionFailed";
         public const string SubtitleExportFailed = "SubtitleExportFailed";
+        public const string SubtitleSpellCheckFailed = "SubtitleSpellCheckFailed";
         public const string SplitChaptersFailed = "SplitChaptersFailed";
         public const string InvalidChapterRanges = "InvalidChapterRanges";
         public const string OutputFileExists = "OutputFileExists";

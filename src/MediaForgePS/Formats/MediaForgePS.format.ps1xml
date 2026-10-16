@@ -587,5 +587,49 @@
         </ListEntries>
       </ListControl>
     </View>
+    <View>
+      <Name>Dadstart.Labs.MediaForge.Models.SubtitleSpellingIssue</Name>
+      <ViewSelectedBy>
+        <TypeName>Dadstart.Labs.MediaForge.Models.SubtitleSpellingIssue</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader>
+            <Label>Path</Label>
+            <Width>36</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>CueNumber</Label>
+            <Width>10</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Word</Label>
+            <Width>16</Width>
+          </TableColumnHeader>
+          <TableColumnHeader>
+            <Label>Suggestions</Label>
+            <Width>28</Width>
+          </TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem>
+                <PropertyName>Path</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>CueNumber</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <PropertyName>Word</PropertyName>
+              </TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>($_.Suggestions -join ', ')</ScriptBlock>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
   </ViewDefinitions>
 </Configuration>

@@ -23,6 +23,7 @@
         'Export-Subtitles'
         'Convert-ImageSubtitlesToSrt'
         'Repair-Subtitles'
+        'Test-SubtitleSpelling'
         'Invoke-SubtitleOcrRepair'
         'Split-Chapters'
         'Split-SeriesChapters'
