@@ -96,6 +96,7 @@ public static class ModuleServices
         services.AddSingleton<ISeriesProcessingService, SeriesProcessingService>();
         services.AddSingleton<IBonusProcessingService, BonusProcessingService>();
         services.AddSingleton<ISubtitleSpellCheckService, SubtitleSpellCheckService>();
+        services.AddSingleton<ISubtitleSpellIgnoreDictionary, SubtitleSpellIgnoreDictionary>();
         if (OperatingSystem.IsWindows())
             services.AddSingleton<IImageSubtitleOcrConverter, LibseImageSubtitleOcrConverter>();
         else

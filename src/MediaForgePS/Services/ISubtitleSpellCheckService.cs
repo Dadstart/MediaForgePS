@@ -25,4 +25,14 @@ public interface ISubtitleSpellCheckService
         string path,
         string content,
         SubtitleSpellCheckOptions? options = null);
+
+    /// <summary>
+    /// Returns whether <paramref name="word"/> is correctly spelled for the configured dictionary.
+    /// </summary>
+    bool IsCorrectlySpelled(string word, SubtitleSpellCheckOptions? options = null);
+
+    /// <summary>
+    /// Returns spelling suggestions for <paramref name="word"/>.
+    /// </summary>
+    IReadOnlyList<string> GetSuggestions(string word, SubtitleSpellCheckOptions? options = null);
 }

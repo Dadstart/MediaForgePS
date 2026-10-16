@@ -10,12 +10,15 @@ using Microsoft.Extensions.Logging;
 namespace Dadstart.Labs.MediaForge.Cmdlets;
 
 /// <summary>
-/// Checks SRT subtitle files for misspellings and writes one issue object per finding.
+/// Checks SRT subtitle files for misspellings and optionally prompts to fix each one.
 /// </summary>
 /// <remarks>
-/// Does not modify files. Files with no issues produce no pipeline output.
+/// Without <c>-Fix</c>, files with no issues produce no pipeline output.
+/// With <c>-Fix</c>, prompts interactively for each misspelling and writes corrected files in place.
+/// Remaining unfixed issues are written to the pipeline.
+/// Supports <c>-WhatIf</c> and <c>-Confirm</c> when fixing.
 /// </remarks>
-[Cmdlet(VerbsDiagnostic.Test, "SubtitleSpelling")]
+[Cmdlet(VerbsDiagnostic.Test, "SubtitleSpelling", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(SubtitleSpellingIssue))]
 public class TestSubtitleSpellingCommand : CmdletBase
 {
@@ -52,10 +55,24 @@ public class TestSubtitleSpellingCommand : CmdletBase
     public string? DictionaryPath { get; set; }
 
     /// <summary>
-    /// When set, each issue includes suggested corrections.
+    /// When set, each reported issue includes suggested corrections.
+    /// Implied when <see cref="Fix"/> is set.
     /// </summary>
-    [Parameter(HelpMessage = "Include spelling suggestions (slower).")]
+    [Parameter(HelpMessage = "Include spelling suggestions (slower). Implied by -Fix.")]
     public SwitchParameter IncludeSuggestions { get; set; }
+
+    /// <summary>
+    /// Interactively prompt to fix each misspelling and write corrected SRT files in place.
+    /// </summary>
+    [Parameter(HelpMessage = "Prompt to fix each misspelling interactively and write files in place.")]
+    public SwitchParameter Fix { get; set; }
+
+    /// <summary>
+    /// Optional path to a persistent forever-ignore word list (one word per line).
+    /// Defaults to <c>%LocalApplicationData%/MediaForgePS/spelling-ignore.txt</c>.
+    /// </summary>
+    [Parameter(HelpMessage = "Path to the persistent forever-ignore dictionary file.")]
+    public string? IgnoreDictionaryPath { get; set; }
 
     private readonly List<string> _inputPaths = new();
     private IPathResolver? _pathResolver;
@@ -69,7 +86,7 @@ public class TestSubtitleSpellingCommand : CmdletBase
 
     protected override void Begin()
     {
-        Logger.LogDebug("Test-SubtitleSpelling Begin");
+        Logger.LogDebug("Test-SubtitleSpelling Begin (Fix={Fix})", Fix.IsPresent);
     }
 
     protected override void Process()
@@ -134,16 +151,55 @@ public class TestSubtitleSpellingCommand : CmdletBase
             return;
         }
 
+        var includeSuggestions = IncludeSuggestions.IsPresent || Fix.IsPresent;
+
+        var ignoreDictionary = ResolveIgnoreDictionary();
+        var sessionIgnoreWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var word in ignoreDictionary.LoadWords())
+            sessionIgnoreWords.Add(word);
+
+        if (IgnoreWord is not null)
+        {
+            foreach (var word in IgnoreWord)
+            {
+                if (!string.IsNullOrWhiteSpace(word))
+                    sessionIgnoreWords.Add(word.Trim());
+            }
+        }
+
         var options = new SubtitleSpellCheckOptions(
-            IgnoreWord,
+            [.. sessionIgnoreWords],
             resolvedDictionaryPath,
-            IncludeSuggestions.IsPresent);
+            includeSuggestions);
+
+        SubtitleSpellFixSession? fixSession = null;
+        if (Fix.IsPresent)
+        {
+            var prompter = ModuleServices.GetService<ISubtitleSpellFixPrompter>()
+                ?? new HostSubtitleSpellFixPrompter(this);
+            fixSession = new SubtitleSpellFixSession(SpellCheckService, prompter, ignoreDictionary);
+        }
 
         foreach (var srtPath in srtPaths)
         {
             try
             {
-                var issues = SpellCheckService.CheckFile(srtPath, options);
+                if (Fix.IsPresent)
+                {
+                    var displayName = Path.GetFileName(srtPath);
+                    if (!ShouldProcess(srtPath, $"Interactively fix subtitle spelling in '{displayName}'"))
+                        continue;
+
+                    var wrote = fixSession!.FixFile(srtPath, options, sessionIgnoreWords);
+                    if (wrote)
+                        WriteVerbose($"Wrote spelling fixes to '{srtPath}'.");
+                }
+
+                var reportOptions = new SubtitleSpellCheckOptions(
+                    [.. sessionIgnoreWords],
+                    resolvedDictionaryPath,
+                    includeSuggestions);
+                var issues = SpellCheckService.CheckFile(srtPath, reportOptions);
                 WriteObject(issues, enumerateCollection: true);
             }
             catch (Exception ex)
@@ -151,5 +207,22 @@ public class TestSubtitleSpellingCommand : CmdletBase
                 WriteStandardError(ex, ErrorIds.SubtitleSpellCheckFailed, ErrorCategory.ReadError, srtPath);
             }
         }
+    }
+
+    private ISubtitleSpellIgnoreDictionary ResolveIgnoreDictionary()
+    {
+        var logger = ModuleServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger<SubtitleSpellIgnoreDictionary>();
+
+        if (!string.IsNullOrWhiteSpace(IgnoreDictionaryPath))
+        {
+            var resolvedIgnorePath = PathResolver.TryResolveOutputPath(IgnoreDictionaryPath!, out var resolved)
+                ? resolved
+                : Path.GetFullPath(IgnoreDictionaryPath!);
+            return new SubtitleSpellIgnoreDictionary(logger, resolvedIgnorePath);
+        }
+
+        return ModuleServices.GetService<ISubtitleSpellIgnoreDictionary>()
+            ?? new SubtitleSpellIgnoreDictionary(logger);
     }
 }

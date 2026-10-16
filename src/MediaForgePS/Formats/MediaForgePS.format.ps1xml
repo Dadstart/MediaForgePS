@@ -596,19 +596,19 @@
         <TableHeaders>
           <TableColumnHeader>
             <Label>Path</Label>
-            <Width>36</Width>
+            <Width>28</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>CueNumber</Label>
-            <Width>10</Width>
+            <Label>Cue</Label>
+            <Width>5</Width>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>Word</Label>
-            <Width>16</Width>
+            <Label>Line</Label>
+            <Width>56</Width>
           </TableColumnHeader>
           <TableColumnHeader>
             <Label>Suggestions</Label>
-            <Width>28</Width>
+            <Width>20</Width>
           </TableColumnHeader>
         </TableHeaders>
         <TableRowEntries>
@@ -621,7 +621,7 @@
                 <PropertyName>CueNumber</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
-                <PropertyName>Word</PropertyName>
+                <PropertyName>HighlightedLine</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
                 <ScriptBlock>($_.Suggestions -join ', ')</ScriptBlock>

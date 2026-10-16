@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Microsoft.Extensions.Logging;
 using WeCantSpell.Hunspell;
@@ -62,6 +63,7 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
             for (var lineIndex = 0; lineIndex < block.TextLines.Count; lineIndex++)
             {
                 var lineText = block.TextLines[lineIndex];
+                var occurrenceByWord = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 foreach (var word in SubtitleSpellTokenizer.Tokenize(lineText))
                 {
                     if (ignoreWords.Contains(word))
@@ -70,8 +72,12 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
                     if (dictionary.Check(word))
                         continue;
 
+                    occurrenceByWord.TryGetValue(word, out var priorCount);
+                    var occurrence = priorCount + 1;
+                    occurrenceByWord[word] = occurrence;
+
                     var suggestions = options.IncludeSuggestions
-                        ? dictionary.Suggest(word).Take(5).ToArray()
+                        ? GetSuggestions(word, options)
                         : SubtitleSpellingIssue.EmptySuggestions;
 
                     issues.Add(new SubtitleSpellingIssue(
@@ -79,15 +85,48 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
                         cueNumber,
                         block.TimestampLine,
                         lineIndex + 1,
-                        word,
+                        [word],
                         lineText,
-                        suggestions));
+                        suggestions,
+                        occurrence));
                 }
             }
         }
 
         _logger.LogDebug("Spell-checked {Path}: {IssueCount} issue(s)", path, issues.Count);
         return issues;
+    }
+
+    /// <inheritdoc />
+    public bool IsCorrectlySpelled(string word, SubtitleSpellCheckOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(word);
+        options ??= SubtitleSpellCheckOptions.Default;
+        return ResolveDictionary(options.DictionaryPath).Check(word);
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> GetSuggestions(string word, SubtitleSpellCheckOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(word);
+        options ??= SubtitleSpellCheckOptions.Default;
+        var dictionary = ResolveDictionary(options.DictionaryPath);
+        var queryOptions = new QueryOptions
+        {
+            MaxSuggestions = 5,
+            TimeLimitSuggestGlobal = TimeSpan.FromSeconds(2),
+            TimeLimitSuggestStep = TimeSpan.FromMilliseconds(250)
+        };
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            return dictionary.Suggest(word, queryOptions, cts.Token).Take(5).ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            return Array.Empty<string>();
+        }
     }
 
     private WordList ResolveDictionary(string? dictionaryPath)

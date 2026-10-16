@@ -40,6 +40,12 @@ public class TestSubtitleSpellingCommandComponentTests : ComponentTestBase
         Assert.Contains(issues, i => i.Word.Equals("misspeled", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(issues, i => i.Word.Equals("Cartman", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(issues, i => i.Word.Equals("Zorpblat", StringComparison.OrdinalIgnoreCase));
+        var cartman = Assert.Single(issues, i => i.Word.Equals("Cartman", StringComparison.OrdinalIgnoreCase));
+        var zorpblat = Assert.Single(issues, i => i.Word.Equals("Zorpblat", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("\u001b[91;1mCartman\u001b[0m", cartman.HighlightedLine);
+        Assert.DoesNotContain("\u001b[91;1mZorpblat\u001b[0m", cartman.HighlightedLine);
+        Assert.Contains("\u001b[91;1mZorpblat\u001b[0m", zorpblat.HighlightedLine);
+        Assert.DoesNotContain("\u001b[91;1mCartman\u001b[0m", zorpblat.HighlightedLine);
         Assert.All(issues, i => Assert.Equal(srtPath, i.Path));
         Assert.DoesNotContain(issues, i => i.Word.Equals("hello", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(issues, i => i.Word.Equals("Everything", StringComparison.OrdinalIgnoreCase));
@@ -61,9 +67,9 @@ public class TestSubtitleSpellingCommandComponentTests : ComponentTestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        Assert.Contains(issues, i => i.Word.Equals("misspeled", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(issues, i => i.Word.Equals("Cartman", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(issues, i => i.Word.Equals("Zorpblat", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(issues, i => i.Words.Contains("misspeled", StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Words.Contains("Cartman", StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Words.Contains("Zorpblat", StringComparer.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -107,7 +113,8 @@ public class TestSubtitleSpellingCommandComponentTests : ComponentTestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        var misspeled = Assert.Single(issues, i => i.Word.Equals("misspeled", StringComparison.OrdinalIgnoreCase));
+        var misspeled = Assert.Single(issues, i => i.Words.Contains("misspeled", StringComparer.OrdinalIgnoreCase));
+        Assert.Contains("\u001b[91;1mmisspeled\u001b[0m", misspeled.HighlightedLine);
         Assert.NotEmpty(misspeled.Suggestions);
         Assert.Contains(misspeled.Suggestions, s => s.Equals("misspelled", StringComparison.OrdinalIgnoreCase));
     }
@@ -132,7 +139,7 @@ public class TestSubtitleSpellingCommandComponentTests : ComponentTestBase
         var errors = ps.Streams.Error.ReadAll();
 
         Assert.Empty(errors);
-        Assert.Contains(issues, i => i.Word.Equals("misspeled", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(issues, i => i.Words.Contains("misspeled", StringComparer.OrdinalIgnoreCase));
         Assert.Contains(issues, i => i.Path.EndsWith("nested.srt", StringComparison.OrdinalIgnoreCase));
     }
 

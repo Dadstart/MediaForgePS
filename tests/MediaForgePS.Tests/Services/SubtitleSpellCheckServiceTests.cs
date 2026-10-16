@@ -27,10 +27,13 @@ public class SubtitleSpellCheckServiceTests
                 new SubtitleSpellCheckOptions(DictionaryPath: dicPath));
 
             Assert.Single(issues);
+            Assert.Equal(["misspeled"], issues[0].Words);
             Assert.Equal("misspeled", issues[0].Word);
             Assert.Equal(1, issues[0].CueNumber);
             Assert.Equal(1, issues[0].LineNumber);
             Assert.Equal("hello misspeled world", issues[0].LineText);
+            Assert.Contains("misspeled", issues[0].HighlightedLine);
+            Assert.Contains("\u001b[91;1m", issues[0].HighlightedLine);
             Assert.Empty(issues[0].Suggestions);
         }
         finally
@@ -86,6 +89,7 @@ public class SubtitleSpellCheckServiceTests
                     IncludeSuggestions: true));
 
             Assert.Single(issues);
+            Assert.Equal(["helo"], issues[0].Words);
             Assert.Equal("helo", issues[0].Word);
             Assert.NotEmpty(issues[0].Suggestions);
             Assert.Contains("hello", issues[0].Suggestions, StringComparer.OrdinalIgnoreCase);
@@ -104,8 +108,75 @@ public class SubtitleSpellCheckServiceTests
 
         var issues = service.CheckContent("embedded.srt", content);
 
-        Assert.Contains(issues, i => i.Word.Equals("zxqvword", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(issues, i => i.Word.Equals("This", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(issues, i => i.Words.Contains("zxqvword", StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Words.Contains("This", StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CheckContent_MultipleMisspellingsOnSameLine_EmitsOneIssuePerInstance()
+    {
+        var tempDir = CreateTempDictionary(
+            dicContent: "3\nhello\nand\nworld\n",
+            affContent: "SET UTF-8\n");
+        try
+        {
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nhello badword and wrngword\n\n";
+
+            var issues = service.CheckContent(
+                "sample.srt",
+                content,
+                new SubtitleSpellCheckOptions(DictionaryPath: dicPath));
+
+            Assert.Equal(2, issues.Count);
+            Assert.Equal("badword", issues[0].Word);
+            Assert.Equal("wrngword", issues[1].Word);
+            Assert.Equal(1, issues[0].WordOccurrence);
+            Assert.Equal(1, issues[1].WordOccurrence);
+            Assert.Contains("\u001b[91;1mbadword\u001b[0m", issues[0].HighlightedLine);
+            Assert.DoesNotContain("\u001b[91;1mwrngword\u001b[0m", issues[0].HighlightedLine);
+            Assert.Contains("\u001b[91;1mwrngword\u001b[0m", issues[1].HighlightedLine);
+            Assert.DoesNotContain("\u001b[91;1mbadword\u001b[0m", issues[1].HighlightedLine);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void CheckContent_RepeatedWord_EmitsSeparateOccurrences()
+    {
+        var tempDir = CreateTempDictionary(
+            dicContent: "1\nhello\n",
+            affContent: "SET UTF-8\n");
+        try
+        {
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nhello badword badword\n\n";
+
+            var issues = service.CheckContent(
+                "sample.srt",
+                content,
+                new SubtitleSpellCheckOptions(DictionaryPath: dicPath));
+
+            Assert.Equal(2, issues.Count);
+            Assert.All(issues, i => Assert.Equal("badword", i.Word));
+            Assert.Equal(1, issues[0].WordOccurrence);
+            Assert.Equal(2, issues[1].WordOccurrence);
+            Assert.Equal(
+                "hello \u001b[91;1mbadword\u001b[0m badword",
+                issues[0].HighlightedLine);
+            Assert.Equal(
+                "hello badword \u001b[91;1mbadword\u001b[0m",
+                issues[1].HighlightedLine);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
     }
 
     [Fact]
@@ -126,7 +197,7 @@ public class SubtitleSpellCheckServiceTests
                 new SubtitleSpellCheckOptions(DictionaryPath: dicPath));
 
             Assert.Single(issues);
-            Assert.Equal("badword", issues[0].Word);
+            Assert.Equal(["badword"], issues[0].Words);
             Assert.Equal(srtPath, issues[0].Path);
         }
         finally
