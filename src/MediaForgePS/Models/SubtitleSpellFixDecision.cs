@@ -52,6 +52,11 @@ public enum SubtitleSpellFixAction
 /// or <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
 /// or the full replacement line when <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceLine"/>.
 /// </param>
+/// <param name="PersistReplacement">
+/// When true and <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
+/// save the mapping to the persistent replacement dictionary for future runs.
+/// </param>
 public sealed record SubtitleSpellFixDecision(
     SubtitleSpellFixAction Action,
-    string? Replacement = null);
+    string? Replacement = null,
+    bool PersistReplacement = false);

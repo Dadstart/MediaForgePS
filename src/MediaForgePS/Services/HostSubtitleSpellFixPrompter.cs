@@ -54,7 +54,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                 return new SubtitleSpellFixDecision(SubtitleSpellFixAction.Replace, suggestions[suggestionIndex]);
 
             if (TryParseReplaceAllSuggestionChoice(input, suggestions.Count, out var replaceAllIndex))
-                return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, suggestions[replaceAllIndex]);
+                return CreateReplaceAllDecision(ui, suggestions[replaceAllIndex]);
 
             switch (input.ToLowerInvariant())
             {
@@ -89,9 +89,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
 
                         if (TryParseSuggestionChoice(replaceAllInput, suggestions.Count, out var allSuggestionIndex))
-                            return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, suggestions[allSuggestionIndex]);
+                            return CreateReplaceAllDecision(ui, suggestions[allSuggestionIndex]);
 
-                        return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, replaceAllInput);
+                        return CreateReplaceAllDecision(ui, replaceAllInput);
                     }
 
                 case "e":
@@ -186,7 +186,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
             "R",
             "Replace all",
             CommandColor,
-            $"Replace every '{word}' in this file (use R1.. for a suggestion)");
+            $"Replace every '{word}' in this file and optionally save for future runs (R1.. = suggestion)");
         WriteMenuItem(ui, "E", "Edit line", CommandColor, "Edit the entire subtitle line");
         WriteMenuItem(ui, "I", "Ignore once", CommandColor, "Leave this occurrence unchanged");
         WriteMenuItem(ui, "A", "Ignore all", CommandColor, $"Ignore '{word}' for the rest of this run");
@@ -346,6 +346,24 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
             return false;
 
         return TryParseSuggestionChoice(input[1..], suggestionCount, out suggestionIndex);
+    }
+
+    private static SubtitleSpellFixDecision CreateReplaceAllDecision(PSHostUserInterface ui, string replacement) =>
+        new(SubtitleSpellFixAction.ReplaceAll, replacement, PromptPersistReplacement(ui));
+
+    /// <summary>
+    /// Asks whether to remember a Replace All mapping for future runs. Empty answer defaults to yes.
+    /// </summary>
+    internal static bool PromptPersistReplacement(PSHostUserInterface ui)
+    {
+        WriteColored(ui, CommandColor, "Save this replacement for future runs? [");
+        WriteColored(ui, ShortcutColor, "Y");
+        WriteColored(ui, CommandColor, "/n]: ");
+        var answer = (ui.ReadLine() ?? string.Empty).Trim();
+        if (answer.Length == 0)
+            return true;
+
+        return answer.StartsWith('y') || answer.StartsWith('Y');
     }
 
     private static void WriteLabelValue(PSHostUserInterface ui, string label, string value)

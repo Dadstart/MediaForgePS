@@ -14,6 +14,7 @@ public sealed class SubtitleSpellFixSession
     private readonly ISubtitleSpellCheckService _spellCheckService;
     private readonly ISubtitleSpellFixPrompter _prompter;
     private readonly ISubtitleSpellIgnoreDictionary? _ignoreDictionary;
+    private readonly ISubtitleSpellReplacementDictionary? _replacementDictionary;
 
     /// <summary>
     /// Creates a fix session.
@@ -21,11 +22,13 @@ public sealed class SubtitleSpellFixSession
     public SubtitleSpellFixSession(
         ISubtitleSpellCheckService spellCheckService,
         ISubtitleSpellFixPrompter prompter,
-        ISubtitleSpellIgnoreDictionary? ignoreDictionary = null)
+        ISubtitleSpellIgnoreDictionary? ignoreDictionary = null,
+        ISubtitleSpellReplacementDictionary? replacementDictionary = null)
     {
         _spellCheckService = spellCheckService ?? throw new ArgumentNullException(nameof(spellCheckService));
         _prompter = prompter ?? throw new ArgumentNullException(nameof(prompter));
         _ignoreDictionary = ignoreDictionary;
+        _replacementDictionary = replacementDictionary;
     }
 
     /// <summary>
@@ -45,7 +48,7 @@ public sealed class SubtitleSpellFixSession
         var content = originalContent.Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace("\r", "\n", StringComparison.Ordinal);
         var blocks = SrtDocumentHelper.ParseSrtBlocks(content);
-        var changed = false;
+        var changed = ApplySavedReplacements(blocks);
         var quit = false;
         var promptedInstanceByWord = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -131,6 +134,9 @@ public sealed class SubtitleSpellFixSession
                                     decision.Replacement))
                                 changed = true;
 
+                            if (decision.PersistReplacement)
+                                _replacementDictionary?.AddReplacement(word, decision.Replacement);
+
                             line = block.TextLines[lineIndex];
                             // Map past this occurrence on the rewritten line (earlier same-word hits may shift indexes).
                             searchFrom = prefixAfterReplace.Length
@@ -187,6 +193,24 @@ public sealed class SubtitleSpellFixSession
         var fixedContent = SubtitleSpellFixHelper.FormatSrt(blocks);
         AtomicFileHelper.WriteTextAtomically(path, fixedContent, Encoding.UTF8, overwrite: true);
         return true;
+    }
+
+    private bool ApplySavedReplacements(IReadOnlyList<SrtDocumentHelper.SrtBlock> blocks)
+    {
+        if (_replacementDictionary is null)
+            return false;
+
+        var changed = false;
+        foreach (var (from, to) in _replacementDictionary.LoadReplacements())
+        {
+            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
+                continue;
+
+            if (SubtitleSpellFixHelper.ReplaceAllWholeWordsInBlocks(blocks, from, to))
+                changed = true;
+        }
+
+        return changed;
     }
 
     private static int ResolveCueNumber(string sequenceLine, int blockIndex)

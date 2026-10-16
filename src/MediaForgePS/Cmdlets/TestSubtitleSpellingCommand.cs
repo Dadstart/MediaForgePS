@@ -74,6 +74,14 @@ public class TestSubtitleSpellingCommand : CmdletBase
     [Parameter(HelpMessage = "Path to the persistent forever-ignore dictionary file.")]
     public string? IgnoreDictionaryPath { get; set; }
 
+    /// <summary>
+    /// Optional path to a persistent Replace All mapping file (<c>misspelling=replacement</c> per line).
+    /// Defaults to <c>%LocalApplicationData%/MediaForgePS/spelling-replacements.txt</c>.
+    /// Applied automatically when <see cref="Fix"/> is set.
+    /// </summary>
+    [Parameter(HelpMessage = "Path to the persistent Replace All mapping file.")]
+    public string? ReplacementDictionaryPath { get; set; }
+
     private readonly List<string> _inputPaths = new();
     private IPathResolver? _pathResolver;
     private ISubtitleSpellCheckService? _spellCheckService;
@@ -154,6 +162,7 @@ public class TestSubtitleSpellingCommand : CmdletBase
         var includeSuggestions = IncludeSuggestions.IsPresent || Fix.IsPresent;
 
         var ignoreDictionary = ResolveIgnoreDictionary();
+        var replacementDictionary = ResolveReplacementDictionary();
         var sessionIgnoreWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var word in ignoreDictionary.LoadWords())
             sessionIgnoreWords.Add(word);
@@ -177,7 +186,11 @@ public class TestSubtitleSpellingCommand : CmdletBase
         {
             var prompter = ModuleServices.GetService<ISubtitleSpellFixPrompter>()
                 ?? new HostSubtitleSpellFixPrompter(this);
-            fixSession = new SubtitleSpellFixSession(SpellCheckService, prompter, ignoreDictionary);
+            fixSession = new SubtitleSpellFixSession(
+                SpellCheckService,
+                prompter,
+                ignoreDictionary,
+                replacementDictionary);
         }
 
         foreach (var srtPath in srtPaths)
@@ -224,5 +237,22 @@ public class TestSubtitleSpellingCommand : CmdletBase
 
         return ModuleServices.GetService<ISubtitleSpellIgnoreDictionary>()
             ?? new SubtitleSpellIgnoreDictionary(logger);
+    }
+
+    private ISubtitleSpellReplacementDictionary ResolveReplacementDictionary()
+    {
+        var logger = ModuleServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger<SubtitleSpellReplacementDictionary>();
+
+        if (!string.IsNullOrWhiteSpace(ReplacementDictionaryPath))
+        {
+            var resolvedPath = PathResolver.TryResolveOutputPath(ReplacementDictionaryPath!, out var resolved)
+                ? resolved
+                : Path.GetFullPath(ReplacementDictionaryPath!);
+            return new SubtitleSpellReplacementDictionary(logger, resolvedPath);
+        }
+
+        return ModuleServices.GetService<ISubtitleSpellReplacementDictionary>()
+            ?? new SubtitleSpellReplacementDictionary(logger);
     }
 }
