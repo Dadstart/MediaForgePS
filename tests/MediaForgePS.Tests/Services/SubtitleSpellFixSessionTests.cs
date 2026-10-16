@@ -125,6 +125,48 @@ public class SubtitleSpellFixSessionTests
     }
 
     [Fact]
+    public void FixFile_ReplaceAll_ReplacesEveryOccurrenceInFile()
+    {
+        var tempDir = CreateTempDictionary("4\nhello\nworld\nmisspelled\nagain\n", "SET UTF-8\n");
+        var srtPath = Path.Combine(tempDir, "clip.srt");
+        try
+        {
+            File.WriteAllText(
+                srtPath,
+                """
+                1
+                00:00:01,000 --> 00:00:02,000
+                hello misspeled world
+
+                2
+                00:00:02,000 --> 00:00:03,000
+                misspeled again
+                """);
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var spell = CreateSpellServiceWithoutSuggestions();
+            var prompter = new ScriptedPrompter([
+                new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, "misspelled")
+            ]);
+            var session = new SubtitleSpellFixSession(spell, prompter);
+            var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
+            var ignore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var wrote = session.FixFile(srtPath, options, ignore);
+
+            Assert.True(wrote);
+            var content = File.ReadAllText(srtPath);
+            Assert.Contains("hello misspelled world", content);
+            Assert.Contains("misspelled again", content);
+            Assert.DoesNotContain("misspeled", content);
+            Assert.Single(prompter.Prompts);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void FixFile_ReplaceLine_ReplacesEntireLineAndRescans()
     {
         var tempDir = CreateTempDictionary("2\nhello\nworld\n", "SET UTF-8\n");

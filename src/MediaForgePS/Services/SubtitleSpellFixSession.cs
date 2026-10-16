@@ -113,6 +113,30 @@ public sealed class SubtitleSpellFixSession
                             searchFrom = start + SubtitleSpellFixHelper.MatchCasing(word, decision.Replacement).Length;
                             break;
 
+                        case SubtitleSpellFixAction.ReplaceAll:
+                            if (string.IsNullOrWhiteSpace(decision.Replacement))
+                            {
+                                searchFrom = start + length;
+                                break;
+                            }
+
+                            var originalToken = line.Substring(start, length);
+                            var (prefixAfterReplace, _) = SubtitleSpellFixHelper.ReplaceAllWholeWords(
+                                line[..start],
+                                word,
+                                decision.Replacement);
+                            if (SubtitleSpellFixHelper.ReplaceAllWholeWordsInBlocks(
+                                    blocks,
+                                    word,
+                                    decision.Replacement))
+                                changed = true;
+
+                            line = block.TextLines[lineIndex];
+                            // Map past this occurrence on the rewritten line (earlier same-word hits may shift indexes).
+                            searchFrom = prefixAfterReplace.Length
+                                + SubtitleSpellFixHelper.MatchCasing(originalToken, decision.Replacement).Length;
+                            break;
+
                         case SubtitleSpellFixAction.ReplaceLine:
                             if (decision.Replacement is null)
                             {

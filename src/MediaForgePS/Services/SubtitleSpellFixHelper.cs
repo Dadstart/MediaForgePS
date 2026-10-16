@@ -81,6 +81,81 @@ public static class SubtitleSpellFixHelper
     }
 
     /// <summary>
+    /// Replaces every whole-word occurrence of <paramref name="word"/> in <paramref name="line"/>
+    /// with a case-adjusted <paramref name="replacement"/>.
+    /// </summary>
+    /// <returns>The updated line and whether any replacement was made.</returns>
+    public static (string Line, bool Changed) ReplaceAllWholeWords(string line, string word, string replacement)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(replacement);
+        if (word.Length == 0 || line.Length == 0)
+            return (line, false);
+
+        var sb = new StringBuilder(line.Length);
+        var index = 0;
+        var changed = false;
+        while (index < line.Length)
+        {
+            if (!IsWordChar(line[index]))
+            {
+                sb.Append(line[index]);
+                index++;
+                continue;
+            }
+
+            var tokenStart = index;
+            index++;
+            while (index < line.Length && IsWordChar(line[index]))
+                index++;
+
+            var token = line[tokenStart..index];
+            if (string.Equals(token, word, StringComparison.OrdinalIgnoreCase))
+            {
+                sb.Append(MatchCasing(token, replacement));
+                changed = true;
+            }
+            else
+            {
+                sb.Append(token);
+            }
+        }
+
+        return changed ? (sb.ToString(), true) : (line, false);
+    }
+
+    /// <summary>
+    /// Replaces every whole-word occurrence of <paramref name="word"/> across all cue text lines.
+    /// </summary>
+    /// <returns>True when any line changed.</returns>
+    public static bool ReplaceAllWholeWordsInBlocks(
+        IReadOnlyList<SrtDocumentHelper.SrtBlock> blocks,
+        string word,
+        string replacement)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(word);
+        ArgumentNullException.ThrowIfNull(replacement);
+
+        var changed = false;
+        foreach (var block in blocks)
+        {
+            for (var i = 0; i < block.TextLines.Count; i++)
+            {
+                var (updated, lineChanged) = ReplaceAllWholeWords(block.TextLines[i], word, replacement);
+                if (!lineChanged)
+                    continue;
+
+                block.TextLines[i] = updated;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>
     /// Rebuilds SRT content from cue blocks.
     /// </summary>
     public static string FormatSrt(IReadOnlyList<SrtDocumentHelper.SrtBlock> blocks)

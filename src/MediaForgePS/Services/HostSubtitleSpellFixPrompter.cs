@@ -53,6 +53,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
             if (TryParseSuggestionChoice(input, suggestions.Count, out var suggestionIndex))
                 return new SubtitleSpellFixDecision(SubtitleSpellFixAction.Replace, suggestions[suggestionIndex]);
 
+            if (TryParseReplaceAllSuggestionChoice(input, suggestions.Count, out var replaceAllIndex))
+                return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, suggestions[replaceAllIndex]);
+
             switch (input.ToLowerInvariant())
             {
                 case "c":
@@ -66,6 +69,29 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
 
                         return new SubtitleSpellFixDecision(SubtitleSpellFixAction.Replace, custom.Trim());
+                    }
+
+                case "r":
+                case "replace":
+                case "replaceall":
+                    {
+                        WriteColored(ui, CommandColor, "Replace all ");
+                        WriteColored(ui, MisspellingColor, $"'{prompt.Word}'");
+                        WriteColored(ui, CommandColor, " with");
+                        if (suggestions.Count > 0)
+                        {
+                            WriteColored(ui, LabelColor, " (suggestion number or typed word)");
+                        }
+
+                        WriteColored(ui, CommandColor, ": ");
+                        var replaceAllInput = (ui.ReadLine() ?? string.Empty).Trim();
+                        if (string.IsNullOrWhiteSpace(replaceAllInput))
+                            return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
+
+                        if (TryParseSuggestionChoice(replaceAllInput, suggestions.Count, out var allSuggestionIndex))
+                            return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, suggestions[allSuggestionIndex]);
+
+                        return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, replaceAllInput);
                     }
 
                 case "e":
@@ -155,6 +181,12 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         }
 
         WriteMenuItem(ui, "C", "Custom", CommandColor, "Type a custom replacement word");
+        WriteMenuItem(
+            ui,
+            "R",
+            "Replace all",
+            CommandColor,
+            $"Replace every '{word}' in this file (use R1.. for a suggestion)");
         WriteMenuItem(ui, "E", "Edit line", CommandColor, "Edit the entire subtitle line");
         WriteMenuItem(ui, "I", "Ignore once", CommandColor, "Leave this occurrence unchanged");
         WriteMenuItem(ui, "A", "Ignore all", CommandColor, $"Ignore '{word}' for the rest of this run");
@@ -299,6 +331,21 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
 
         suggestionIndex = number - 1;
         return true;
+    }
+
+    /// <summary>
+    /// Parses a replace-all suggestion shortcut such as <c>R1</c> or <c>r2</c>.
+    /// </summary>
+    internal static bool TryParseReplaceAllSuggestionChoice(string input, int suggestionCount, out int suggestionIndex)
+    {
+        suggestionIndex = -1;
+        if (suggestionCount <= 0 || string.IsNullOrWhiteSpace(input) || input.Length < 2)
+            return false;
+
+        if (input[0] is not ('R' or 'r'))
+            return false;
+
+        return TryParseSuggestionChoice(input[1..], suggestionCount, out suggestionIndex);
     }
 
     private static void WriteLabelValue(PSHostUserInterface ui, string label, string value)

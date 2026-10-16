@@ -11,6 +11,12 @@ public enum SubtitleSpellFixAction
     Replace,
 
     /// <summary>
+    /// Replace every whole-word occurrence of the misspelled word in the current file
+    /// with <see cref="SubtitleSpellFixDecision.Replacement"/>.
+    /// </summary>
+    ReplaceAll,
+
+    /// <summary>
     /// Replace the entire cue text line with <see cref="SubtitleSpellFixDecision.Replacement"/>.
     /// </summary>
     ReplaceLine,
@@ -42,7 +48,8 @@ public enum SubtitleSpellFixAction
 /// </summary>
 /// <param name="Action">Chosen action.</param>
 /// <param name="Replacement">
-/// Replacement word when <see cref="Action"/> is <see cref="SubtitleSpellFixAction.Replace"/>,
+/// Replacement word when <see cref="Action"/> is <see cref="SubtitleSpellFixAction.Replace"/>
+/// or <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
 /// or the full replacement line when <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceLine"/>.
 /// </param>
 public sealed record SubtitleSpellFixDecision(

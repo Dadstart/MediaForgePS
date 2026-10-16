@@ -37,6 +37,26 @@ public class HostSubtitleSpellFixPrompterTests
         Assert.False(HostSubtitleSpellFixPrompter.TryParseSuggestionChoice(input, count, out _));
     }
 
+    [Theory]
+    [InlineData("R1", 3, 0)]
+    [InlineData("r2", 3, 1)]
+    [InlineData("R3", 3, 2)]
+    public void TryParseReplaceAllSuggestionChoice_ParsesValidIndexes(string input, int count, int expectedIndex)
+    {
+        Assert.True(HostSubtitleSpellFixPrompter.TryParseReplaceAllSuggestionChoice(input, count, out var index));
+        Assert.Equal(expectedIndex, index);
+    }
+
+    [Theory]
+    [InlineData("R", 3)]
+    [InlineData("R0", 3)]
+    [InlineData("R4", 3)]
+    [InlineData("1", 3)]
+    public void TryParseReplaceAllSuggestionChoice_RejectsInvalidInput(string input, int count)
+    {
+        Assert.False(HostSubtitleSpellFixPrompter.TryParseReplaceAllSuggestionChoice(input, count, out _));
+    }
+
     [Fact]
     public void EffectiveSurroundingLines_DefaultToEmpty()
     {

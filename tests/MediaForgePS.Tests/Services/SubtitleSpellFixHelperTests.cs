@@ -64,6 +64,51 @@ public class SubtitleSpellFixHelperTests
     }
 
     [Fact]
+    public void ReplaceAllWholeWords_ReplacesEveryOccurrenceWithCasing()
+    {
+        var (line, changed) = SubtitleSpellFixHelper.ReplaceAllWholeWords(
+            "Misspeled and misspeled again",
+            "misspeled",
+            "misspelled");
+
+        Assert.True(changed);
+        Assert.Equal("Misspelled and misspelled again", line);
+    }
+
+    [Fact]
+    public void ReplaceAllWholeWords_DoesNotTouchPartialMatches()
+    {
+        var (line, changed) = SubtitleSpellFixHelper.ReplaceAllWholeWords(
+            "bad badge bad",
+            "bad",
+            "good");
+
+        Assert.True(changed);
+        Assert.Equal("good badge good", line);
+    }
+
+    [Fact]
+    public void ReplaceAllWholeWordsInBlocks_UpdatesAllCues()
+    {
+        var blocks = SrtDocumentHelper.ParseSrtBlocks(
+            """
+            1
+            00:00:01,000 --> 00:00:02,000
+            hello misspeled
+
+            2
+            00:00:02,000 --> 00:00:03,000
+            misspeled world
+            """);
+
+        var changed = SubtitleSpellFixHelper.ReplaceAllWholeWordsInBlocks(blocks, "misspeled", "misspelled");
+
+        Assert.True(changed);
+        Assert.Equal("hello misspelled", blocks[0].TextLines[0]);
+        Assert.Equal("misspelled world", blocks[1].TextLines[0]);
+    }
+
+    [Fact]
     public void MatchCasing_AllCaps()
     {
         Assert.Equal("OKAY", SubtitleSpellFixHelper.MatchCasing("OK", "okay"));
