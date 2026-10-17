@@ -63,14 +63,14 @@ public sealed record MediaConversionStatistics(
 
         var count = completed.Count;
         double? averageReduction = reductionCount > 0
-            ? Math.Round(reductionSum / reductionCount, 1)
+            ? Math.Round(reductionSum / reductionCount, 2)
             : null;
 
         return new MediaConversionStatistics(
             count,
             averageReduction,
-            Math.Round(totalInput / count, 1),
-            Math.Round(totalOutput / count, 1),
+            Math.Round(totalInput / count, 2),
+            Math.Round(totalOutput / count, 2),
             TimeSpan.FromTicks(totalTicks / count));
     }
 }

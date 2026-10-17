@@ -95,6 +95,9 @@ public static class ModuleServices
         services.AddSingleton<ITvDbClient, TvDbClient>();
         services.AddSingleton<ISeriesProcessingService, SeriesProcessingService>();
         services.AddSingleton<IBonusProcessingService, BonusProcessingService>();
+        services.AddSingleton<ISubtitleSpellCheckService, SubtitleSpellCheckService>();
+        services.AddSingleton<ISubtitleSpellIgnoreDictionary, SubtitleSpellIgnoreDictionary>();
+        services.AddSingleton<ISubtitleSpellReplacementDictionary, SubtitleSpellReplacementDictionary>();
         if (OperatingSystem.IsWindows())
             services.AddSingleton<IImageSubtitleOcrConverter, LibseImageSubtitleOcrConverter>();
         else

@@ -134,7 +134,7 @@ Accept wildcard characters: False
 ```
 
 ### -Season
-Season number to copy (1-based).
+Season number to copy (0 for specials).
 
 ```yaml
 Type: Int32

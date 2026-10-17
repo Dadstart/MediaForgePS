@@ -33,10 +33,10 @@ public class SplitSeriesChaptersCommand : CmdletBase
     public string Title { get; set; } = string.Empty;
 
     /// <summary>
-    /// Season number represented by the input file (1-based).
+    /// Season number represented by the input file (0 for specials).
     /// </summary>
-    [Parameter(Mandatory = true, HelpMessage = "Season number represented by the input file (1-based).")]
-    [ValidateRange(1, 1000)]
+    [Parameter(Mandatory = true, HelpMessage = "Season number represented by the input file (0 for specials).")]
+    [ValidateRange(0, 1000)]
     public int Season { get; set; }
 
     /// <summary>

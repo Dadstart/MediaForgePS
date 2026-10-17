@@ -109,7 +109,7 @@ Accept wildcard characters: False
 ```
 
 ### -Season
-Season number represented by the input file (1-based).
+Season number represented by the input file (0 for specials).
 
 ```yaml
 Type: Int32

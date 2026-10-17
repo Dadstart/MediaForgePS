@@ -9,9 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MediaForgePS.Analyzers\MediaForgePS.Analyzers.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="WeCantSpell.Hunspell" />
+    <ProjectReference Include="..\MediaForgePS.Analyzers\MediaForgePS.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="libse" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
@@ -29,10 +28,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="MediaForgePS.psd1" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Formats\*.format.ps1xml" CopyToOutputDirectory="PreserveNewest" Link="Formats\%(Filename)%(Extension)" />
-    <None Include="en-US\*.xml" CopyToOutputDirectory="PreserveNewest" Link="en-US\%(Filename)%(Extension)" />
+    <None Include="MediaForgePS.psd1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="MediaForgePS.psm1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="Formats\**\*.ps1xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="Formats\%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="en-US\**\*.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Link="en-US\%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Dictionaries\en_US.dic" LogicalName="Dadstart.Labs.MediaForge.Dictionaries.en_US.dic" />
+    <EmbeddedResource Include="Dictionaries\en_US.aff" LogicalName="Dadstart.Labs.MediaForge.Dictionaries.en_US.aff" />
+    <None Include="Dictionaries\README.md" />
   </ItemGroup>
 
 </Project>

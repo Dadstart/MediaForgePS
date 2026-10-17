@@ -151,7 +151,7 @@ Accept wildcard characters: False
 ```
 
 ### -Season
-Season number to process (1-based).
+Season number to process (0 for specials).
 
 ```yaml
 Type: Int32

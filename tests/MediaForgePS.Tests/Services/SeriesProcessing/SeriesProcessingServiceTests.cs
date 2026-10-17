@@ -1,4 +1,7 @@
 using System;
+using System.Globalization;
+using System.Linq;
+using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services;
@@ -96,15 +99,42 @@ public class SeriesProcessingServiceTests
         Assert.Equal("Show {tvdb 42} - s02e05.mp4", fileName);
     }
 
+    [Fact]
+    public void BuildEpisodeFileName_FormatsSeasonZero()
+    {
+        var episode = new TvDbEpisodeInfo("9", 0, "Special", 1);
+
+        var fileName = SeriesProcessingService.BuildEpisodeFileName("Show", 0, episode, ".mkv");
+
+        Assert.Equal("Show {tvdb 9} - s00e01.mkv", fileName);
+    }
+
     [Theory]
     [InlineData("https://thetvdb.com/series/show/seasons/official", 2, "https://thetvdb.com/series/show/seasons/official/2")]
     [InlineData("https://thetvdb.com/series/show/seasons/official/2", 2, "https://thetvdb.com/series/show/seasons/official/2")]
+    [InlineData("https://thetvdb.com/series/show/seasons/official", 0, "https://thetvdb.com/series/show/seasons/official/0")]
+    [InlineData("https://thetvdb.com/series/show/seasons/official/0", 0, "https://thetvdb.com/series/show/seasons/official/0")]
     [InlineData(null, 2, null)]
     public void EnsureSeasonUrl_NormalizesWhenSeasonSuffixMissing(string? input, int season, string? expected)
     {
         var result = InvokeSeriesProcessingCommand.EnsureSeasonUrl(input, season);
 
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(typeof(InvokeSeasonScanCommand))]
+    [InlineData(typeof(InvokeVideoCopyCommand))]
+    [InlineData(typeof(InvokeSeriesProcessingCommand))]
+    [InlineData(typeof(SplitSeriesChaptersCommand))]
+    public void SeasonParameter_AllowsSeasonZero(Type cmdletType)
+    {
+        var attribute = cmdletType.GetProperty(nameof(InvokeSeriesProcessingCommand.Season))!
+            .GetCustomAttributes(typeof(ValidateRangeAttribute), inherit: false)
+            .Cast<ValidateRangeAttribute>()
+            .Single();
+
+        Assert.Equal(0, Convert.ToInt32(attribute.MinRange, CultureInfo.InvariantCulture));
     }
 
     [Fact]

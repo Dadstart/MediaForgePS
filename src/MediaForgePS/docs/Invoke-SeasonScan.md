@@ -67,7 +67,7 @@ Scans season 2 and uses the result for video copy.
 ## PARAMETERS
 
 ### -Season
-Season number to scan (1-based).
+Season number to scan (0 for specials).
 
 ```yaml
 Type: Int32

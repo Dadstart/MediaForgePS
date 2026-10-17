@@ -99,6 +99,48 @@ public class TvDbClientTests
     }
 
     [Fact]
+    public async Task GetSeasonEpisodesAsync_AcceptsSeasonZero()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/login", StringComparison.Ordinal))
+                return JsonResponse("""{"status":"success","data":{"token":"tok"}}""");
+
+            Assert.Contains("season=0", request.RequestUri!.Query, StringComparison.Ordinal);
+            return JsonResponse(
+                """
+                {
+                  "status":"success",
+                  "data":{
+                    "episodes":[
+                      {"id":9,"name":"Unaired Pilot","number":1,"seasonNumber":0}
+                    ]
+                  },
+                  "links":{"next":null}
+                }
+                """);
+        });
+
+        using var client = CreateClient(handler, apiKey: "test-key");
+        var episodes = await client.GetSeasonEpisodesAsync(1, 0, "official", TestContext.Current.CancellationToken);
+
+        var episode = Assert.Single(episodes);
+        Assert.Equal(("9", 0, "Unaired Pilot", 1), (episode.Id, episode.SeasonNumber, episode.Title, episode.EpisodeNumber));
+    }
+
+    [Fact]
+    public async Task GetSeasonEpisodesAsync_WhenSeasonIsNegative_ThrowsArgumentOutOfRangeException()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("HTTP should not be called."));
+        using var client = CreateClient(handler, apiKey: "test-key");
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => client.GetSeasonEpisodesAsync(1, -1, "official", TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task GetSeasonEpisodesAsync_WhenNextLinkNeverEnds_ThrowsAfterPageCap()
     {
         var handler = new StubHttpMessageHandler(request =>

@@ -33,10 +33,10 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     public string Title { get; set; } = string.Empty;
 
     /// <summary>
-    /// Season number to process (1-based).
+    /// Season number to process (0 for specials).
     /// </summary>
-    [Parameter(Mandatory = true, HelpMessage = "Season number to process (1-based).")]
-    [ValidateRange(1, 9999)]
+    [Parameter(Mandatory = true, HelpMessage = "Season number to process (0 for specials).")]
+    [ValidateRange(0, 9999)]
     public int Season { get; set; }
 
     /// <summary>
@@ -95,10 +95,10 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
     public SwitchParameter ExtractChapters { get; set; }
 
     /// <summary>
-    /// When specified, skips caption extraction after copying episodes (chapters may still be extracted).
+    /// When specified, performs caption extraction after copying episodes (chapters may still be extracted).
     /// </summary>
     [Parameter(HelpMessage = "Skip caption extraction after copying episodes (chapters may still be extracted).")]
-    public SwitchParameter SkipCaptionExtraction { get; set; }
+    public SwitchParameter CaptionExtraction { get; set; }
 
     /// <summary>
     /// Controls OCR of image-based captions (SUP, SUB). Default is Auto. Skip leaves exported captions unchanged; Force OCRs all image subtitle files; Auto OCRs image subtitles when the source has a single exported subtitle format and it is not SRT.
@@ -208,7 +208,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
             WriteVerbose($"Chapter extraction - processed: {chapterStats.Processed}, failed: {chapterStats.Failed}, total: {chapterStats.Total}.");
         }
 
-        if (!SkipCaptionExtraction.IsPresent)
+        if (CaptionExtraction.IsPresent)
         {
             WriteHostMessage(string.Empty);
             var stepNum = ExtractChapters.IsPresent ? 5 : 4;

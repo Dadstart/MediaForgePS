@@ -4,7 +4,7 @@
     Stages a PowerShell Gallery-ready MediaForgePS module folder and zip artifact.
 
 .DESCRIPTION
-    Copies the built module layout (manifest, script module, assemblies, help) into
+    Copies the built module layout (manifest, script module, assemblies, formatting, and help) into
     artifacts/MediaForgePS and compresses it to MediaForgePS.<version>.zip.
     This is the PS module packaging path; the C# project is not packed as a NuGet package.
 
@@ -100,12 +100,12 @@ else {
 }
 
 $helpSource = Join-Path $buildOutput 'en-US'
-if (Test-Path -LiteralPath $helpSource) {
-    Copy-Item -LiteralPath $helpSource -Destination (Join-Path $moduleRoot 'en-US') -Recurse -Force
+$helpFile = Join-Path $helpSource 'MediaForgePS.dll-Help.xml'
+if (-not (Test-Path -LiteralPath $helpFile)) {
+    throw "Help file not found at $helpFile (required runtime XML)."
 }
-else {
-    Write-Warning "Help directory not found at $helpSource (module will pack without MAML help)."
-}
+
+Copy-Item -LiteralPath $helpSource -Destination (Join-Path $moduleRoot 'en-US') -Recurse -Force
 
 $stagedManifest = Join-Path $moduleRoot 'MediaForgePS.psd1'
 $null = Test-ModuleManifest -Path $stagedManifest -ErrorAction Stop
