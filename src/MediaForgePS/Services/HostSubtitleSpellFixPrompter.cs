@@ -13,11 +13,11 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
 {
     private const int MaxSuggestionChoices = 5;
 
-    private static readonly ConsoleColor ShortcutColor = ConsoleColor.Cyan;
-    private static readonly ConsoleColor CommandColor = ConsoleColor.Gray;
-    private static readonly ConsoleColor SuggestionColor = ConsoleColor.Green;
-    private static readonly ConsoleColor MisspellingColor = ConsoleColor.Yellow;
-    private static readonly ConsoleColor LabelColor = ConsoleColor.DarkGray;
+    private static readonly ConsoleColor _shortcutColor = ConsoleColor.Cyan;
+    private static readonly ConsoleColor _commandColor = ConsoleColor.Gray;
+    private static readonly ConsoleColor _suggestionColor = ConsoleColor.Green;
+    private static readonly ConsoleColor _misspellingColor = ConsoleColor.Yellow;
+    private static readonly ConsoleColor _labelColor = ConsoleColor.DarkGray;
 
     private readonly PSCmdlet _cmdlet;
 
@@ -45,7 +45,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         while (true)
         {
             WriteActionMenu(ui, suggestions, prompt.Word);
-            WriteColored(ui, ShortcutColor, "> ");
+            WriteColored(ui, _shortcutColor, "> ");
             var input = (ui.ReadLine() ?? string.Empty).Trim();
             if (input.Length == 0)
                 continue;
@@ -61,9 +61,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                 case "c":
                 case "custom":
                     {
-                        WriteColored(ui, CommandColor, "Replacement for ");
-                        WriteColored(ui, MisspellingColor, $"'{prompt.Word}'");
-                        WriteColored(ui, CommandColor, ": ");
+                        WriteColored(ui, _commandColor, "Replacement for ");
+                        WriteColored(ui, _misspellingColor, $"'{prompt.Word}'");
+                        WriteColored(ui, _commandColor, ": ");
                         var custom = ui.ReadLine();
                         if (string.IsNullOrWhiteSpace(custom))
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
@@ -75,15 +75,15 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                 case "replace":
                 case "replaceall":
                     {
-                        WriteColored(ui, CommandColor, "Replace all ");
-                        WriteColored(ui, MisspellingColor, $"'{prompt.Word}'");
-                        WriteColored(ui, CommandColor, " with");
+                        WriteColored(ui, _commandColor, "Replace all ");
+                        WriteColored(ui, _misspellingColor, $"'{prompt.Word}'");
+                        WriteColored(ui, _commandColor, " with");
                         if (suggestions.Count > 0)
                         {
-                            WriteColored(ui, LabelColor, " (suggestion number or typed word)");
+                            WriteColored(ui, _labelColor, " (suggestion number or typed word)");
                         }
 
-                        WriteColored(ui, CommandColor, ": ");
+                        WriteColored(ui, _commandColor, ": ");
                         var replaceAllInput = (ui.ReadLine() ?? string.Empty).Trim();
                         if (string.IsNullOrWhiteSpace(replaceAllInput))
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
@@ -97,10 +97,10 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                 case "e":
                 case "edit":
                     {
-                        WriteColored(ui, CommandColor, "Current line: ");
+                        WriteColored(ui, _commandColor, "Current line: ");
                         WriteHighlightedSpanOnly(ui, prompt);
                         ui.WriteLine();
-                        WriteColored(ui, CommandColor, "New line (Enter keeps current): ");
+                        WriteColored(ui, _commandColor, "New line (Enter keeps current): ");
                         var edited = ui.ReadLine();
                         if (edited is null)
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
@@ -126,7 +126,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                 case "s":
                 case "surrounding":
                     WriteSurroundingLines(ui, prompt);
-                    WriteColored(ui, CommandColor, "Choose a correction for this instance:");
+                    WriteColored(ui, _commandColor, "Choose a correction for this instance:");
                     ui.WriteLine();
                     continue;
 
@@ -146,27 +146,27 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
     {
         ui.WriteLine(string.Empty);
         WriteLabelValue(ui, "File", prompt.Path);
-        WriteColored(ui, LabelColor, "Cue ");
-        WriteColored(ui, CommandColor, prompt.CueNumber.ToString());
-        WriteColored(ui, LabelColor, "  ");
-        WriteColored(ui, CommandColor, prompt.Timestamp);
-        WriteColored(ui, LabelColor, "  (line ");
-        WriteColored(ui, CommandColor, prompt.LineNumber.ToString());
-        WriteColored(ui, LabelColor, ")");
+        WriteColored(ui, _labelColor, "Cue ");
+        WriteColored(ui, _commandColor, prompt.CueNumber.ToString());
+        WriteColored(ui, _labelColor, "  ");
+        WriteColored(ui, _commandColor, prompt.Timestamp);
+        WriteColored(ui, _labelColor, "  (line ");
+        WriteColored(ui, _commandColor, prompt.LineNumber.ToString());
+        WriteColored(ui, _labelColor, ")");
         ui.WriteLine();
 
         WriteFullLineWithHighlight(ui, prompt);
 
-        WriteColored(ui, LabelColor, "Misspelling: ");
-        WriteColored(ui, MisspellingColor, prompt.Word);
+        WriteColored(ui, _labelColor, "Misspelling: ");
+        WriteColored(ui, _misspellingColor, prompt.Word);
         WriteColored(
             ui,
-            LabelColor,
+            _labelColor,
             prompt.InstanceTotal > 0
                 ? $"  (instance {prompt.InstanceNumber} of {prompt.InstanceTotal})"
                 : $"  (instance {prompt.InstanceNumber})");
         ui.WriteLine();
-        WriteColored(ui, CommandColor, "Choose a correction for this instance:");
+        WriteColored(ui, _commandColor, "Choose a correction for this instance:");
         ui.WriteLine();
     }
 
@@ -177,22 +177,22 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
     {
         for (var i = 0; i < suggestions.Count; i++)
         {
-            WriteMenuItem(ui, (i + 1).ToString(), suggestions[i], SuggestionColor, $"Replace with '{suggestions[i]}'");
+            WriteMenuItem(ui, (i + 1).ToString(), suggestions[i], _suggestionColor, $"Replace with '{suggestions[i]}'");
         }
 
-        WriteMenuItem(ui, "C", "Custom", CommandColor, "Type a custom replacement word");
+        WriteMenuItem(ui, "C", "Custom", _commandColor, "Type a custom replacement word");
         WriteMenuItem(
             ui,
             "R",
             "Replace all",
-            CommandColor,
+            _commandColor,
             $"Replace every '{word}' in this file and optionally save for future runs (R1.. = suggestion)");
-        WriteMenuItem(ui, "E", "Edit line", CommandColor, "Edit the entire subtitle line");
-        WriteMenuItem(ui, "I", "Ignore once", CommandColor, "Leave this occurrence unchanged");
-        WriteMenuItem(ui, "A", "Ignore all", CommandColor, $"Ignore '{word}' for the rest of this run");
-        WriteMenuItem(ui, "F", "Ignore forever", CommandColor, $"Ignore '{word}' and save to the persistent dictionary");
-        WriteMenuItem(ui, "S", "Show surrounding", CommandColor, "Show nearby subtitle lines, then choose again");
-        WriteMenuItem(ui, "Q", "Quit file", CommandColor, "Stop fixing this file");
+        WriteMenuItem(ui, "E", "Edit line", _commandColor, "Edit the entire subtitle line");
+        WriteMenuItem(ui, "I", "Ignore once", _commandColor, "Leave this occurrence unchanged");
+        WriteMenuItem(ui, "A", "Ignore all", _commandColor, $"Ignore '{word}' for the rest of this run");
+        WriteMenuItem(ui, "F", "Ignore forever", _commandColor, $"Ignore '{word}' and save to the persistent dictionary");
+        WriteMenuItem(ui, "S", "Show surrounding", _commandColor, "Show nearby subtitle lines, then choose again");
+        WriteMenuItem(ui, "Q", "Quit file", _commandColor, "Stop fixing this file");
     }
 
     private static void WriteMenuItem(
@@ -202,12 +202,12 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         ConsoleColor labelColor,
         string description)
     {
-        WriteColored(ui, LabelColor, "  [");
-        WriteColored(ui, ShortcutColor, shortcut);
-        WriteColored(ui, LabelColor, "] ");
+        WriteColored(ui, _labelColor, "  [");
+        WriteColored(ui, _shortcutColor, shortcut);
+        WriteColored(ui, _labelColor, "] ");
         WriteColored(ui, labelColor, label);
-        WriteColored(ui, LabelColor, "  - ");
-        WriteColored(ui, LabelColor, description);
+        WriteColored(ui, _labelColor, "  - ");
+        WriteColored(ui, _labelColor, description);
         ui.WriteLine();
     }
 
@@ -220,14 +220,14 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         ArgumentNullException.ThrowIfNull(prompt);
 
         ui.WriteLine(string.Empty);
-        WriteColored(ui, LabelColor, "Surrounding lines:");
+        WriteColored(ui, _labelColor, "Surrounding lines:");
         ui.WriteLine();
 
         var before = prompt.EffectiveLinesBefore;
         var after = prompt.EffectiveLinesAfter;
         if (before.Count == 0 && after.Count == 0)
         {
-            WriteColored(ui, LabelColor, "  (no surrounding lines)");
+            WriteColored(ui, _labelColor, "  (no surrounding lines)");
             ui.WriteLine();
             WriteFullLineWithHighlight(ui, prompt);
             ui.WriteLine();
@@ -236,20 +236,20 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
 
         foreach (var line in before)
         {
-            WriteColored(ui, LabelColor, "  ");
-            WriteColored(ui, CommandColor, line);
+            WriteColored(ui, _labelColor, "  ");
+            WriteColored(ui, _commandColor, line);
             ui.WriteLine();
         }
 
-        WriteColored(ui, ShortcutColor, "> ");
-        WriteColored(ui, LabelColor, $"[cue {prompt.CueNumber}] ");
+        WriteColored(ui, _shortcutColor, "> ");
+        WriteColored(ui, _labelColor, $"[cue {prompt.CueNumber}] ");
         WriteHighlightedSpanOnly(ui, prompt);
         ui.WriteLine();
 
         foreach (var line in after)
         {
-            WriteColored(ui, LabelColor, "  ");
-            WriteColored(ui, CommandColor, line);
+            WriteColored(ui, _labelColor, "  ");
+            WriteColored(ui, _commandColor, line);
             ui.WriteLine();
         }
 
@@ -264,7 +264,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         ArgumentNullException.ThrowIfNull(ui);
         ArgumentNullException.ThrowIfNull(prompt);
 
-        WriteColored(ui, LabelColor, "Line: ");
+        WriteColored(ui, _labelColor, "Line: ");
         WriteHighlightedSpanOnly(ui, prompt);
         ui.WriteLine();
     }
@@ -292,7 +292,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         if (start > 0)
             ui.Write(foreground, background, line[..start]);
 
-        ui.Write(MisspellingColor, background, line.Substring(start, length));
+        ui.Write(_misspellingColor, background, line.Substring(start, length));
 
         if (start + length < line.Length)
             ui.Write(foreground, background, line[(start + length)..]);
@@ -356,9 +356,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
     /// </summary>
     internal static bool PromptPersistReplacement(PSHostUserInterface ui)
     {
-        WriteColored(ui, CommandColor, "Save this replacement for future runs? [");
-        WriteColored(ui, ShortcutColor, "Y");
-        WriteColored(ui, CommandColor, "/n]: ");
+        WriteColored(ui, _commandColor, "Save this replacement for future runs? [");
+        WriteColored(ui, _shortcutColor, "Y");
+        WriteColored(ui, _commandColor, "/n]: ");
         var answer = (ui.ReadLine() ?? string.Empty).Trim();
         if (answer.Length == 0)
             return true;
@@ -368,9 +368,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
 
     private static void WriteLabelValue(PSHostUserInterface ui, string label, string value)
     {
-        WriteColored(ui, LabelColor, label);
-        WriteColored(ui, LabelColor, ": ");
-        WriteColored(ui, CommandColor, value);
+        WriteColored(ui, _labelColor, label);
+        WriteColored(ui, _labelColor, ": ");
+        WriteColored(ui, _commandColor, value);
         ui.WriteLine();
     }
 
