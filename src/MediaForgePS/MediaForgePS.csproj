@@ -24,7 +24,6 @@
     </PackageReference>
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="Tesseract" />
-    <PackageReference Include="Tesseract.Drawing" />
   </ItemGroup>
 
   <ItemGroup>

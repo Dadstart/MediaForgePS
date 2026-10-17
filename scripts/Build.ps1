@@ -447,7 +447,7 @@ if ($Test) {
 
         $testArgs = @(
             'test',
-            $slnPath,
+            '--solution', $slnPath,
             '--configuration', $Configuration,
             '--verbosity', $Verbosity,
             '--no-build'

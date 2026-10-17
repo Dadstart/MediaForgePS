@@ -30,14 +30,14 @@ dotnet test
 ### C# unit tests (xUnit)
 
 ```powershell
-dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
+dotnet test --project tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 ```
 
 CI collects line coverage from this project via `coverlet.msbuild` and fails when total line coverage drops below **70%**. Cobertura output is written to `tests/MediaForgePS.Tests/TestResults/coverage.cobertura.xml`.
 
 ```powershell
 ./scripts/Build.ps1 -Build -Test -Coverage
-dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj /p:CollectCoverage=true
+dotnet test --project tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj /p:CollectCoverage=true
 ```
 
 ### Component tests
@@ -45,7 +45,7 @@ dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj /p:CollectCoverag
 Requires `ffmpeg` and `ffprobe` on `PATH` and test assets under `MediaForgePS.ComponentTests/TestAssets`. Tests use `[SkippableFact]` / `SkipException` and skip when tools or assets are missing.
 
 ```powershell
-dotnet test tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj
+dotnet test --project tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj
 ```
 
 Current coverage includes `Get-MediaFile`, `Get-AudioStreams`, convert cmdlets (`Convert-MediaFiles`, `Convert-MediaFileAdvanced`, `Convert-VideoFile`), `Export-MediaStream`, `Split-Chapters`, `Invoke-VideoCopy`, `Invoke-BonusFileProcessing`, the Media PSProvider, and `FfmpegService`/`ExecutableService` spaced-path integration. See [MediaForgePS.ComponentTests/TestAssets/README.md](MediaForgePS.ComponentTests/TestAssets/README.md) for asset details.
@@ -72,7 +72,7 @@ Invoke-Pester -Path tests/MediaForgePS.Tests/PowerShell -Configuration tests/Med
 Packs the built module via `scripts/Pack-Module.ps1`, imports the staged Gallery layout, and smokes `Get-MediaFile` plus factory cmdlets. Requires a complete build output (`MediaForgePS.dll`, manifest, `Formats/`) and `ffmpeg`/`ffprobe` for the probe path.
 
 ```powershell
-dotnet test tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj
+dotnet test --project tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj
 ```
 
 Set `MEDIAFORGE_CONFIGURATION` to `Debug` or `Release` to select which build output to pack (Build.ps1 sets this automatically).

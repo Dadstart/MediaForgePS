@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Text;
@@ -12,7 +10,7 @@ using Nikse.SubtitleEdit.Core.BluRaySup;
 using Nikse.SubtitleEdit.Core.Common;
 using Nikse.SubtitleEdit.Core.SubtitleFormats;
 using Nikse.SubtitleEdit.Core.VobSub;
-using Nikse.SubtitleEdit.Core.VobSub.Ocr;
+using SkiaSharp;
 using Tesseract;
 
 namespace Dadstart.Labs.MediaForge.Services.Ocr;
@@ -156,7 +154,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
     /// <summary>
     /// Renders a VobSub picture using the IDX palette so glyph fill is not the default black.
     /// </summary>
-    internal static Bitmap GetOcrBitmap(VobSubMergedPack pack)
+    internal static SKBitmap GetOcrBitmap(VobSubMergedPack pack)
     {
         ArgumentNullException.ThrowIfNull(pack);
         return pack.GetBitmap();
@@ -176,7 +174,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
                 continue;
 
             var text = OcrBitmap(engine, bitmap);
-            text = OcrHelper.PostOcr(text, _language);
+            text = string.Join(Environment.NewLine, text.SplitToLines()).Trim();
             if (string.IsNullOrWhiteSpace(text))
                 continue;
 
@@ -189,7 +187,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
         return subtitle;
     }
 
-    private static string OcrBitmap(TesseractEngine engine, Bitmap bitmap)
+    private static string OcrBitmap(TesseractEngine engine, SKBitmap bitmap)
     {
         using var opaque = FlattenOntoBlack(bitmap);
         using var inverted = InvertRgb(opaque);
@@ -200,45 +198,40 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
         return ProcessPix(engine, opaque);
     }
 
-    private static string ProcessPix(TesseractEngine engine, Bitmap bitmap)
+    private static string ProcessPix(TesseractEngine engine, SKBitmap bitmap)
     {
-        using var pix = PixConverter.ToPix(bitmap);
+        using var data = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        if (data is null)
+            return string.Empty;
+
+        using var pix = Pix.LoadFromMemory(data.ToArray());
         using var page = engine.Process(pix, PageSegMode.SingleBlock);
         return page.GetText() ?? string.Empty;
     }
 
-    private static Bitmap FlattenOntoBlack(Bitmap source)
+    private static SKBitmap FlattenOntoBlack(SKBitmap source)
     {
         const int Margin = 10;
-        var result = new Bitmap(source.Width + Margin * 2, source.Height + Margin * 2, PixelFormat.Format24bppRgb);
-        using var graphics = Graphics.FromImage(result);
-        graphics.Clear(Color.Black);
-        graphics.DrawImage(source, Margin, Margin, source.Width, source.Height);
+        var result = new SKBitmap(source.Width + (Margin * 2), source.Height + (Margin * 2));
+        using var canvas = new SKCanvas(result);
+        canvas.Clear(SKColors.Black);
+        canvas.DrawBitmap(source, Margin, Margin);
         return result;
     }
 
-    private static Bitmap InvertRgb(Bitmap source)
+    private static SKBitmap InvertRgb(SKBitmap source)
     {
-        var result = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
-        using var graphics = Graphics.FromImage(result);
-        using var attributes = new ImageAttributes();
-        attributes.SetColorMatrix(new ColorMatrix(
+        var result = new SKBitmap(source.Width, source.Height);
+        using var canvas = new SKCanvas(result);
+        using var filter = SKColorFilter.CreateColorMatrix(
         [
-            [-1f, 0f, 0f, 0f, 0f],
-            [0f, -1f, 0f, 0f, 0f],
-            [0f, 0f, -1f, 0f, 0f],
-            [0f, 0f, 0f, 1f, 0f],
-            [1f, 1f, 1f, 0f, 1f]
-        ]));
-        graphics.DrawImage(
-            source,
-            new Rectangle(0, 0, source.Width, source.Height),
-            0,
-            0,
-            source.Width,
-            source.Height,
-            GraphicsUnit.Pixel,
-            attributes);
+            -1f, 0f, 0f, 0f, 1f,
+            0f, -1f, 0f, 0f, 1f,
+            0f, 0f, -1f, 0f, 1f,
+            0f, 0f, 0f, 1f, 0f
+        ]);
+        using var paint = new SKPaint { ColorFilter = filter };
+        canvas.DrawBitmap(source, 0, 0, paint);
         return result;
     }
 
@@ -264,5 +257,5 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
         throw new NotSupportedException($"Unsupported VobSub path: {inputPath}");
     }
 
-    private readonly record struct OcrFrame(TimeCode Start, TimeCode End, Func<Bitmap> GetBitmap);
+    private readonly record struct OcrFrame(TimeCode Start, TimeCode End, Func<SKBitmap> GetBitmap);
 }

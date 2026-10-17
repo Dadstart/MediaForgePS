@@ -100,7 +100,7 @@ public class LibseImageSubtitleOcrConverterTests : IDisposable
     public void LoadMergedVobSubPacks_AssignsIdxPaletteToEachPack()
     {
         if (!OperatingSystem.IsWindows())
-            throw SkipException.ForSkip("VobSub fixture generation requires Windows System.Drawing.");
+            throw SkipException.ForSkip("VobSub fixture generation requires Windows.");
 
         var subPath = ImageSubtitleTestAssetFactory.CreateVobSubWithText(_tempDir, "palette", "HELLO");
         var packs = LibseImageSubtitleOcrConverter.LoadMergedVobSubPacks(subPath);
@@ -118,7 +118,7 @@ public class LibseImageSubtitleOcrConverterTests : IDisposable
     public void ConvertToSrt_WithGeneratedVobSub_WritesNonEmptySrt()
     {
         if (!OperatingSystem.IsWindows())
-            throw SkipException.ForSkip("VobSub fixture generation requires Windows System.Drawing.");
+            throw SkipException.ForSkip("VobSub fixture generation requires Windows.");
 
         var converter = CreateConverterOrSkip();
         var subPath = ImageSubtitleTestAssetFactory.CreateVobSubWithText(_tempDir, "hello", "HELLO");

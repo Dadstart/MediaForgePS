@@ -1,13 +1,14 @@
 using System;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
 using Dadstart.Labs.MediaForge.Cmdlets;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Services.Ocr;
+using Nikse.SubtitleEdit.Core.BluRaySup;
 using Nikse.SubtitleEdit.Core.Common;
 using Nikse.SubtitleEdit.Core.VobSub;
+using SkiaSharp;
 using Xunit;
 using Xunit.Sdk;
 
@@ -98,21 +99,22 @@ public class InvokeSubtitleOcrRepairCommandComponentTests : ComponentTestBase
             bottomMargin: 20,
             leftRightMargin: 10,
             languageStreamId: 0x20,
-            pattern: Color.White,
-            emphasis1: Color.Black,
+            pattern: SKColors.White,
+            emphasis1: SKColors.Black,
             useInnerAntiAliasing: true,
             language: DvdSubtitleLanguage.English);
 
-        using var bitmap = new Bitmap(320, 80);
-        using (var graphics = Graphics.FromImage(bitmap))
+        using var bitmap = new SKBitmap(320, 80);
+        using (var canvas = new SKCanvas(bitmap))
         {
-            graphics.Clear(Color.Black);
-            using var font = new Font(FontFamily.GenericSansSerif, 36, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var brush = new SolidBrush(Color.White);
-            graphics.DrawString(text, font, brush, x: 8, y: 16);
+            canvas.Clear(SKColors.Black);
+            using var typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold);
+            using var font = new SKFont(typeface, 36);
+            using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+            canvas.DrawText(text, 8, 56, SKTextAlign.Left, font, paint);
         }
 
-        writer.WriteParagraph(new Paragraph(text, 0, 1000), bitmap, ContentAlignment.BottomCenter, null);
+        writer.WriteParagraph(new Paragraph(text, 0, 1000), bitmap, BluRayContentAlignment.BottomCenter, null);
         writer.WriteIdxFile();
         return subPath;
     }

@@ -134,7 +134,7 @@ public void ConvertMediaFilesCommand_ProcessesFile_Successfully()
 Run the test with debugger attached:
 
 ```powershell
-dotnet test --filter "FullyQualifiedName~ConvertMediaFilesCommandComponentTests" --logger "console;verbosity=detailed"
+dotnet test --filter-class "*ConvertMediaFilesCommandComponentTests*" --output Detailed
 ```
 
 ## Debugging Tips
@@ -215,7 +215,7 @@ Set breakpoints in:
 
 ### Run Tests with Debugger
 ```powershell
-dotnet test --filter "FullyQualifiedName~ConvertMediaFilesCommand" --logger "console;verbosity=detailed"
+dotnet test --filter-class "*ConvertMediaFilesCommand*" --output Detailed
 ```
 
 ### Enable DebuggerService Breakpoints

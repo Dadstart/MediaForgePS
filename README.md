@@ -72,7 +72,7 @@ dotnet test
 ### Run C# unit tests only
 
 ```powershell
-dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
+dotnet test --project tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 ```
 
 ### Run component tests
@@ -80,7 +80,7 @@ dotnet test tests/MediaForgePS.Tests/MediaForgePS.Tests.csproj
 Component tests exercise cmdlets with real `ffmpeg`/`ffprobe` (no mocks). They are skipped automatically when media tools or test assets are missing.
 
 ```powershell
-dotnet test tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj
+dotnet test --project tests/MediaForgePS.ComponentTests/MediaForgePS.ComponentTests.csproj
 ```
 
 See [tests/MediaForgePS.ComponentTests/TestAssets/README.md](tests/MediaForgePS.ComponentTests/TestAssets/README.md) for test media assets.
@@ -99,7 +99,7 @@ See [tests/MediaForgePS.ComponentTests/TestAssets/README.md](tests/MediaForgePS.
 Packs the Gallery module layout and imports it for a short cmdlet smoke:
 
 ```powershell
-dotnet test tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj
+dotnet test --project tests/MediaForgePS.E2ETests/MediaForgePS.E2ETests.csproj
 ```
 
 See [tests/README.md](tests/README.md) for more detail on each test project.

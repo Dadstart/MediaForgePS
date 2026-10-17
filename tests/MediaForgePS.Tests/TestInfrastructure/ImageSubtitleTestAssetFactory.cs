@@ -1,9 +1,10 @@
 using System;
-using System.Drawing;
 using System.IO;
 using System.Runtime.Versioning;
+using Nikse.SubtitleEdit.Core.BluRaySup;
 using Nikse.SubtitleEdit.Core.Common;
 using Nikse.SubtitleEdit.Core.VobSub;
+using SkiaSharp;
 
 namespace Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 
@@ -33,28 +34,29 @@ public static class ImageSubtitleTestAssetFactory
             bottomMargin: 20,
             leftRightMargin: 10,
             languageStreamId: 0x20,
-            pattern: Color.White,
-            emphasis1: Color.Black,
+            pattern: SKColors.White,
+            emphasis1: SKColors.Black,
             useInnerAntiAliasing: true,
             language: DvdSubtitleLanguage.English);
 
         using var bitmap = CreateTextBitmap(text);
         var paragraph = new Paragraph(text, 0, 1000);
-        writer.WriteParagraph(paragraph, bitmap, ContentAlignment.BottomCenter, null);
+        writer.WriteParagraph(paragraph, bitmap, BluRayContentAlignment.BottomCenter, null);
         writer.WriteIdxFile();
 
         AssertFilesExist(subPath);
         return subPath;
     }
 
-    private static Bitmap CreateTextBitmap(string text)
+    private static SKBitmap CreateTextBitmap(string text)
     {
-        var bitmap = new Bitmap(320, 80);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.Clear(Color.Black);
-        using var font = new Font(FontFamily.GenericSansSerif, 36, FontStyle.Bold, GraphicsUnit.Pixel);
-        using var brush = new SolidBrush(Color.White);
-        graphics.DrawString(text, font, brush, x: 8, y: 16);
+        var bitmap = new SKBitmap(320, 80);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.Black);
+        using var typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold);
+        using var font = new SKFont(typeface, 36);
+        using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+        canvas.DrawText(text, 8, 56, SKTextAlign.Left, font, paint);
         return bitmap;
     }
 
