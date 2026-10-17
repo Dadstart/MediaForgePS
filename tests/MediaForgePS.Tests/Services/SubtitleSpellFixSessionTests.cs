@@ -181,7 +181,10 @@ public class SubtitleSpellFixSessionTests
                 NullLogger<SubtitleSpellReplacementDictionary>.Instance,
                 replacementPath);
             var prompter = new ScriptedPrompter([
-                new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, "misspelled", PersistReplacement: true)
+                new SubtitleSpellFixDecision(
+                    SubtitleSpellFixAction.ReplaceAll,
+                    "misspelled",
+                    SubtitleSpellReplacementScope.Forever)
             ]);
             var session = new SubtitleSpellFixSession(spell, prompter, replacementDictionary: replacements);
             var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
@@ -190,6 +193,46 @@ public class SubtitleSpellFixSessionTests
             Assert.True(session.FixFile(srtPath, options, ignore));
             Assert.True(replacements.LoadReplacements().TryGetValue("misspeled", out var saved));
             Assert.Equal("misspelled", saved);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FixFile_ReplaceAll_WhenAlways_AppliesToLaterFilesWithoutSaving()
+    {
+        var tempDir = CreateTempDictionary("3\nhello\nworld\nmisspelled\n", "SET UTF-8\n");
+        var firstPath = Path.Combine(tempDir, "first.srt");
+        var secondPath = Path.Combine(tempDir, "second.srt");
+        var replacementPath = Path.Combine(tempDir, "spelling-replacements.txt");
+        try
+        {
+            File.WriteAllText(firstPath, "1\n00:00:01,000 --> 00:00:02,000\nhello misspeled world\n\n");
+            File.WriteAllText(secondPath, "1\n00:00:01,000 --> 00:00:02,000\nhello misspeled world\n\n");
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var spell = CreateSpellServiceWithoutSuggestions();
+            var replacements = new SubtitleSpellReplacementDictionary(
+                NullLogger<SubtitleSpellReplacementDictionary>.Instance,
+                replacementPath);
+            var prompter = new ScriptedPrompter([
+                new SubtitleSpellFixDecision(
+                    SubtitleSpellFixAction.ReplaceAll,
+                    "misspelled",
+                    SubtitleSpellReplacementScope.Always)
+            ]);
+            var session = new SubtitleSpellFixSession(spell, prompter, replacementDictionary: replacements);
+            var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
+            var ignore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            Assert.True(session.FixFile(firstPath, options, ignore));
+            Assert.True(session.FixFile(secondPath, options, ignore));
+
+            Assert.Contains("hello misspelled world", File.ReadAllText(firstPath));
+            Assert.Contains("hello misspelled world", File.ReadAllText(secondPath));
+            Assert.Single(prompter.Prompts);
+            Assert.False(File.Exists(replacementPath));
         }
         finally
         {

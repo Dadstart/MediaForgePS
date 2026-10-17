@@ -44,6 +44,27 @@ public enum SubtitleSpellFixAction
 }
 
 /// <summary>
+/// How long a replacement chosen during interactive fixing is remembered.
+/// </summary>
+public enum SubtitleSpellReplacementScope
+{
+    /// <summary>
+    /// Do not remember the replacement beyond the current action.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Replace every remaining occurrence for the rest of this run.
+    /// </summary>
+    Always,
+
+    /// <summary>
+    /// Replace every remaining occurrence and save the mapping for future runs.
+    /// </summary>
+    Forever
+}
+
+/// <summary>
 /// Result of prompting the user about one misspelling.
 /// </summary>
 /// <param name="Action">Chosen action.</param>
@@ -52,11 +73,13 @@ public enum SubtitleSpellFixAction
 /// or <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
 /// or the full replacement line when <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceLine"/>.
 /// </param>
-/// <param name="PersistReplacement">
-/// When true and <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
-/// save the mapping to the persistent replacement dictionary for future runs.
+/// <param name="ReplacementScope">
+/// When <see cref="SubtitleSpellReplacementScope.Always"/> or <see cref="SubtitleSpellReplacementScope.Forever"/>
+/// and <see cref="Action"/> is <see cref="SubtitleSpellFixAction.ReplaceAll"/>,
+/// remember the mapping for the rest of this run.
+/// <see cref="SubtitleSpellReplacementScope.Forever"/> also writes it to the persistent replacement dictionary.
 /// </param>
 public sealed record SubtitleSpellFixDecision(
     SubtitleSpellFixAction Action,
     string? Replacement = null,
-    bool PersistReplacement = false);
+    SubtitleSpellReplacementScope ReplacementScope = SubtitleSpellReplacementScope.None);

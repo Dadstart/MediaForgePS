@@ -68,7 +68,9 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
                         if (string.IsNullOrWhiteSpace(custom))
                             return new SubtitleSpellFixDecision(SubtitleSpellFixAction.IgnoreOnce);
 
-                        return new SubtitleSpellFixDecision(SubtitleSpellFixAction.Replace, custom.Trim());
+                        var replacement = custom.Trim();
+                        var scope = PromptReplacementScope(ui, prompt.Word, replacement);
+                        return CreateScopedReplacementDecision(replacement, scope);
                     }
 
                 case "r":
@@ -180,7 +182,7 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
             WriteMenuItem(ui, (i + 1).ToString(), suggestions[i], _suggestionColor, $"Replace with '{suggestions[i]}'");
         }
 
-        WriteMenuItem(ui, "C", "Custom", _commandColor, "Type a custom replacement word");
+        WriteMenuItem(ui, "C", "Custom", _commandColor, "Type a custom replacement, then save it always or forever");
         WriteMenuItem(
             ui,
             "R",
@@ -348,8 +350,83 @@ public sealed class HostSubtitleSpellFixPrompter : ISubtitleSpellFixPrompter
         return TryParseSuggestionChoice(input[1..], suggestionCount, out suggestionIndex);
     }
 
-    private static SubtitleSpellFixDecision CreateReplaceAllDecision(PSHostUserInterface ui, string replacement) =>
-        new(SubtitleSpellFixAction.ReplaceAll, replacement, PromptPersistReplacement(ui));
+    private static SubtitleSpellFixDecision CreateReplaceAllDecision(PSHostUserInterface ui, string replacement)
+    {
+        var scope = PromptPersistReplacement(ui)
+            ? SubtitleSpellReplacementScope.Forever
+            : SubtitleSpellReplacementScope.None;
+        return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, replacement, scope);
+    }
+
+    private static SubtitleSpellFixDecision CreateScopedReplacementDecision(
+        string replacement,
+        SubtitleSpellReplacementScope scope)
+    {
+        if (scope == SubtitleSpellReplacementScope.None)
+            return new SubtitleSpellFixDecision(SubtitleSpellFixAction.Replace, replacement);
+
+        return new SubtitleSpellFixDecision(SubtitleSpellFixAction.ReplaceAll, replacement, scope);
+    }
+
+    /// <summary>
+    /// After a custom replacement, asks whether to remember it for this run or for future runs.
+    /// An empty answer keeps the change on this instance only.
+    /// </summary>
+    internal static SubtitleSpellReplacementScope PromptReplacementScope(
+        PSHostUserInterface ui,
+        string word,
+        string replacement)
+    {
+        ui.WriteLine();
+        WriteColored(ui, _commandColor, "Save ");
+        WriteColored(ui, _misspellingColor, $"'{word}'");
+        WriteColored(ui, _commandColor, " as ");
+        WriteColored(ui, _suggestionColor, $"'{replacement}'");
+        WriteColored(ui, _commandColor, "?");
+        ui.WriteLine();
+
+        while (true)
+        {
+            WriteMenuItem(ui, "A", "Always", _commandColor, "Replace every remaining occurrence for the rest of this run");
+            WriteMenuItem(ui, "F", "Forever", _commandColor, "Save the replacement for future runs");
+            WriteMenuItem(ui, "N", "No", _commandColor, "Change only this instance");
+            WriteColored(ui, _shortcutColor, "> ");
+            if (TryParseReplacementScope(ui.ReadLine(), out var scope))
+                return scope;
+
+            WriteColored(ui, ConsoleColor.Red, "Enter A for always, F for forever, or N for this instance only.");
+            ui.WriteLine();
+        }
+    }
+
+    /// <summary>
+    /// Parses an always/forever/no answer. Empty, <c>N</c>, and <c>No</c> mean this instance only.
+    /// </summary>
+    internal static bool TryParseReplacementScope(string? answer, out SubtitleSpellReplacementScope scope)
+    {
+        scope = SubtitleSpellReplacementScope.None;
+        var trimmed = (answer ?? string.Empty).Trim();
+        if (trimmed.Length == 0 ||
+            trimmed.Equals("n", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("no", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (trimmed.Equals("a", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("always", StringComparison.OrdinalIgnoreCase))
+        {
+            scope = SubtitleSpellReplacementScope.Always;
+            return true;
+        }
+
+        if (trimmed.Equals("f", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("forever", StringComparison.OrdinalIgnoreCase))
+        {
+            scope = SubtitleSpellReplacementScope.Forever;
+            return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Asks whether to remember a Replace All mapping for future runs. Empty answer defaults to yes.

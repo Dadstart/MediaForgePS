@@ -57,6 +57,32 @@ public class HostSubtitleSpellFixPrompterTests
         Assert.False(HostSubtitleSpellFixPrompter.TryParseReplaceAllSuggestionChoice(input, count, out _));
     }
 
+    [Theory]
+    [InlineData(null, SubtitleSpellReplacementScope.None)]
+    [InlineData("", SubtitleSpellReplacementScope.None)]
+    [InlineData("  ", SubtitleSpellReplacementScope.None)]
+    [InlineData("n", SubtitleSpellReplacementScope.None)]
+    [InlineData("No", SubtitleSpellReplacementScope.None)]
+    [InlineData("a", SubtitleSpellReplacementScope.Always)]
+    [InlineData("Always", SubtitleSpellReplacementScope.Always)]
+    [InlineData("f", SubtitleSpellReplacementScope.Forever)]
+    [InlineData("Forever", SubtitleSpellReplacementScope.Forever)]
+    public void TryParseReplacementScope_ParsesSaveChoices(string? input, SubtitleSpellReplacementScope expected)
+    {
+        Assert.True(HostSubtitleSpellFixPrompter.TryParseReplacementScope(input, out var scope));
+        Assert.Equal(expected, scope);
+    }
+
+    [Theory]
+    [InlineData("y")]
+    [InlineData("yes")]
+    [InlineData("all")]
+    [InlineData("1")]
+    public void TryParseReplacementScope_RejectsOtherAnswers(string input)
+    {
+        Assert.False(HostSubtitleSpellFixPrompter.TryParseReplacementScope(input, out _));
+    }
+
     [Fact]
     public void EffectiveSurroundingLines_DefaultToEmpty()
     {

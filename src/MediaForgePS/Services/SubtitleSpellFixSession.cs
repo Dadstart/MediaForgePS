@@ -15,6 +15,7 @@ public sealed class SubtitleSpellFixSession
     private readonly ISubtitleSpellFixPrompter _prompter;
     private readonly ISubtitleSpellIgnoreDictionary? _ignoreDictionary;
     private readonly ISubtitleSpellReplacementDictionary? _replacementDictionary;
+    private readonly Dictionary<string, string> _sessionReplacements = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Creates a fix session.
@@ -49,6 +50,8 @@ public sealed class SubtitleSpellFixSession
             .Replace("\r", "\n", StringComparison.Ordinal);
         var blocks = SrtDocumentHelper.ParseSrtBlocks(content);
         var changed = ApplySavedReplacements(blocks);
+        if (ApplySessionReplacements(blocks))
+            changed = true;
         var quit = false;
         var promptedInstanceByWord = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -134,8 +137,7 @@ public sealed class SubtitleSpellFixSession
                                     decision.Replacement))
                                 changed = true;
 
-                            if (decision.PersistReplacement)
-                                _replacementDictionary?.AddReplacement(word, decision.Replacement);
+                            RememberReplacement(word, decision.Replacement, decision.ReplacementScope);
 
                             line = block.TextLines[lineIndex];
                             // Map past this occurrence on the rewritten line (earlier same-word hits may shift indexes).
@@ -211,6 +213,31 @@ public sealed class SubtitleSpellFixSession
         }
 
         return changed;
+    }
+
+    private bool ApplySessionReplacements(IReadOnlyList<SrtDocumentHelper.SrtBlock> blocks)
+    {
+        var changed = false;
+        foreach (var (from, to) in _sessionReplacements)
+        {
+            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
+                continue;
+
+            if (SubtitleSpellFixHelper.ReplaceAllWholeWordsInBlocks(blocks, from, to))
+                changed = true;
+        }
+
+        return changed;
+    }
+
+    private void RememberReplacement(string word, string replacement, SubtitleSpellReplacementScope scope)
+    {
+        if (scope == SubtitleSpellReplacementScope.None)
+            return;
+
+        _sessionReplacements[word] = replacement;
+        if (scope == SubtitleSpellReplacementScope.Forever)
+            _replacementDictionary?.AddReplacement(word, replacement);
     }
 
     private static int ResolveCueNumber(string sequenceLine, int blockIndex)
