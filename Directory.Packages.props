@@ -5,6 +5,9 @@
   <ItemGroup>
     <!-- Main project packages -->
     <PackageVersion Include="libse" Version="5.1.0" />
+    <!-- Pin to the 3.119 line libse 5.1.0 is built against. 4.x is a breaking native/managed pair. -->
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />

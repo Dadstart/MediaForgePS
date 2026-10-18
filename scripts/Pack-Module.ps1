@@ -91,6 +91,45 @@ Get-ChildItem -LiteralPath $buildOutput -Filter '*.dll' -File |
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $moduleRoot $_.Name) -Force
     }
 
+# Image subtitle OCR (libse + SkiaSharp + Tesseract). Native SkiaSharp must sit in win-<arch>
+# so PowerShell can load it; Tesseract natives are copied beside the module by its package.
+$ocrAssemblies = @(
+    'libse.dll'
+    'SkiaSharp.dll'
+    'Tesseract.dll'
+    'UtfUnknown.dll'
+    'WeCantSpell.Hunspell.dll'
+)
+foreach ($name in $ocrAssemblies) {
+    $sourcePath = Join-Path $buildOutput $name
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Required module dependency missing from build output: $sourcePath"
+    }
+
+    Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $moduleRoot $name) -Force
+}
+
+$requiredNativeFiles = @(
+    'win-x64\libSkiaSharp.dll'
+    'x64\tesseract50.dll'
+    'x64\leptonica-1.82.0.dll'
+)
+foreach ($relativePath in $requiredNativeFiles) {
+    $sourcePath = Join-Path $buildOutput $relativePath
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Required native library missing from build output: $sourcePath"
+    }
+}
+
+foreach ($nativeDirName in @('win-x64', 'win-arm64', 'win-x86', 'x64', 'x86')) {
+    $sourceDir = Join-Path $buildOutput $nativeDirName
+    if (-not (Test-Path -LiteralPath $sourceDir)) {
+        continue
+    }
+
+    Copy-Item -LiteralPath $sourceDir -Destination (Join-Path $moduleRoot $nativeDirName) -Recurse -Force
+}
+
 $formatsSource = Join-Path $buildOutput 'Formats'
 if (Test-Path -LiteralPath $formatsSource) {
     Copy-Item -LiteralPath $formatsSource -Destination (Join-Path $moduleRoot 'Formats') -Recurse -Force

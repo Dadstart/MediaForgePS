@@ -12,6 +12,8 @@
     <PackageReference Include="WeCantSpell.Hunspell" />
     <ProjectReference Include="..\MediaForgePS.Analyzers\MediaForgePS.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="libse" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
@@ -35,5 +37,32 @@
     <EmbeddedResource Include="Dictionaries\en_US.aff" LogicalName="Dadstart.Labs.MediaForge.Dictionaries.en_US.aff" />
     <None Include="Dictionaries\README.md" />
   </ItemGroup>
+
+  <!--
+    PowerShell loads this module into pwsh.exe, so the app host never copies RID-specific
+    native assets. Place libSkiaSharp.dll in the win-<arch> folders PowerShell probes.
+  -->
+  <ItemGroup>
+    <Content Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x64\native\libSkiaSharp.dll"
+             Link="win-x64\libSkiaSharp.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x64\native\libSkiaSharp.dll')" />
+    <Content Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libSkiaSharp.dll"
+             Link="win-arm64\libSkiaSharp.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libSkiaSharp.dll')" />
+    <Content Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x86\native\libSkiaSharp.dll"
+             Link="win-x86\libSkiaSharp.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x86\native\libSkiaSharp.dll')" />
+  </ItemGroup>
+
+  <Target Name="VerifySkiaSharpNativeAssets" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x64\native\libSkiaSharp.dll')"
+           Text="SkiaSharp native asset libSkiaSharp.dll (win-x64) was not restored. Image subtitle OCR cannot load SkiaSharp inside PowerShell without it." />
+  </Target>
 
 </Project>

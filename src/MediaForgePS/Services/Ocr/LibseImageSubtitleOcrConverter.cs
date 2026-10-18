@@ -59,6 +59,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
         if (!File.Exists(inputPath))
             throw new FileNotFoundException($"Image subtitle file not found: {inputPath}", inputPath);
 
+        SkiaNativeLibrary.EnsureLoaded();
         cancellationToken.ThrowIfCancellationRequested();
 
         var extension = Path.GetExtension(inputPath);
@@ -157,6 +158,7 @@ public sealed class LibseImageSubtitleOcrConverter : IImageSubtitleOcrConverter
     internal static SKBitmap GetOcrBitmap(VobSubMergedPack pack)
     {
         ArgumentNullException.ThrowIfNull(pack);
+        SkiaNativeLibrary.EnsureLoaded();
         return pack.GetBitmap();
     }
 
