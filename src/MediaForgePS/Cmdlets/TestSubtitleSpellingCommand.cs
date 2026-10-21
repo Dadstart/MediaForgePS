@@ -18,6 +18,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// Remaining unfixed issues are written to the pipeline.
 /// Supports <c>-WhatIf</c> and <c>-Confirm</c> when fixing.
 /// A hyphen at the beginning of a cue text line is a dialogue marker and is not part of the first word.
+/// A recognized word may be written with additional capitals, including all caps, without being flagged.
 /// </remarks>
 [Cmdlet(VerbsDiagnostic.Test, "SubtitleSpelling", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(SubtitleSpellingIssue))]

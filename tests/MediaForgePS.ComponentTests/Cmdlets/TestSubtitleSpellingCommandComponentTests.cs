@@ -73,6 +73,33 @@ public class TestSubtitleSpellingCommandComponentTests : ComponentTestBase
     }
 
     [Fact]
+    public void TestSubtitleSpelling_UppercaseRecognizedWord_IsNotFlagged()
+    {
+        var directory = CreateTempDirectory();
+        var srtPath = Path.Combine(directory, "shout.srt");
+        File.WriteAllText(
+            srtPath,
+            """
+            1
+            00:00:01,000 --> 00:00:02,000
+            HELLO McDONALD IPhone zxqvword
+            """);
+
+        using var ps = CreatePowerShellFor<TestSubtitleSpellingCommand>("Test-SubtitleSpelling");
+        ps.AddCommand("Test-SubtitleSpelling")
+            .AddParameter("InputPath", srtPath);
+
+        var issues = ps.Invoke().Select(r => r.BaseObject).OfType<SubtitleSpellingIssue>().ToList();
+        var errors = ps.Streams.Error.ReadAll();
+
+        Assert.Empty(errors);
+        Assert.Contains(issues, i => i.Word.Equals("zxqvword", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Word.Equals("HELLO", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Word.Equals("McDONALD", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, i => i.Word.Equals("IPhone", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void TestSubtitleSpelling_WithCleanSrt_ProducesNoOutput()
     {
         var directory = CreateTempDirectory();

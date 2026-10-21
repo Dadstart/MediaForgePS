@@ -28,6 +28,7 @@ public interface ISubtitleSpellCheckService
 
     /// <summary>
     /// Returns whether <paramref name="word"/> is correctly spelled for the configured dictionary.
+    /// A recognized spelling may gain capitals without being treated as a misspelling.
     /// </summary>
     bool IsCorrectlySpelled(string word, SubtitleSpellCheckOptions? options = null);
 

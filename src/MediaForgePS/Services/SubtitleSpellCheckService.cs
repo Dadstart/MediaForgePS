@@ -19,6 +19,12 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
     private const string EmbeddedDicResourceName = "Dadstart.Labs.MediaForge.Dictionaries.en_US.dic";
     private const string EmbeddedAffResourceName = "Dadstart.Labs.MediaForge.Dictionaries.en_US.aff";
 
+    /// <summary>
+    /// Uppercase letters explored when a token adds capitals to a recognized spelling.
+    /// Masks above this limit are not enumerated.
+    /// </summary>
+    private const int MaxCapitalSubsetBits = 12;
+
     private readonly ILogger<SubtitleSpellCheckService> _logger;
     private readonly object _embeddedLock = new();
     private readonly ConcurrentDictionary<string, WordList> _fileDictionaries =
@@ -69,7 +75,7 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
                     if (ignoreWords.Contains(word))
                         continue;
 
-                    if (dictionary.Check(word))
+                    if (IsAcceptedWord(dictionary, word))
                         continue;
 
                     occurrenceByWord.TryGetValue(word, out var priorCount);
@@ -102,7 +108,78 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(word);
         options ??= SubtitleSpellCheckOptions.Default;
-        return ResolveDictionary(options.DictionaryPath).Check(word);
+        return IsAcceptedWord(ResolveDictionary(options.DictionaryPath), word);
+    }
+
+    /// <summary>
+    /// True when <paramref name="word"/> is spelled correctly.
+    /// A recognized spelling may gain capitals, including all caps, without becoming a misspelling.
+    /// </summary>
+    private static bool IsAcceptedWord(WordList dictionary, string word)
+    {
+        if (dictionary.Check(word))
+            return true;
+
+        if (!ContainsUpperLetter(word))
+            return false;
+
+        if (dictionary.Check(word.ToLowerInvariant()))
+            return true;
+
+        return HasRecognizedCapitalSubset(dictionary, word);
+    }
+
+    /// <summary>
+    /// True when some letters of <paramref name="word"/> can be lowercased into a recognized spelling.
+    /// </summary>
+    private static bool HasRecognizedCapitalSubset(WordList dictionary, string word)
+    {
+        var upperIndexes = new int[word.Length];
+        var upperCount = 0;
+        for (var i = 0; i < word.Length; i++)
+        {
+            if (!char.IsUpper(word[i]))
+                continue;
+
+            upperIndexes[upperCount] = i;
+            upperCount++;
+        }
+
+        if (upperCount == 0 || upperCount > MaxCapitalSubsetBits)
+            return false;
+
+        var limit = 1 << upperCount;
+        var chars = word.ToCharArray();
+        var allLowerMask = limit - 1;
+        for (var mask = 1; mask < limit; mask++)
+        {
+            if (mask == allLowerMask)
+                continue;
+
+            for (var bit = 0; bit < upperCount; bit++)
+            {
+                var index = upperIndexes[bit];
+                chars[index] = (mask & (1 << bit)) != 0
+                    ? char.ToLowerInvariant(word[index])
+                    : word[index];
+            }
+
+            if (dictionary.Check(chars))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsUpperLetter(string word)
+    {
+        foreach (var ch in word)
+        {
+            if (char.IsUpper(ch))
+                return true;
+        }
+
+        return false;
     }
 
     /// <inheritdoc />

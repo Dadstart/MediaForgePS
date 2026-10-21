@@ -207,46 +207,47 @@ public class SubtitleSpellCheckServiceTests
     }
 
     [Fact]
-    public void Diagnostic_CaseVariants()
+    public void CheckContent_UppercaseOfRecognizedWord_IsNotAMisspelling()
     {
-        var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
-        string[] words =
-        [
-            "hello", "Hello", "HELLO",
-            "Aaron", "AARON", "aaron",
-            "McDonald", "MCDONALD", "mcdonald",
-            "iPhone", "IPHONE", "iphone",
-            "don't", "DON'T", "Don't", "DON’T",
-            "something", "SOMETHING",
-            "OK", "ok",
-            "zxqvword", "ZXQVWORD",
-            "well-known", "WELL-KNOWN"
-        ];
-
-        var lines = words.Select(word => $"{word}={service.IsCorrectlySpelled(word)}").ToList();
-
         var tempDir = CreateTempDictionary(
-            dicContent: "3\nhello\nAaron\nMcDonald\n",
+            dicContent: "4\nhello\nAaron\nMcDonald\niPhone\n",
             affContent: "SET UTF-8\n");
         try
         {
             var dicPath = Path.Combine(tempDir, "test.dic");
+            var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
             var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
-            string[] tinyWords = ["hello", "Hello", "HELLO", "Aaron", "AARON", "aaron", "McDonald", "MCDONALD", "mcdonald"];
-            lines.Add("--- tiny ---");
-            lines.AddRange(tinyWords.Select(word => $"{word}={service.IsCorrectlySpelled(word, options)}"));
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nHELLO HEllo AaRon McDONALD IPhone aaron Mcdonald Iphone zxqvword\n\n";
 
-            var content = "1\n00:00:01,000 --> 00:00:02,000\nHELLO Aaron AARON FBI SOMETHING zxqv\n\n";
-            var issues = service.CheckContent("sample.srt", content);
-            lines.Add("--- embedded issues ---");
-            lines.AddRange(issues.Select(issue => issue.Word));
+            Assert.True(service.IsCorrectlySpelled("HELLO", options));
+            Assert.True(service.IsCorrectlySpelled("HEllo", options));
+            Assert.True(service.IsCorrectlySpelled("AaRon", options));
+            Assert.True(service.IsCorrectlySpelled("McDONALD", options));
+            Assert.True(service.IsCorrectlySpelled("IPhone", options));
+            Assert.False(service.IsCorrectlySpelled("aaron", options));
+            Assert.False(service.IsCorrectlySpelled("Mcdonald", options));
+            Assert.False(service.IsCorrectlySpelled("Iphone", options));
+            Assert.False(service.IsCorrectlySpelled("zxqvword", options));
+
+            var issues = service.CheckContent("sample.srt", content, options);
+
+            Assert.Equal(["aaron", "Mcdonald", "Iphone", "zxqvword"], issues.Select(issue => issue.Word).ToArray());
         }
         finally
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
 
-        Assert.Fail(string.Join(Environment.NewLine, lines));
+    [Fact]
+    public void CheckContent_EmbeddedDictionary_AllowsUppercaseOfRecognizedWords()
+    {
+        var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+        var content = "1\n00:00:01,000 --> 00:00:02,000\nHELLO HEllo McDONALD IPhone aaron Nasa Iphone zxqvword\n\n";
+
+        var issues = service.CheckContent("case.srt", content);
+
+        Assert.Equal(["aaron", "Nasa", "Iphone", "zxqvword"], issues.Select(issue => issue.Word).ToArray());
     }
 
     [Fact]
