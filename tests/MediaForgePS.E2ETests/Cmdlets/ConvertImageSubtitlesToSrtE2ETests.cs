@@ -13,6 +13,7 @@ public class ConvertImageSubtitlesToSrtE2ETests : E2ETestBase
     public void PackedModule_ConvertImageSubtitlesToSrt_IsExportedAndRejectsMissingInput()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         ps.AddCommand("Get-Command").AddParameter("Name", "Convert-ImageSubtitlesToSrt");
         var commandResults = ps.Invoke().ToList();
@@ -37,6 +38,7 @@ public class ConvertImageSubtitlesToSrtE2ETests : E2ETestBase
     public void PackedModule_ConvertSupToSrtAlias_Resolves()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         ps.AddCommand("Get-Command").AddParameter("Name", "Convert-SupToSrt");
         var commandResults = ps.Invoke().ToList();

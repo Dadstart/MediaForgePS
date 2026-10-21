@@ -12,6 +12,7 @@ public class ConvertMediaFilesSpacedPathE2ETests : E2ETestBase
     public void PackedModule_ConvertMediaFiles_WithSpacedPaths_Succeeds()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         var workDir = CreateTempDirectory();
         var inputDir = Path.Combine(workDir, "source media");

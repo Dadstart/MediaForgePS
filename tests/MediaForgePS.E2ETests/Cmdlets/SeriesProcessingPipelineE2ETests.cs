@@ -19,6 +19,7 @@ public class SeriesProcessingPipelineE2ETests : E2ETestBase
         using var moduleScope = new ComponentModuleServicesScope(provider);
 
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         var sourceDir = CreateTempDirectory();
         var sourceFile = Path.Combine(sourceDir, "raw-episode.mkv");

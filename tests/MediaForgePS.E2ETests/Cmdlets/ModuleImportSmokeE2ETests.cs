@@ -12,6 +12,7 @@ public class ModuleImportSmokeE2ETests : E2ETestBase
     public void PackedModule_ImportGetMediaFileAndFactoryCmdlets_Succeed()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         ps.AddCommand("Get-MediaFile").AddParameter("Path", SampleVideoPath);
         var mediaResults = ps.Invoke().ToList();

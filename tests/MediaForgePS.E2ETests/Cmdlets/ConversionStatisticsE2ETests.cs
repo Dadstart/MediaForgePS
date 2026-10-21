@@ -11,6 +11,7 @@ public class ConversionStatisticsE2ETests : E2ETestBase
     public void PackedModule_ConvertVideoFile_WritesAverageStatisticsForBatch()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         var inputDir = CreateTempDirectory();
         var outputDir = CreateTempDirectory();
@@ -51,6 +52,7 @@ public class ConversionStatisticsE2ETests : E2ETestBase
     public void PackedModule_ConversionStatistics_RenderWithFormatView()
     {
         using var ps = ImportPackedModule();
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
 
         var inputDir = CreateTempDirectory();
         var outputDir = CreateTempDirectory();

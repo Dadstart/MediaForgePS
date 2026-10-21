@@ -63,6 +63,26 @@ public abstract class E2ETestBase : IDisposable
         return _powerShell;
     }
 
+    /// <summary>
+    /// Stops <paramref name="shell"/> when <paramref name="cancellationToken"/> is cancelled.
+    /// Pass <see cref="TestContext.Current"/>'s token so a fact timeout can end the pipeline.
+    /// </summary>
+    protected static CancellationTokenRegistration StopWhenCancelled(PowerShell shell, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(shell);
+        return cancellationToken.Register(static state =>
+        {
+            var powerShell = (PowerShell)state!;
+            try
+            {
+                powerShell.Stop();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }, shell);
+    }
+
     private static string EnsurePackedModule(string repoRoot, string configuration)
     {
         lock (_packLock)
