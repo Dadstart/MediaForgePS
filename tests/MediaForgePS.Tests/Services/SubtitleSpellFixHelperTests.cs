@@ -27,6 +27,48 @@ public class SubtitleSpellFixHelperTests
     }
 
     [Fact]
+    public void TryFindNextMisspelling_IgnoresLeadingHyphen()
+    {
+        var ignore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var found = SubtitleSpellFixHelper.TryFindNextMisspelling(
+            "-misspeled world",
+            searchFrom: 0,
+            ignore,
+            word => word == "world",
+            out var word,
+            out var start,
+            out var length);
+
+        Assert.True(found);
+        Assert.Equal("misspeled", word);
+        Assert.Equal(1, start);
+        Assert.Equal(9, length);
+
+        var spelled = SubtitleSpellFixHelper.TryFindNextMisspelling(
+            "-hello world",
+            searchFrom: 0,
+            ignore,
+            word => word is "hello" or "world",
+            out _,
+            out _,
+            out _);
+
+        Assert.False(spelled);
+    }
+
+    [Fact]
+    public void ReplaceAllWholeWords_PreservesLeadingHyphen()
+    {
+        var (line, changed) = SubtitleSpellFixHelper.ReplaceAllWholeWords(
+            "-misspeled world",
+            "misspeled",
+            "misspelled");
+
+        Assert.True(changed);
+        Assert.Equal("-misspelled world", line);
+    }
+
+    [Fact]
     public void TryFindNextMisspelling_RespectsSearchFromAndIgnore()
     {
         var ignore = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Cartman" };

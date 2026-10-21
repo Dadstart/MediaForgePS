@@ -35,6 +35,13 @@ public class SubtitleSpellingIssueTests
     }
 
     [Fact]
+    public void HighlightWords_IgnoresLeadingHyphen()
+    {
+        var highlighted = SubtitleSpellingIssue.HighlightWords("-misspeled word", ["misspeled"]);
+        Assert.Equal("-\u001b[91;1mmisspeled\u001b[0m word", highlighted);
+    }
+
+    [Fact]
     public void HighlightWords_DoesNotHighlightSubstrings()
     {
         var highlighted = SubtitleSpellingIssue.HighlightWords(

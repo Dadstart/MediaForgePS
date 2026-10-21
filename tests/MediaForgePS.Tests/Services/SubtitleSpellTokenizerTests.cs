@@ -32,6 +32,24 @@ public class SubtitleSpellTokenizerTests
     }
 
     [Fact]
+    public void Tokenize_IgnoresHyphenAtBeginningOfLine()
+    {
+        var tokens = SubtitleSpellTokenizer.Tokenize("-hello world");
+        Assert.Equal(["hello", "world"], tokens);
+
+        var indented = SubtitleSpellTokenizer.Tokenize("  --don't");
+        Assert.Equal(["don't"], indented);
+    }
+
+    [Fact]
+    public void Tokenize_KeepsHyphenInsideAWord()
+    {
+        var tokens = SubtitleSpellTokenizer.Tokenize("well-known phrase");
+        Assert.Contains("well-known", tokens);
+        Assert.Contains("phrase", tokens);
+    }
+
+    [Fact]
     public void Tokenize_StripsTagsBeforeSplitting()
     {
         var tokens = SubtitleSpellTokenizer.Tokenize("<i>misspeled</i> word");

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Dadstart.Labs.MediaForge.Services;
 
 namespace Dadstart.Labs.MediaForge.Models;
 
@@ -114,7 +115,7 @@ public sealed record SubtitleSpellingIssue(
         var index = 0;
         while (index < lineText.Length)
         {
-            if (!IsWordChar(lineText[index]))
+            if (SubtitleSpellTokenizer.IsLeadingDialogueHyphen(lineText, index) || !IsWordChar(lineText[index]))
             {
                 result.Append(lineText[index]);
                 index++;

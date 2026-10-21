@@ -33,7 +33,7 @@ public static class SubtitleSpellFixHelper
         var index = Math.Clamp(searchFrom, 0, line.Length);
         while (index < line.Length)
         {
-            if (!IsWordChar(line[index]))
+            if (IsTokenBreak(line, index))
             {
                 index++;
                 continue;
@@ -98,7 +98,7 @@ public static class SubtitleSpellFixHelper
         var changed = false;
         while (index < line.Length)
         {
-            if (!IsWordChar(line[index]))
+            if (IsTokenBreak(line, index))
             {
                 sb.Append(line[index]);
                 index++;
@@ -290,6 +290,9 @@ public static class SubtitleSpellFixHelper
 
         return true;
     }
+
+    private static bool IsTokenBreak(string line, int index) =>
+        SubtitleSpellTokenizer.IsLeadingDialogueHyphen(line, index) || !IsWordChar(line[index]);
 
     private static bool IsWordChar(char ch) =>
         char.IsLetterOrDigit(ch) || ch is '\'' or '’' or '-';

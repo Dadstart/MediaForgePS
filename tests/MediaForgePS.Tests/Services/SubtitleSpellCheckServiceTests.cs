@@ -43,6 +43,33 @@ public class SubtitleSpellCheckServiceTests
     }
 
     [Fact]
+    public void CheckContent_LeadingHyphen_IsNotPartOfTheWord()
+    {
+        var tempDir = CreateTempDictionary(
+            dicContent: "2\nhello\nworld\n",
+            affContent: "SET UTF-8\n");
+        try
+        {
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+            var content = "1\n00:00:01,000 --> 00:00:02,000\n-hello misspeled world\n\n";
+
+            var issues = service.CheckContent(
+                "sample.srt",
+                content,
+                new SubtitleSpellCheckOptions(DictionaryPath: dicPath));
+
+            Assert.Single(issues);
+            Assert.Equal("misspeled", issues[0].Word);
+            Assert.Equal("-hello \u001b[91;1mmisspeled\u001b[0m world", issues[0].HighlightedLine);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CheckContent_IgnoreWord_SuppressesFinding()
     {
         var tempDir = CreateTempDictionary(
@@ -177,6 +204,49 @@ public class SubtitleSpellCheckServiceTests
         {
             Directory.Delete(tempDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Diagnostic_CaseVariants()
+    {
+        var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+        string[] words =
+        [
+            "hello", "Hello", "HELLO",
+            "Aaron", "AARON", "aaron",
+            "McDonald", "MCDONALD", "mcdonald",
+            "iPhone", "IPHONE", "iphone",
+            "don't", "DON'T", "Don't", "DON’T",
+            "something", "SOMETHING",
+            "OK", "ok",
+            "zxqvword", "ZXQVWORD",
+            "well-known", "WELL-KNOWN"
+        ];
+
+        var lines = words.Select(word => $"{word}={service.IsCorrectlySpelled(word)}").ToList();
+
+        var tempDir = CreateTempDictionary(
+            dicContent: "3\nhello\nAaron\nMcDonald\n",
+            affContent: "SET UTF-8\n");
+        try
+        {
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
+            string[] tinyWords = ["hello", "Hello", "HELLO", "Aaron", "AARON", "aaron", "McDonald", "MCDONALD", "mcdonald"];
+            lines.Add("--- tiny ---");
+            lines.AddRange(tinyWords.Select(word => $"{word}={service.IsCorrectlySpelled(word, options)}"));
+
+            var content = "1\n00:00:01,000 --> 00:00:02,000\nHELLO Aaron AARON FBI SOMETHING zxqv\n\n";
+            var issues = service.CheckContent("sample.srt", content);
+            lines.Add("--- embedded issues ---");
+            lines.AddRange(issues.Select(issue => issue.Word));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+
+        Assert.Fail(string.Join(Environment.NewLine, lines));
     }
 
     [Fact]

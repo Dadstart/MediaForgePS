@@ -33,6 +33,7 @@ public static partial class SubtitleSpellTokenizer
 
     /// <summary>
     /// Extracts spell-check candidate words from a cue text line.
+    /// A hyphen at the beginning of the line is ignored.
     /// </summary>
     public static IReadOnlyList<string> Tokenize(string line)
     {
@@ -42,20 +43,41 @@ public static partial class SubtitleSpellTokenizer
 
         var tokens = new List<string>();
         var current = new StringBuilder();
-
-        foreach (var ch in stripped)
+        var index = 0;
+        while (index < stripped.Length)
         {
-            if (IsWordChar(ch))
+            if (IsTokenBreak(stripped, index))
             {
-                current.Append(ch);
+                TryAddToken(tokens, current);
+                index++;
                 continue;
             }
 
-            TryAddToken(tokens, current);
+            current.Append(stripped[index]);
+            index++;
         }
 
         TryAddToken(tokens, current);
         return tokens;
+    }
+
+    /// <summary>
+    /// True when <paramref name="index"/> is a dialogue hyphen at the start of <paramref name="line"/>.
+    /// Only whitespace and other hyphens may appear before that index.
+    /// </summary>
+    internal static bool IsLeadingDialogueHyphen(string line, int index)
+    {
+        if (string.IsNullOrEmpty(line) || index < 0 || index >= line.Length || line[index] != '-')
+            return false;
+
+        for (var i = 0; i < index; i++)
+        {
+            var ch = line[i];
+            if (ch != '-' && !char.IsWhiteSpace(ch))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -80,6 +102,9 @@ public static partial class SubtitleSpellTokenizer
 
         return !ContainsLetter(token);
     }
+
+    private static bool IsTokenBreak(string line, int index) =>
+        IsLeadingDialogueHyphen(line, index) || !IsWordChar(line[index]);
 
     private static bool IsWordChar(char ch) =>
         char.IsLetterOrDigit(ch) || ch is '\'' or '’' or '-';

@@ -17,6 +17,7 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// With <c>-Fix</c>, prompts interactively for each misspelling and writes corrected files in place.
 /// Remaining unfixed issues are written to the pipeline.
 /// Supports <c>-WhatIf</c> and <c>-Confirm</c> when fixing.
+/// A hyphen at the beginning of a cue text line is a dialogue marker and is not part of the first word.
 /// </remarks>
 [Cmdlet(VerbsDiagnostic.Test, "SubtitleSpelling", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 [OutputType(typeof(SubtitleSpellingIssue))]
