@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using Dadstart.Labs.MediaForge.Module;
+using Dadstart.Labs.MediaForge.Services;
 
 namespace Dadstart.Labs.MediaForge.Tests.TestInfrastructure;
 
@@ -14,6 +15,9 @@ public sealed class FakeCmdletIO : ICmdletIO
     public List<ErrorRecord> Errors { get; } = [];
     public List<string> Warnings { get; } = [];
     public List<string> VerboseMessages { get; } = [];
+    public List<int> ProgressTitlePercents { get; } = [];
+    public int ClearProgressTitlePercentCount { get; private set; }
+    public string WindowTitle { get; set; } = "MF: Test";
     public FakeCmdletPathContext Paths { get; } = new();
 
     ICmdletPathContext ICmdletIO.Paths => Paths;
@@ -25,6 +29,18 @@ public sealed class FakeCmdletIO : ICmdletIO
     public void WriteWarning(string message) => Warnings.Add(message);
 
     public void WriteVerbose(string message) => VerboseMessages.Add(message);
+
+    public void UpdateProgressTitlePercent(int percentComplete)
+    {
+        ProgressTitlePercents.Add(percentComplete);
+        WindowTitle = MediaConversionHelper.FormatTitleWithProgressPercent(WindowTitle, percentComplete);
+    }
+
+    public void ClearProgressTitlePercent()
+    {
+        ClearProgressTitlePercentCount++;
+        WindowTitle = MediaConversionHelper.RemoveProgressPercentFromTitle(WindowTitle);
+    }
 }
 
 /// <summary>

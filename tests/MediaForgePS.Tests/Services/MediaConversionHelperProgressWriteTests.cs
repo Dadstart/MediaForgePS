@@ -80,4 +80,87 @@ public class MediaConversionHelperProgressWriteTests
         Assert.Equal(ProgressActivityIds.Main, io.ProgressRecords[0].ActivityId);
         Assert.Equal(ProgressActivityIds.CurrentItem, io.ProgressRecords[1].ActivityId);
     }
+
+    [Fact]
+    public void WriteMainProgress_WithPercent_UpdatesTerminalTitlePercent()
+    {
+        var io = new FakeCmdletIO { WindowTitle = "MF: Convert-MediaFiles" };
+
+        MediaConversionHelper.WriteMainProgress(
+            io,
+            "Batch Conversion",
+            "Working",
+            42);
+
+        Assert.Equal([42], io.ProgressTitlePercents);
+        Assert.Equal("MF: Convert-MediaFiles (42%)", io.WindowTitle);
+    }
+
+    [Fact]
+    public void WriteCurrentItemProgress_WithPercent_UpdatesTerminalTitlePercent()
+    {
+        var io = new FakeCmdletIO { WindowTitle = "MF: Convert-VideoFile" };
+
+        MediaConversionHelper.WriteCurrentItemProgress(
+            io,
+            "File Conversion",
+            "Encoding",
+            "out.mp4",
+            75);
+
+        Assert.Equal([75], io.ProgressTitlePercents);
+        Assert.Equal("MF: Convert-VideoFile (75%)", io.WindowTitle);
+    }
+
+    [Fact]
+    public void WriteMainProgress_WithoutPercent_DoesNotUpdateTerminalTitle()
+    {
+        var io = new FakeCmdletIO { WindowTitle = "MF: Convert-MediaFiles" };
+
+        MediaConversionHelper.WriteMainProgress(io, "Batch Conversion", "Working");
+
+        Assert.Empty(io.ProgressTitlePercents);
+        Assert.Equal("MF: Convert-MediaFiles", io.WindowTitle);
+    }
+
+    [Fact]
+    public void WriteProgressCompleted_ClearsTerminalTitlePercent()
+    {
+        var io = new FakeCmdletIO { WindowTitle = "MF: Convert-MediaFiles" };
+        MediaConversionHelper.WriteMainProgress(io, "Batch Conversion", "Working", 55);
+        Assert.Equal("MF: Convert-MediaFiles (55%)", io.WindowTitle);
+
+        MediaConversionHelper.WriteProgressCompleted(io, "Batch Conversion", "File Conversion");
+
+        Assert.Equal(1, io.ClearProgressTitlePercentCount);
+        Assert.Equal("MF: Convert-MediaFiles", io.WindowTitle);
+    }
+
+    [Theory]
+    [InlineData("MF: Convert-MediaFiles", 0, "MF: Convert-MediaFiles (0%)")]
+    [InlineData("MF: Convert-MediaFiles", 100, "MF: Convert-MediaFiles (100%)")]
+    [InlineData("MF: Convert-MediaFiles (12%)", 34, "MF: Convert-MediaFiles (34%)")]
+    [InlineData("MF: Convert-VideoFile: Encoding", 50, "MF: Convert-VideoFile: Encoding (50%)")]
+    [InlineData("MF: Convert-MediaFiles", -5, "MF: Convert-MediaFiles (0%)")]
+    [InlineData("MF: Convert-MediaFiles", 150, "MF: Convert-MediaFiles (100%)")]
+    public void FormatTitleWithProgressPercent_AppendsOrReplacesPercent(
+        string title,
+        int percent,
+        string expected)
+    {
+        Assert.Equal(expected, MediaConversionHelper.FormatTitleWithProgressPercent(title, percent));
+    }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("MF: Convert-MediaFiles", "MF: Convert-MediaFiles")]
+    [InlineData("MF: Convert-MediaFiles (42%)", "MF: Convert-MediaFiles")]
+    [InlineData("MF: Convert-VideoFile: Encoding (7%)", "MF: Convert-VideoFile: Encoding")]
+    [InlineData("Title (not-a-percent%)", "Title (not-a-percent%)")]
+    [InlineData("Title (%)", "Title (%)")]
+    public void RemoveProgressPercentFromTitle_StripsTrailingPercentSuffix(string? title, string expected)
+    {
+        Assert.Equal(expected, MediaConversionHelper.RemoveProgressPercentFromTitle(title));
+    }
 }
