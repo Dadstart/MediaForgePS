@@ -33,7 +33,7 @@ public interface ISubtitleSpellCheckService
     bool IsCorrectlySpelled(string word, SubtitleSpellCheckOptions? options = null);
 
     /// <summary>
-    /// Returns spelling suggestions for <paramref name="word"/>.
+    /// Returns spelling suggestions for <paramref name="word"/>, using the same letter casing as <paramref name="word"/>.
     /// </summary>
     IReadOnlyList<string> GetSuggestions(string word, SubtitleSpellCheckOptions? options = null);
 }

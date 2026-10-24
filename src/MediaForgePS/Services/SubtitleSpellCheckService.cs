@@ -198,7 +198,20 @@ public sealed class SubtitleSpellCheckService : ISubtitleSpellCheckService
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         try
         {
-            return dictionary.Suggest(word, queryOptions, cts.Token).Take(5).ToArray();
+            var cased = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var suggestion in dictionary.Suggest(word, queryOptions, cts.Token))
+            {
+                var adjusted = SubtitleSpellFixHelper.MatchCasing(word, suggestion);
+                if (!seen.Add(adjusted))
+                    continue;
+
+                cased.Add(adjusted);
+                if (cased.Count == 5)
+                    break;
+            }
+
+            return cased;
         }
         catch (OperationCanceledException)
         {

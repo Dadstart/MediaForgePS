@@ -128,6 +128,50 @@ public class SubtitleSpellCheckServiceTests
     }
 
     [Fact]
+    public void CheckContent_IncludeSuggestions_MatchesMisspelledWordCasing()
+    {
+        var tempDir = CreateTempDictionary(
+            dicContent: "2\nhello\nworld\n",
+            affContent: "SET UTF-8\n");
+        try
+        {
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
+            var content = """
+                1
+                00:00:01,000 --> 00:00:02,000
+                heloo
+
+                2
+                00:00:02,000 --> 00:00:03,000
+                Heloo
+
+                3
+                00:00:03,000 --> 00:00:04,000
+                HELOO
+
+                """;
+
+            var issues = service.CheckContent(
+                "sample.srt",
+                content,
+                new SubtitleSpellCheckOptions(
+                    DictionaryPath: dicPath,
+                    IncludeSuggestions: true));
+
+            Assert.Equal(3, issues.Count);
+            Assert.Contains("hello", issues[0].Suggestions);
+            Assert.Contains("Hello", issues[1].Suggestions);
+            Assert.Contains("HELLO", issues[2].Suggestions);
+            Assert.All(issues[2].Suggestions, suggestion => Assert.Equal(suggestion, suggestion.ToUpperInvariant()));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CheckContent_WithEmbeddedDictionary_FlagsUnknownWord()
     {
         var service = new SubtitleSpellCheckService(NullLogger<SubtitleSpellCheckService>.Instance);
