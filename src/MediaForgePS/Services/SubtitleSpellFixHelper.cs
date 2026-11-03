@@ -243,6 +243,8 @@ public static class SubtitleSpellFixHelper
 
     /// <summary>
     /// Adjusts <paramref name="replacement"/> casing to resemble <paramref name="original"/>.
+    /// A spelling change follows the original's case. A case-only change, such as <c>i'm</c> to <c>I'm</c>, keeps the replacement's capitals.
+    /// When most letters in the original are uppercase, the replacement is uppercased.
     /// </summary>
     public static string MatchCasing(string original, string replacement)
     {
@@ -251,8 +253,14 @@ public static class SubtitleSpellFixHelper
         if (replacement.Length == 0 || original.Length == 0)
             return replacement;
 
-        if (IsAllUpper(original))
+        if (IsMajorityUpper(original))
             return replacement.ToUpperInvariant();
+
+        if (string.Equals(original, replacement, StringComparison.OrdinalIgnoreCase))
+            return replacement;
+
+        if (IsAllLowerLetters(original))
+            return replacement.ToLowerInvariant();
 
         if (char.IsUpper(original[0]) && IsAllLower(original.AsSpan(1)))
         {
@@ -265,15 +273,31 @@ public static class SubtitleSpellFixHelper
         return replacement;
     }
 
-    private static bool IsAllUpper(string value)
+    private static bool IsMajorityUpper(string value)
+    {
+        var upper = 0;
+        var lower = 0;
+        foreach (var ch in value)
+        {
+            if (char.IsUpper(ch))
+                upper++;
+            else if (char.IsLower(ch))
+                lower++;
+        }
+
+        return upper > lower;
+    }
+
+    private static bool IsAllLowerLetters(string value)
     {
         var hasLetter = false;
         foreach (var ch in value)
         {
             if (!char.IsLetter(ch))
                 continue;
+
             hasLetter = true;
-            if (!char.IsUpper(ch))
+            if (!char.IsLower(ch))
                 return false;
         }
 

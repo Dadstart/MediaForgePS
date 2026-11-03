@@ -150,6 +150,10 @@ public class SubtitleSpellCheckServiceTests
                 00:00:03,000 --> 00:00:04,000
                 HELOO
 
+                4
+                00:00:04,000 --> 00:00:05,000
+                HELoo
+
                 """;
 
             var issues = service.CheckContent(
@@ -159,11 +163,13 @@ public class SubtitleSpellCheckServiceTests
                     DictionaryPath: dicPath,
                     IncludeSuggestions: true));
 
-            Assert.Equal(3, issues.Count);
+            Assert.Equal(4, issues.Count);
             Assert.Contains("hello", issues[0].Suggestions);
             Assert.Contains("Hello", issues[1].Suggestions);
             Assert.Contains("HELLO", issues[2].Suggestions);
+            Assert.Contains("HELLO", issues[3].Suggestions);
             Assert.All(issues[2].Suggestions, suggestion => Assert.Equal(suggestion, suggestion.ToUpperInvariant()));
+            Assert.All(issues[3].Suggestions, suggestion => Assert.Equal(suggestion, suggestion.ToUpperInvariant()));
         }
         finally
         {

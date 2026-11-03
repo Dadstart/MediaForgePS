@@ -241,6 +241,51 @@ public class SubtitleSpellFixSessionTests
     }
 
     [Fact]
+    public void FixFile_ForeverCapitalization_ReappliesOnLaterFile()
+    {
+        var tempDir = CreateTempDictionary("5\nhello\nI'm\nI'll\nsure\ngo\n", "SET UTF-8\n");
+        var firstPath = Path.Combine(tempDir, "first.srt");
+        var secondPath = Path.Combine(tempDir, "second.srt");
+        var replacementPath = Path.Combine(tempDir, "spelling-replacements.txt");
+        try
+        {
+            File.WriteAllText(firstPath, "1\n00:00:01,000 --> 00:00:02,000\ni'm sure i'll go\n\n");
+            File.WriteAllText(secondPath, "1\n00:00:01,000 --> 00:00:02,000\ni'm sure i'll go\n\n");
+            var dicPath = Path.Combine(tempDir, "test.dic");
+            var spell = CreateSpellServiceWithoutSuggestions();
+            var replacements = new SubtitleSpellReplacementDictionary(
+                NullLogger<SubtitleSpellReplacementDictionary>.Instance,
+                replacementPath);
+            var prompter = new ScriptedPrompter([
+                new SubtitleSpellFixDecision(
+                    SubtitleSpellFixAction.ReplaceAll,
+                    "I'm",
+                    SubtitleSpellReplacementScope.Forever),
+                new SubtitleSpellFixDecision(
+                    SubtitleSpellFixAction.ReplaceAll,
+                    "I'll",
+                    SubtitleSpellReplacementScope.Forever)
+            ]);
+            var session = new SubtitleSpellFixSession(spell, prompter, replacementDictionary: replacements);
+            var options = new SubtitleSpellCheckOptions(DictionaryPath: dicPath);
+            var ignore = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            Assert.True(session.FixFile(firstPath, options, ignore));
+            Assert.True(session.FixFile(secondPath, options, ignore));
+
+            Assert.Contains("I'm sure I'll go", File.ReadAllText(firstPath));
+            Assert.Contains("I'm sure I'll go", File.ReadAllText(secondPath));
+            Assert.Equal(2, prompter.Prompts.Count);
+            Assert.Equal("I'm", replacements.LoadReplacements()["i'm"]);
+            Assert.Equal("I'll", replacements.LoadReplacements()["i'll"]);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void FixFile_AppliesSavedReplacementsWithoutPrompting()
     {
         var tempDir = CreateTempDictionary("3\nhello\nworld\nmisspelled\n", "SET UTF-8\n");

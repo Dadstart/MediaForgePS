@@ -157,6 +157,30 @@ public class SubtitleSpellFixHelperTests
     }
 
     [Fact]
+    public void MatchCasing_MajorityUpper_UppercasesReplacement()
+    {
+        Assert.Equal("HELLO", SubtitleSpellFixHelper.MatchCasing("HELoo", "hello"));
+        Assert.Equal("HELLO", SubtitleSpellFixHelper.MatchCasing("HELoo", "Hello"));
+        Assert.Equal("Hello", SubtitleSpellFixHelper.MatchCasing("Heloo", "hello"));
+        Assert.Equal("hello", SubtitleSpellFixHelper.MatchCasing("heloo", "Hello"));
+        Assert.Equal("I'm", SubtitleSpellFixHelper.MatchCasing("i'm", "I'm"));
+        Assert.Equal("I'll", SubtitleSpellFixHelper.MatchCasing("i'll", "I'll"));
+        Assert.Equal("I'M", SubtitleSpellFixHelper.MatchCasing("I'M", "I'm"));
+    }
+
+    [Fact]
+    public void ReplaceAllWholeWords_KeepsCapitalizationFix()
+    {
+        var (line, changed) = SubtitleSpellFixHelper.ReplaceAllWholeWords(
+            "i'm sure i'll go",
+            "i'm",
+            "I'm");
+
+        Assert.True(changed);
+        Assert.Equal("I'm sure i'll go", line);
+    }
+
+    [Fact]
     public void FormatSrt_RebuildsBlocks()
     {
         var blocks = SrtDocumentHelper.ParseSrtBlocks(
