@@ -17,6 +17,7 @@ public class SplitChaptersCommandComponentTests : ComponentTestBase
         var outputDir = CreateTempDirectory();
 
         using var ps = CreatePowerShellFor<SplitChaptersCommand>("Split-Chapters");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Split-Chapters")
             .AddParameter("InputFile", inputPath)
             .AddParameter("AllChapters")

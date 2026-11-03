@@ -14,7 +14,7 @@ Runs the full season workflow: create folders, scan TVDb, copy episodes, and opt
 
 ```
 Invoke-SeriesProcessing -Title <String> -Season <Int32> [-EpisodeStart <Int32>] -InputPath <String[]>
- -FilePatterns <String[]> [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
+ [-FilePatterns <String[]>] [-MinimumFileSize <Int64>] [-OutputPath <String>] [-TvDbSeriesUrl <String>]
  [-TvDbSeasonUrl <String>] [-ExtractChapters] [-SkipCaptionExtraction] [-Ocr <String>] [-SkipRepair]
  [-KeepSource] [-Alert] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
@@ -24,7 +24,7 @@ Invoke-SeriesProcessing is a high-level workflow that runs five steps in order:
 
 1. **Create folders** - When `-OutputPath` is set, creates `OutputPath\Title\Season XX`.
 2. **Scan TVDb** - Fetches episode metadata using `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`.
-3. **Copy episodes** - Finds files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming.
+3. **Copy episodes** - Finds `.mkv` and `.mov` files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming. `-FilePatterns` defaults to `*.mkv` and `*.mov`. A pattern that names one of those containers also includes the other.
 4. **Extract chapters** - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes.
 5. **Extract captions** - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.
 
@@ -38,10 +38,10 @@ The cmdlet fails with a terminating error if the TVDb scan returns no episodes o
 
 ### Example 1: Full season processing with chapter and caption extraction
 ```powershell
-Invoke-SeriesProcessing -Title "My Show" -Season 1 -InputPath "C:\Source" -FilePatterns "*.mkv" -OutputPath "P:\TV" -TvDbSeriesUrl "https://thetvdb.com/series/12345" -ExtractChapters
+Invoke-SeriesProcessing -Title "My Show" -Season 1 -InputPath "C:\Source" -FilePatterns "*.mkv","*.mov" -OutputPath "P:\TV" -TvDbSeriesUrl "https://thetvdb.com/series/12345" -ExtractChapters
 ```
 
-Creates P:\TV\My Show\Season 01, scans TVDb, copies matching MKV files, extracts chapters, then extracts captions.
+Creates P:\TV\My Show\Season 01, scans TVDb, copies matching MKV and MOV files, extracts chapters, then extracts captions.
 
 ### Example 2: Skip caption extraction
 ```powershell
@@ -90,16 +90,16 @@ Accept wildcard characters: False
 ```
 
 ### -FilePatterns
-File name patterns (wildcards) used to find episode files under InputPath.
+File name patterns (wildcards) used to find episode files under InputPath. Defaults to `*.mkv` and `*.mov`. A pattern that names one of those containers also includes the other. Name-only patterns and other extensions are unchanged.
 
 ```yaml
 Type: String[]
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: Named
-Default value: None
+Default value: *.mkv, *.mov
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -336,7 +336,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## INPUTS
 
 ### None
-Parameters are specified directly; InputPath and FilePatterns are required.
+Parameters are specified directly. InputPath is required. FilePatterns defaults to *.mkv and *.mov.
 
 ## OUTPUTS
 

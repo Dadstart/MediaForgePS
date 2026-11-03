@@ -30,6 +30,7 @@ public class ConvertMediaFileAdvancedCommandComponentTests : ComponentTestBase
         };
 
         using var ps = CreatePowerShellFor<ConvertMediaFileAdvancedCommand>("Convert-MediaFileAdvanced");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-MediaFileAdvanced")
             .AddParameter("InputPath", inputPath)
             .AddParameter("OutputPath", expectedOutput)

@@ -53,6 +53,7 @@ public class InvokeSubtitleOcrRepairCommandComponentTests : ComponentTestBase
         var expectedSrt = Path.ChangeExtension(subPath, "srt")!;
 
         using var ps = CreatePowerShellFor<InvokeSubtitleOcrRepairCommand>("Invoke-SubtitleOcrRepair");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Invoke-SubtitleOcrRepair")
             .AddParameter("InputPath", subPath)
             .AddParameter("KeepSource", true)

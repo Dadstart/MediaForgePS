@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Threading;
 using Dadstart.Labs.MediaForge.Models;
 using Dadstart.Labs.MediaForge.Providers;
 using Xunit;
@@ -228,6 +229,26 @@ public abstract class ComponentTestBase : IDisposable
         initialSessionState.Commands.Add(new SessionStateCmdletEntry(commandName, typeof(TCmdlet), null));
 
         return PowerShell.Create(initialSessionState);
+    }
+
+    /// <summary>
+    /// Stops <paramref name="shell"/> when <paramref name="cancellationToken"/> is cancelled.
+    /// Pass <see cref="TestContext.Current"/>'s token so a fact timeout can end the pipeline.
+    /// </summary>
+    protected static CancellationTokenRegistration StopWhenCancelled(PowerShell shell, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(shell);
+        return cancellationToken.Register(static state =>
+        {
+            var powerShell = (PowerShell)state!;
+            try
+            {
+                powerShell.Stop();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }, shell);
     }
 
     protected static PowerShell CreatePowerShellWithMediaProvider()

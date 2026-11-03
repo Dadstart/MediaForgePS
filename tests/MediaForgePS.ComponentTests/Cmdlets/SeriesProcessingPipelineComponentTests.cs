@@ -30,6 +30,7 @@ public class SeriesProcessingPipelineComponentTests : ComponentTestBase
 
         using (var scanPs = CreatePowerShellFor<InvokeSeasonScanCommand>("Invoke-SeasonScan"))
         {
+            using var stopScanOnCancel = StopWhenCancelled(scanPs, TestContext.Current.CancellationToken);
             scanPs.AddCommand("Invoke-SeasonScan")
                 .AddParameter("Season", 1)
                 .AddParameter("TvDbSeriesUrl", StubSeriesUrl);
@@ -45,6 +46,7 @@ public class SeriesProcessingPipelineComponentTests : ComponentTestBase
         }
 
         using var copyPs = CreatePowerShellFor<InvokeVideoCopyCommand>("Invoke-VideoCopy");
+        using var stopCopyOnCancel = StopWhenCancelled(copyPs, TestContext.Current.CancellationToken);
         copyPs.AddCommand("Invoke-VideoCopy")
             .AddParameter("Title", "Component Test Show")
             .AddParameter("Season", 1)
@@ -81,6 +83,7 @@ public class SeriesProcessingPipelineComponentTests : ComponentTestBase
         var outputDir = CreateTempDirectory();
 
         using var ps = CreatePowerShellFor<SplitSeriesChaptersCommand>("Split-SeriesChapters");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Split-SeriesChapters")
             .AddParameter("Title", "Component Test Show")
             .AddParameter("Season", 1)

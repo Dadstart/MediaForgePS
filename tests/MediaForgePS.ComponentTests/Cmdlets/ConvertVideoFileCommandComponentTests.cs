@@ -19,6 +19,7 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         var expectedOutput = Path.Combine(outputDir, "episode.mp4");
 
         using var ps = CreatePowerShellFor<ConvertVideoFileCommand>("Convert-VideoFile");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", inputPath)
             .AddParameter("OutputDirectory", outputDir)
@@ -48,6 +49,7 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         File.Copy(SampleVideoPath, Path.Combine(inputDir, "episode-two.mkv"));
 
         using var ps = CreatePowerShellFor<ConvertVideoFileCommand>("Convert-VideoFile");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", inputDir)
             .AddParameter("OutputDirectory", outputDir)
@@ -89,6 +91,7 @@ public class ConvertVideoFileCommandComponentTests : ComponentTestBase
         var expectedOutput = Path.Combine(outputDir, "episode-subs.mp4");
 
         using var ps = CreatePowerShellFor<ConvertVideoFileCommand>("Convert-VideoFile");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-VideoFile")
             .AddParameter("InputPath", inputPath)
             .AddParameter("OutputDirectory", outputDir)

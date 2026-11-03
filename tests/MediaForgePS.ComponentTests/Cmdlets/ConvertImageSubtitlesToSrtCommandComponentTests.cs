@@ -30,6 +30,7 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
         var expectedSrt = Path.ChangeExtension(subPath, "srt")!;
 
         using var ps = CreatePowerShellFor<ConvertImageSubtitlesToSrtCommand>("Convert-ImageSubtitlesToSrt");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-ImageSubtitlesToSrt")
             .AddParameter("InputPath", subPath)
             .AddParameter("KeepSource", true);
@@ -60,6 +61,7 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
         File.WriteAllBytes(fakeSup, Array.Empty<byte>());
 
         using var ps = CreatePowerShellFor<ConvertImageSubtitlesToSrtCommand>("Convert-ImageSubtitlesToSrt");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-ImageSubtitlesToSrt").AddParameter("InputPath", fakeSup);
 
         ps.Invoke();
@@ -82,6 +84,7 @@ public class ConvertImageSubtitlesToSrtCommandComponentTests : ComponentTestBase
         File.WriteAllBytes(fakeSup, Array.Empty<byte>());
 
         using var ps = CreatePowerShellFor<ConvertImageSubtitlesToSrtCommand>("Convert-ImageSubtitlesToSrt");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-ImageSubtitlesToSrt").AddParameter("InputPath", fakeSup);
 
         ps.Invoke();

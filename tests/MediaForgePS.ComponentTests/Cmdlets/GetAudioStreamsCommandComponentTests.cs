@@ -16,6 +16,7 @@ public class GetAudioStreamsCommandComponentTests : ComponentTestBase
         var inputPath = CreateSampleVideoWithEnglishAudio("audio-eng.mkv");
 
         using var ps = CreatePowerShellFor<GetAudioTrackMappingsCommand>("Get-AudioStreams");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Get-AudioStreams").AddParameter("InputPath", inputPath);
 
         var results = ps.Invoke().ToList();

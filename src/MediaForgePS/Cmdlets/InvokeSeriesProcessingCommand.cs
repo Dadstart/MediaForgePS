@@ -15,6 +15,8 @@ namespace Dadstart.Labs.MediaForge.Cmdlets;
 /// <remarks>
 /// Runs five steps in order: (1) create OutputPath\Title\Season XX, (2) scan TVDb, (3) copy episodes,
 /// (4) optionally extract chapters, (5) optionally extract captions with optional OCR (-Ocr Auto/Skip/Force).
+/// Episode copies include Matroska (.mkv) and QuickTime (.mov) files. -FilePatterns defaults to both.
+/// A pattern that names one of those containers also includes the other.
 /// Terminates with an error when the TVDb scan returns no episodes or no files are copied.
 /// When caption extraction runs, writes a <see cref="SubtitleProcessingResult"/> with extract/OCR counts.
 /// Supports -WhatIf and -Confirm.
@@ -55,10 +57,11 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
 
     /// <summary>
     /// File name patterns (wildcards) used to find episode files under InputPath.
+    /// Defaults to *.mkv and *.mov. A pattern for one of those containers also includes the other.
     /// </summary>
-    [Parameter(Mandatory = true, HelpMessage = "File name patterns (wildcards) used to find episode files under InputPath.")]
+    [Parameter(HelpMessage = "File name patterns (wildcards) used to find episode files. Defaults to *.mkv and *.mov; naming one container also includes the other.")]
     [ValidateNotNullOrEmpty]
-    public string[] FilePatterns { get; set; } = Array.Empty<string>();
+    public string[] FilePatterns { get; set; } = ["*.mkv", "*.mov"];
 
     /// <summary>
     /// Minimum file size in bytes required for a file to be treated as a candidate episode.
@@ -179,7 +182,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                 Title,
                 Season,
                 episodes,
-                FilePatterns,
+                IncludeMkvAndMovPatterns(FilePatterns),
                 EpisodeStart,
                 MinimumFileSize,
                 Force.IsPresent));
@@ -191,7 +194,7 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
                 : string.Empty;
             WriteError(new ErrorRecord(
                 new InvalidOperationException(
-                    "Video copying failed. No files were copied. Check that InputPath contains matching files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
+                    "Video copying failed. No files were copied. Check that InputPath contains matching .mkv or .mov files for FilePatterns and that files exceed the minimum size" + minSizeHint + "."),
                 "VideoCopyFailed",
                 ErrorCategory.InvalidData,
                 null));
@@ -273,6 +276,55 @@ public class InvokeSeriesProcessingCommand : ProgressCmdletBase
             $"  Subtitles: {result.ExtractedCount} extracted, {result.ConvertedCount} converted.",
             ConsoleColor.Green);
         WriteObject(result);
+    }
+
+    /// <summary>
+    /// Episode file patterns that always cover both Matroska (.mkv) and QuickTime (.mov).
+    /// An empty list uses *.mkv and *.mov. A pattern that names one of those extensions also includes the other.
+    /// Name-only patterns and other extensions are left unchanged.
+    /// </summary>
+    public static IReadOnlyList<string> IncludeMkvAndMovPatterns(IReadOnlyList<string>? filePatterns)
+    {
+        if (filePatterns is null || filePatterns.Count == 0 || filePatterns.All(string.IsNullOrWhiteSpace))
+            return ["*.mkv", "*.mov"];
+
+        var results = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pattern in filePatterns)
+        {
+            if (string.IsNullOrWhiteSpace(pattern))
+                continue;
+
+            var trimmed = pattern.Trim();
+            AddPattern(results, seen, trimmed);
+            var otherContainer = WithOtherEpisodeContainer(trimmed);
+            if (otherContainer is not null)
+                AddPattern(results, seen, otherContainer);
+        }
+
+        return results;
+    }
+
+    private static void AddPattern(List<string> results, HashSet<string> seen, string pattern)
+    {
+        if (seen.Add(pattern))
+            results.Add(pattern);
+    }
+
+    /// <summary>
+    /// Returns the same wildcard with the last .mkv/.mov extension swapped, or null when the pattern names neither.
+    /// </summary>
+    private static string? WithOtherEpisodeContainer(string pattern)
+    {
+        var mkvIndex = pattern.LastIndexOf(".mkv", StringComparison.OrdinalIgnoreCase);
+        var movIndex = pattern.LastIndexOf(".mov", StringComparison.OrdinalIgnoreCase);
+        if (mkvIndex < 0 && movIndex < 0)
+            return null;
+
+        if (mkvIndex > movIndex)
+            return $"{pattern[..mkvIndex]}.mov{pattern[(mkvIndex + 4)..]}";
+
+        return $"{pattern[..movIndex]}.mkv{pattern[(movIndex + 4)..]}";
     }
 
     /// <summary>

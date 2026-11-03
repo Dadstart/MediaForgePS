@@ -160,4 +160,64 @@ public class SeriesProcessingServiceTests
         Assert.NotNull(typeof(InvokeSeriesProcessingCommand).GetProperty(nameof(InvokeSeriesProcessingCommand.Ocr)));
         Assert.Null(typeof(InvokeSeriesProcessingCommand).GetProperty("SkipOcr"));
     }
+
+    [Fact]
+    public void InvokeSeriesProcessingCommand_DefaultFilePatterns_IncludesMkvAndMov()
+    {
+        var cmdlet = new InvokeSeriesProcessingCommand();
+
+        Assert.Equal(["*.mkv", "*.mov"], cmdlet.FilePatterns);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void IncludeMkvAndMovPatterns_WhenMissing_DefaultsToMkvAndMov(string? pattern)
+    {
+        var result = pattern is null
+            ? InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(null)
+            : InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns([pattern]);
+
+        Assert.Equal(["*.mkv", "*.mov"], result);
+    }
+
+    [Fact]
+    public void IncludeMkvAndMovPatterns_WhenMkvPattern_AddsMov()
+    {
+        var result = InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(["*.mkv"]);
+
+        Assert.Equal(["*.mkv", "*.mov"], result);
+    }
+
+    [Fact]
+    public void IncludeMkvAndMovPatterns_WhenMovPattern_AddsMkv()
+    {
+        var result = InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(["*.mov"]);
+
+        Assert.Equal(["*.mov", "*.mkv"], result);
+    }
+
+    [Fact]
+    public void IncludeMkvAndMovPatterns_PreservesExtensionCasingWhenAddingTheOtherContainer()
+    {
+        var result = InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(["*.MKV"]);
+
+        Assert.Equal(["*.MKV", "*.mov"], result);
+    }
+
+    [Fact]
+    public void IncludeMkvAndMovPatterns_KeepsOtherExtensionsAndNameFilters()
+    {
+        var result = InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(["*.mkv", "*.mp4", "C4_"]);
+
+        Assert.Equal(["*.mkv", "*.mov", "*.mp4", "C4_"], result);
+    }
+
+    [Fact]
+    public void IncludeMkvAndMovPatterns_SwapsOnlyTheContainerExtension()
+    {
+        var result = InvokeSeriesProcessingCommand.IncludeMkvAndMovPatterns(["*mkv-release*.mkv"]);
+
+        Assert.Equal(["*mkv-release*.mkv", "*mkv-release*.mov"], result);
+    }
 }

@@ -21,6 +21,7 @@ public class ConvertMediaFilesCommandSpacedPathComponentTests : ComponentTestBas
         var expectedOutput = Path.Combine(outputDir, "sample with spaces.mp4");
 
         using var ps = CreatePowerShellFor<ConvertMediaFilesCommand>("Convert-MediaFiles");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-MediaFiles")
             .AddParameter("InputPath", new object[] { inputPath })
             .AddParameter("OutputDirectory", outputDir)

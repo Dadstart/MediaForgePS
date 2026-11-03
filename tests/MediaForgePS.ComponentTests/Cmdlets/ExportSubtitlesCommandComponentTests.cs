@@ -18,6 +18,7 @@ public class ExportSubtitlesCommandComponentTests : ComponentTestBase
         var expectedSrt = Path.Combine(Path.GetDirectoryName(inputPath)!, "export-subs.eng.sdh.srt");
 
         using var ps = CreatePowerShellFor<ExportSubtitlesCommand>("Export-Subtitles");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Export-Subtitles")
             .AddParameter("InputPath", inputPath)
             .AddParameter("Ocr", SubtitleOcrMode.Skip);

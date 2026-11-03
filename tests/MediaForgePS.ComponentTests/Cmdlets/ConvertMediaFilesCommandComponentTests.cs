@@ -19,6 +19,7 @@ public class ConvertMediaFilesCommandComponentTests : ComponentTestBase
         var expectedOutput = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(SampleVideoPath) + ".mp4");
 
         using var ps = CreatePowerShellFor<ConvertMediaFilesCommand>("Convert-MediaFiles");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Convert-MediaFiles")
             .AddParameter("InputPath", new object[] { SampleVideoPath })
             .AddParameter("OutputDirectory", outputDir)

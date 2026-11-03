@@ -17,6 +17,7 @@ public class ExportMediaStreamCommandComponentTests : ComponentTestBase
         var outputPath = Path.Combine(Path.GetDirectoryName(inputPath)!, "export-video.mkv");
 
         using var ps = CreatePowerShellFor<ExportMediaStreamCommand>("Export-MediaStream");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Export-MediaStream")
             .AddParameter("InputPath", inputPath)
             .AddParameter("OutputPath", outputPath)

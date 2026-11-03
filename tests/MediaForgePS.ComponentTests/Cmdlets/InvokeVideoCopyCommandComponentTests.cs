@@ -25,6 +25,7 @@ public class InvokeVideoCopyCommandComponentTests : ComponentTestBase
         };
 
         using var ps = CreatePowerShellFor<InvokeVideoCopyCommand>("Invoke-VideoCopy");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Invoke-VideoCopy")
             .AddParameter("Title", "Test Show")
             .AddParameter("Season", 1)

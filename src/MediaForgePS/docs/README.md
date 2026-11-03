@@ -114,7 +114,7 @@ Invoke-SubtitleOcrRepair -InputPath "C:\Subs" -Recurse
 ```powershell
 Invoke-SeriesProcessing `
     -Title "My Show" -Season 1 `
-    -InputPath "C:\Source" -FilePatterns "*.mkv" `
+    -InputPath "C:\Source" -FilePatterns "*.mkv","*.mov" `
     -OutputPath "P:\TV" `
     -TvDbSeriesUrl "https://thetvdb.com/series/12345" `
     -ExtractChapters -Ocr Auto

@@ -2900,7 +2900,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
     </command:details>
     <maml:description>
       <maml:para>Invoke-SeriesProcessing is a high-level workflow that runs five steps in order:</maml:para>
-      <maml:para>1. Create folders - When `-OutputPath` is set, creates `OutputPath\Title\Season XX`. 2. Scan TVDb - Fetches episode metadata using `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`. 3. Copy episodes - Finds files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming. 4. Extract chapters - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes. 5. Extract captions - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.</maml:para>
+      <maml:para>1. Create folders - When `-OutputPath` is set, creates `OutputPath\Title\Season XX`. 2. Scan TVDb - Fetches episode metadata using `-TvDbSeriesUrl` and optionally `-TvDbSeasonUrl`. 3. Copy episodes - Finds `.mkv` and `.mov` files under `-InputPath` matching `-FilePatterns` and larger than `-MinimumFileSize`, then copies them with TVDb-based naming. `-FilePatterns` defaults to ` .mkv` and ` .mov`. A pattern that names one of those containers also includes the other. 4. Extract chapters - When `-ExtractChapters` is specified, extracts chapter sidecars for copied episodes. 5. Extract captions - Unless `-SkipCaptionExtraction` is specified, extracts English subtitles and optionally runs OCR.</maml:para>
       <maml:para>Use `-Ocr` with values Auto (default), Skip , or Force to control image subtitle OCR after caption extraction. When OCR runs, OCR-produced SRT files are repaired by default; use `-SkipRepair` to skip repair. OCR parallelism is fixed at 10 concurrent conversions. When caption extraction runs, writes a SubtitleProcessingResult with extract/OCR counts.</maml:para>
       <maml:para>Use `-EpisodeStart` when your source files begin mid-season (e.g. episode 5 on disc 1). `-MinimumFileSize` defaults to 1 GB but can be set to 0 to include all matching files.</maml:para>
       <maml:para>The cmdlet fails with a terminating error if the TVDb scan returns no episodes or if no files are copied.</maml:para>
@@ -2931,17 +2931,17 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>FilePatterns</maml:name>
           <maml:description>
-            <maml:para>File name patterns (wildcards) used to find episode files under InputPath.</maml:para>
+            <maml:para>File name patterns (wildcards) used to find episode files under InputPath. Defaults to ` .mkv` and ` .mov`. A pattern that names one of those containers also includes the other. Name-only patterns and other extensions are unchanged.</maml:para>
           </maml:description>
           <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
           <dev:type>
             <maml:name>String[]</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>*.mkv, *.mov</dev:defaultValue>
         </command:parameter>
         <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>InputPath</maml:name>
@@ -3144,17 +3144,17 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
-      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>FilePatterns</maml:name>
         <maml:description>
-          <maml:para>File name patterns (wildcards) used to find episode files under InputPath.</maml:para>
+          <maml:para>File name patterns (wildcards) used to find episode files under InputPath. Defaults to ` .mkv` and ` .mov`. A pattern that names one of those containers also includes the other. Name-only patterns and other extensions are unchanged.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
         <dev:type>
           <maml:name>String[]</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>*.mkv, *.mov</dev:defaultValue>
       </command:parameter>
       <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>InputPath</maml:name>
@@ -3343,7 +3343,7 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
           <maml:name>None</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>Parameters are specified directly; InputPath and FilePatterns are required.</maml:para>
+          <maml:para>Parameters are specified directly. InputPath is required. FilePatterns defaults to .mkv and .mov.</maml:para>
         </maml:description>
       </command:inputType>
     </command:inputTypes>
@@ -3365,9 +3365,9 @@ Invoke-VideoCopy -Title "Show" -Season 2 -Path "C:\Source" -FilePatterns "*.mkv"
     <command:examples>
       <command:example>
         <maml:title>Example 1: Full season processing with chapter and caption extraction</maml:title>
-        <dev:code>Invoke-SeriesProcessing -Title "My Show" -Season 1 -InputPath "C:\Source" -FilePatterns "*.mkv" -OutputPath "P:\TV" -TvDbSeriesUrl "https://thetvdb.com/series/12345" -ExtractChapters</dev:code>
+        <dev:code>Invoke-SeriesProcessing -Title "My Show" -Season 1 -InputPath "C:\Source" -FilePatterns "*.mkv","*.mov" -OutputPath "P:\TV" -TvDbSeriesUrl "https://thetvdb.com/series/12345" -ExtractChapters</dev:code>
         <dev:remarks>
-          <maml:para>Creates P:\TV\My Show\Season 01, scans TVDb, copies matching MKV files, extracts chapters, then extracts captions.</maml:para>
+          <maml:para>Creates P:\TV\My Show\Season 01, scans TVDb, copies matching MKV and MOV files, extracts chapters, then extracts captions.</maml:para>
         </dev:remarks>
       </command:example>
       <command:example>

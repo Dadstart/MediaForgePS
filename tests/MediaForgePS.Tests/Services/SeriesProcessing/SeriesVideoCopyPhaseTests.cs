@@ -67,6 +67,19 @@ public class SeriesVideoCopyPhaseTests : IDisposable
         Assert.Equal("large.mkv", Path.GetFileName(file));
     }
 
+    [Fact]
+    public void GetFilteredVideoFiles_IncludesMkvAndMov()
+    {
+        CreateFile(_root, "episode 1.mkv");
+        CreateFile(_root, "episode 2.mov");
+        CreateFile(_root, "notes.txt");
+        CreateFile(_root, "episode 3.mp4");
+
+        var result = _phase.GetFilteredVideoFiles(new FakeCmdletIO(), [_root], ["*.mkv*", "*.mov*"], minimumFileSizeBytes: 0);
+
+        Assert.Equal(["episode 1.mkv", "episode 2.mov"], result.Select(Path.GetFileName));
+    }
+
     private static void CreateFile(string directory, string name, string content = "video")
         => File.WriteAllText(Path.Combine(directory, name), content);
 }

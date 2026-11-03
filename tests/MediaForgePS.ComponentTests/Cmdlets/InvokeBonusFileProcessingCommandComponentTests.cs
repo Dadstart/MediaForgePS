@@ -21,6 +21,7 @@ public class InvokeBonusFileProcessingCommandComponentTests : ComponentTestBase
         var expectedPlexDestination = Path.Combine(outputDir, "Trailers", "clip-trailer.mp4");
 
         using var ps = CreatePowerShellFor<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Invoke-BonusFileProcessing")
             .AddParameter("InputPath", inputDir)
             .AddParameter("OutputPath", outputDir)
@@ -60,6 +61,7 @@ public class InvokeBonusFileProcessingCommandComponentTests : ComponentTestBase
         var outputDir = CreateTempDirectory();
 
         using var ps = CreatePowerShellFor<InvokeBonusFileProcessingCommand>("Invoke-BonusFileProcessing");
+        using var stopOnCancel = StopWhenCancelled(ps, TestContext.Current.CancellationToken);
         ps.AddCommand("Invoke-BonusFileProcessing")
             .AddParameter("InputPath", inputDir)
             .AddParameter("OutputPath", outputDir)
